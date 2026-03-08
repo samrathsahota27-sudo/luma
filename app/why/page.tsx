@@ -173,7 +173,7 @@ export default function WhyPage() {
               what emerges.
             </p>
             <Link
-              href="/reflect"
+              href="/test"
               className="inline-flex items-center justify-center gap-2 mt-8 px-8 py-3 bg-background text-foreground text-sm font-medium rounded-sm hover:bg-background/90 transition-colors"
             >
               Begin Free Reflection

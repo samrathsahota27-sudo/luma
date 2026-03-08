@@ -5,31 +5,30 @@ import { ArrowRight } from "lucide-react"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-[#fbf7f0] text-neutral-900">
       <Navigation />
       
       <main className="flex-1 pt-20">
         {/* Hero Section */}
-        <section className="max-w-5xl mx-auto px-6 py-24 md:py-32">
-          <div className="max-w-2xl">
-            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl leading-tight text-foreground text-balance">
-              Notice what moves within
+        <section className="px-6 py-20 md:py-28">
+          <div className="max-w-4xl mx-auto text-center">
+            <h1 className="font-serif text-4xl md:text-5xl lg:text-6xl leading-tight text-balance">
+              See what may be shaping your inner world.
             </h1>
-            <p className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-xl">
-              Luma is a quiet, psychologically thoughtful experience designed to help you 
-              notice patterns in your inner life through image selection and reflective prompts.
+            <p className="mt-6 text-base md:text-lg leading-relaxed text-neutral-700 max-w-2xl mx-auto">
+              A quiet visual reflection experience designed to reveal patterns beneath your awareness.
             </p>
-            <div className="mt-10 flex flex-col sm:flex-row gap-4">
+            <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
-                href="/reflect"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded-sm hover:bg-primary/90 transition-colors"
+                href="/begin"
+                className="inline-flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-neutral-900 text-[#fbf7f0] text-sm font-medium shadow-sm hover:shadow-md hover:bg-neutral-800 transition"
               >
-                Begin Individual Reflection
+                Begin Reflection
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
                 href="/couples"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-border text-foreground text-sm font-medium rounded-sm hover:bg-secondary transition-colors"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm text-neutral-700 hover:text-neutral-900 transition-colors"
               >
                 Couple Reflection
               </Link>
@@ -177,7 +176,7 @@ export default function HomePage() {
               just space to notice.
             </p>
             <Link
-              href="/reflect"
+              href="/test"
               className="inline-flex items-center justify-center gap-2 mt-8 px-8 py-3 bg-background text-foreground text-sm font-medium rounded-sm hover:bg-background/90 transition-colors"
             >
               Start Free Reflection

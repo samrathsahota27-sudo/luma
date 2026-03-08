@@ -7,7 +7,7 @@ import { Menu, X } from "lucide-react"
 const navLinks = [
   { href: "/why", label: "Why Luma" },
   { href: "/how-it-works", label: "How It Works" },
-  { href: "/reflect", label: "Begin" },
+  { href: "/begin", label: "Begin" },
 ]
 
 export function Navigation() {
