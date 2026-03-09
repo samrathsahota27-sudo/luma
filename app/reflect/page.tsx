@@ -2,11 +2,11 @@
 
 import { useState, useCallback } from "react"
 import Link from "next/link"
-import { Navigation } from "@/components/navigation"
-import { ImageGrid } from "@/components/reflection/image-grid"
-import { ResponseInput } from "@/components/reflection/response-input"
-import { ProgressIndicator } from "@/components/reflection/progress-indicator"
-import { reflectionRounds, type ReflectionImage, type UserSelection } from "@/lib/reflection-data"
+import { Navigation } from "../../components/navigation"
+import { ImageGrid } from "../../components/reflection/image-grid"
+import { ResponseInput } from "../../components/reflection/response-input"
+import { ProgressIndicator } from "../../components/reflection/progress-indicator"
+import { reflectionRounds } from "../../lib/reflection-data"
 import { ArrowLeft, Loader2 } from "lucide-react"
 
 type ReflectionPhase = "intro" | "selecting" | "responding" | "generating" | "complete"
