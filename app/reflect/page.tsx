@@ -6,7 +6,7 @@ import { Navigation } from "../../components/navigation"
 import { ImageGrid } from "../../components/reflection/image-grid"
 import { ResponseInput } from "../../components/reflection/response-input"
 import { ProgressIndicator } from "../../components/reflection/progress-indicator"
-import { reflectionRounds } from "../../lib/reflection-data"
+import { reflectionRounds } from "../../lib/testData"
 import { ArrowLeft, Loader2 } from "lucide-react"
 
 type ReflectionPhase = "intro" | "selecting" | "responding" | "generating" | "complete"
