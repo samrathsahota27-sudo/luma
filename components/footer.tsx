@@ -1,6 +1,8 @@
 import Link from "next/link"
 
 const footerLinks = [
+  { href: "/help", label: "Help & FAQ" },
+  { href: "/insights", label: "Insights" },
   { href: "/privacy", label: "Privacy & Ethics" },
   { href: "/disclaimer", label: "Disclaimer" },
   { href: "/contact", label: "Contact" },
@@ -8,8 +10,8 @@ const footerLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-border bg-secondary/30">
-      <div className="max-w-5xl mx-auto px-6 py-12">
+    <footer className="border-t border-[#E8E3D9] bg-[#E8E3D9]/30">
+      <div className="max-w-[720px] mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
             <Link href="/" className="font-serif text-lg text-foreground">

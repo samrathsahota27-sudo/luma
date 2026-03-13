@@ -1,36 +1,61 @@
 "use client"
 
 import Link from "next/link"
-import { useState } from "react"
+import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react"
 import { Menu, X } from "lucide-react"
+import { getReflections } from "@/lib/reflectionStorage"
 
 const navLinks = [
-  { href: "/why", label: "Why Luma" },
+  { href: "/", label: "Home" },
   { href: "/how-it-works", label: "How It Works" },
-  { href: "/begin", label: "Begin" },
+  { href: "/science", label: "The Science Behind Luma" },
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/test", label: "Individual" },
+  { href: "/couple", label: "Couple" },
 ]
+
+const timelineLink = { href: "/dashboard/timeline", label: "Timeline" }
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false)
+  const [showTimeline, setShowTimeline] = useState(false)
+  const pathname = usePathname()
+
+  useEffect(() => {
+    try {
+      setShowTimeline(getReflections().length > 0)
+    } catch {
+      setShowTimeline(false)
+    }
+  }, [pathname])
+
+  const desktopLinks = showTimeline
+    ? [...navLinks.slice(0, 4), timelineLink, ...navLinks.slice(4)]
+    : navLinks
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b border-border">
-      <div className="max-w-5xl mx-auto px-6 py-4">
+    <nav className="fixed top-0 left-0 right-0 z-50 bg-[#F7F6F3]/95 backdrop-blur-sm border-b border-[#E8E3D9]">
+      <div className="max-w-6xl mx-auto px-6 py-4">
         <div className="flex items-center justify-between">
-          <Link 
-            href="/" 
-            className="font-serif text-xl tracking-tight text-foreground"
+          <Link
+            href="/"
+            className="font-serif text-xl tracking-tight text-[#2F2F2F] hover:opacity-90 transition-opacity [font-family:var(--font-serif-display)]"
           >
             Luma
           </Link>
 
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8">
-            {navLinks.map((link) => (
+            {desktopLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className={`text-sm transition-colors ${
+                  pathname === link.href
+                    ? "text-[#2F2F2F] font-medium"
+                    : "text-[#5a5a5a] hover:text-[#2F2F2F]"
+                }`}
               >
                 {link.label}
               </Link>
@@ -40,7 +65,7 @@ export function Navigation() {
           {/* Mobile Menu Button */}
           <button
             onClick={() => setIsOpen(!isOpen)}
-            className="md:hidden p-2 text-muted-foreground hover:text-foreground transition-colors"
+            className="md:hidden p-2 text-[#5a5a5a] hover:text-[#2F2F2F] transition-colors"
             aria-label={isOpen ? "Close menu" : "Open menu"}
           >
             {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -49,14 +74,18 @@ export function Navigation() {
 
         {/* Mobile Navigation */}
         {isOpen && (
-          <div className="md:hidden pt-4 pb-2 border-t border-border mt-4">
+          <div className="md:hidden pt-4 pb-2 border-t border-[#E8E3D9] mt-4 animate-in fade-in duration-200">
             <div className="flex flex-col gap-4">
-              {navLinks.map((link) => (
+              {desktopLinks.map((link) => (
                 <Link
                   key={link.href}
                   href={link.href}
                   onClick={() => setIsOpen(false)}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  className={`text-sm transition-colors ${
+                    pathname === link.href
+                      ? "text-[#2F2F2F] font-medium"
+                      : "text-[#5a5a5a] hover:text-[#2F2F2F]"
+                  }`}
                 >
                   {link.label}
                 </Link>

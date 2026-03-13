@@ -4,31 +4,40 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: oklch(0.98 0.002 60);
-  --foreground: oklch(0.20 0.01 60);
-  --card: oklch(0.99 0.002 60);
-  --card-foreground: oklch(0.20 0.01 60);
-  --popover: oklch(0.99 0.002 60);
-  --popover-foreground: oklch(0.20 0.01 60);
-  --primary: oklch(0.25 0.01 60);
-  --primary-foreground: oklch(0.98 0.002 60);
-  --secondary: oklch(0.94 0.008 60);
-  --secondary-foreground: oklch(0.25 0.01 60);
-  --muted: oklch(0.94 0.008 60);
-  --muted-foreground: oklch(0.50 0.01 60);
-  --accent: oklch(0.45 0.03 45);
-  --accent-foreground: oklch(0.98 0.002 60);
+  /* Luma calm palette */
+  --luma-bg: #F7F6F3;
+  --luma-text: #2F2F2F;
+  --luma-sage: #D8E3DC;
+  --luma-sand: #E8E3D9;
+  --luma-lavender: #E6E8F0;
+  --luma-card-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  --luma-radius: 16px;
+
+  --background: #F7F6F3;
+  --foreground: #2F2F2F;
+  --card: #ffffff;
+  --card-foreground: #2F2F2F;
+  --popover: #ffffff;
+  --popover-foreground: #2F2F2F;
+  --primary: #2F2F2F;
+  --primary-foreground: #ffffff;
+  --secondary: #E8E3D9;
+  --secondary-foreground: #2F2F2F;
+  --muted: #E6E8F0;
+  --muted-foreground: #5a5a5a;
+  --accent: #D8E3DC;
+  --accent-foreground: #2F2F2F;
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.88 0.01 60);
-  --input: oklch(0.92 0.008 60);
-  --ring: oklch(0.45 0.03 45);
+  --border: #E8E3D9;
+  --input: #E6E8F0;
+  --ring: #2F2F2F;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.25rem;
+  --radius: 16px;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -123,4 +132,37 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Luma reflective animations – subtle, 300–700ms */
+@keyframes luma-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes luma-fade-in-only {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-luma-fade-in {
+  animation: luma-fade-in 0.5s ease-out forwards;
+}
+
+.animate-luma-fade-in-slow {
+  animation: luma-fade-in 0.7s ease-out forwards;
+}
+
+.animate-luma-fade-only {
+  animation: luma-fade-in-only 0.5s ease-out forwards;
 }

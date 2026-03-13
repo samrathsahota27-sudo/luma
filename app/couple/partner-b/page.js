@@ -11,6 +11,7 @@ const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
 
 export default function CouplePartnerBPage() {
   const router = useRouter();
+  const [partnerBName, setPartnerBName] = useState("");
   const [currentRound, setCurrentRound] = useState(1);
   const [answers, setAnswers] = useState({});
   const [textValue, setTextValue] = useState("");
@@ -29,7 +30,7 @@ export default function CouplePartnerBPage() {
 
     const transitionTimer = setTimeout(() => {
       setIsTransitioning(false);
-    }, 240);
+    }, 500);
 
     const timer = setTimeout(() => {
       setShowNone(true);
@@ -66,13 +67,20 @@ export default function CouplePartnerBPage() {
       };
 
       let partnerAAnswers = null;
+      let nameA = undefined;
       try {
         const stored = sessionStorage.getItem(PARTNER_A_STORAGE_KEY);
         if (!stored) {
           setError("Partner A responses not found. Please start from the beginning.");
           return;
         }
-        partnerAAnswers = JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed && typeof parsed.answers === "object") {
+          partnerAAnswers = parsed.answers;
+          nameA = parsed.nameA;
+        } else {
+          partnerAAnswers = parsed;
+        }
       } catch (e) {
         setError("Could not load Partner A responses. Please start over.");
         return;
@@ -97,6 +105,7 @@ export default function CouplePartnerBPage() {
         }
 
         const data = await response.json();
+        const nameB = partnerBName.trim() || undefined;
         sessionStorage.setItem(
           COUPLE_RESULT_STORAGE_KEY,
           JSON.stringify({
@@ -104,6 +113,8 @@ export default function CouplePartnerBPage() {
             innerWorldA: data.innerWorldA ?? null,
             innerWorldB: data.innerWorldB ?? null,
             spaceBetween: data.spaceBetween ?? null,
+            nameA: nameA ?? null,
+            nameB: nameB ?? null,
           })
         );
         sessionStorage.removeItem(PARTNER_A_STORAGE_KEY);
@@ -121,27 +132,42 @@ export default function CouplePartnerBPage() {
     !isGenerating && !error && currentRound <= 4;
 
   return (
-    <div className="min-h-screen bg-[#fbf7f0] text-foreground">
+    <div className="min-h-screen bg-[#F7F6F3] text-[#2F2F2F]">
       <Navigation />
-      <main className="pt-20 pb-12">
-        <div className="max-w-3xl mx-auto px-6 pb-6 text-center">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            Partner B
-          </span>
-          <h2 className="font-serif text-xl md:text-2xl mt-2 text-foreground">
-            Partner B Reflection
-          </h2>
+      <main className="pt-20 pb-12 max-w-[720px] mx-auto">
+        <div className="px-6 pb-6">
+          <div className="mb-4">
+            <label htmlFor="partner-b-name" className="block text-sm text-[#5a5a5a] mb-1">
+              Your name (for your story card)
+            </label>
+            <input
+              id="partner-b-name"
+              type="text"
+              value={partnerBName}
+              onChange={(e) => setPartnerBName(e.target.value)}
+              placeholder="Partner B name"
+              className="w-full max-w-[280px] rounded-[12px] border border-[#E8E3D9] bg-white px-4 py-2.5 text-[#2F2F2F] placeholder:text-[#5a5a5a] focus:outline-none focus:ring-2 focus:ring-[#2F2F2F]/20"
+              aria-label="Your name"
+            />
+          </div>
+          <div className="text-center">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
+              Partner B
+            </span>
+            <h2 className="font-serif text-[22px] mt-2 text-[#2F2F2F]">
+              Partner B Reflection
+            </h2>
+          </div>
         </div>
 
         {showTest && (
           <div
             key={currentRound}
-            className={[
-              "transition-all duration-300 ease-out",
-              isTransitioning
-                ? "opacity-0 translate-y-1"
-                : "opacity-100 translate-y-0",
-            ].join(" ")}
+            className="transition-all duration-500 ease-out"
+            style={{
+              opacity: isTransitioning ? 0 : 1,
+              transform: isTransitioning ? "translateY(12px)" : "translateY(0)",
+            }}
           >
             <TestRound
               round={currentRound}
@@ -160,23 +186,23 @@ export default function CouplePartnerBPage() {
         )}
 
         {isGenerating && (
-          <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-            <p className="font-serif text-xl text-foreground">
-              Generating your relationship reflection...
+          <div className="px-6 py-24 text-center">
+            <p className="font-serif text-xl text-[#2F2F2F]">
+              Your reflection is forming...
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-3 text-sm text-muted-foreground">
               Weaving together both reflections into one.
             </p>
           </div>
         )}
 
         {error && !isGenerating && (
-          <div className="max-w-xl mx-auto px-6 py-16 text-center">
-            <p className="text-sm text-destructive mb-4">{error}</p>
+          <div className="px-6 py-16 text-center">
+            <p className="text-sm text-destructive mb-6">{error}</p>
             <button
               type="button"
               onClick={() => setError(null)}
-              className="px-6 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-full hover:bg-primary/90 transition-colors"
+              className="px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-sm font-medium transition-opacity hover:opacity-90"
             >
               Try again
             </button>
