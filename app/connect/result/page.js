@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
+import { StructuredResultSections } from "@/components/structured-result-sections";
 
 const CONNECT_RESULT_KEY = "luma_connect_result";
 
@@ -151,15 +152,68 @@ export default function ConnectResultPage() {
               <span className="text-xs uppercase tracking-widest text-[#5a5a5a] block mb-4">
                 Your reflection
               </span>
-              <div className="p-6 md:p-8 rounded-[16px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-[#E8E3D9]">
-                <div
-                  className="font-serif text-base md:text-lg leading-relaxed text-[#2F2F2F] whitespace-pre-wrap [&>br]:block [&>br]:mb-4 [font-family:var(--font-sans)]"
-                  style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                  dangerouslySetInnerHTML={{ __html: formattedResult }}
-                />
-              </div>
+              <StructuredResultSections result={result ?? ""} />
             </div>
           )}
+
+          {/* Consult a Specialist */}
+          <section className="mb-10">
+            <div className="rounded-[22px] border border-[#E8E3D9]/70 bg-[linear-gradient(180deg,rgba(232,227,217,0.55),rgba(247,246,243,0.9))] shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-8">
+              <div className="flex items-start gap-4">
+                <div
+                  aria-hidden
+                  className="mt-0.5 h-10 w-10 rounded-full bg-white/70 border border-[#E8E3D9] flex items-center justify-center shadow-[0_6px_20px_rgba(31,26,23,0.06)]"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="text-[#2F2F2F]/80"
+                  >
+                    <path
+                      d="M12 21s-7-4.35-7-11a4 4 0 0 1 7-2.4A4 4 0 0 1 19 10c0 6.65-7 11-7 11Z"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinejoin="round"
+                    />
+                    <path
+                      d="M10.2 11.9 11.6 13.3 14.8 10.1"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </div>
+
+                <div className="flex-1">
+                  <h2 className="font-serif text-[22px] md:text-[24px] text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+                    Want a deeper understanding?
+                  </h2>
+                  <p className="mt-2 text-[#5a5a5a] text-sm md:text-[15px] leading-relaxed">
+                    Sometimes a guided perspective can help you see things more clearly.
+                  </p>
+                  <p className="mt-4 text-[#5a5a5a] text-sm md:text-[15px] leading-relaxed">
+                    A specialist can help you explore your patterns, understand your responses, and offer direction based on your reflection.
+                  </p>
+
+                  <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-3">
+                    <Link
+                      href="/contact"
+                      className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-[#2F2F2F] text-white text-sm font-medium transition-all duration-200 hover:opacity-90 hover:brightness-[1.03]"
+                    >
+                      Consult a Specialist →
+                    </Link>
+                    <span className="text-xs text-[#5a5a5a]">
+                      Private • Thoughtful • No pressure
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
 
           <div className="flex flex-wrap gap-4 justify-center">
             <Link

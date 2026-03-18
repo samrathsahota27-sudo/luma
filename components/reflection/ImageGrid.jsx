@@ -5,7 +5,11 @@ import { ImageOption } from "@/components/ImageOption";
 /**
  * Displays selectable image options for a reflection round.
  */
-export function ImageGrid({ images, selectedIndex, onSelectImage }) {
+export function ImageGrid({
+  images,
+  selectedIndex,
+  onSelectImage,
+}) {
   const hasSelection = selectedIndex != null;
   return (
     <div className="grid grid-cols-2 gap-4">

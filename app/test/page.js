@@ -5,11 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { TestRound } from "@/components/TestRound";
-import { reflectionLines, questions, rounds } from "@/lib/testData";
+import PreTestScreen from "@/components/PreTestScreen";
+import { reflectionLines, questions, rounds, roundTags } from "@/lib/testData";
 import { saveIndividualReflectionWithEmail, getLastIndividualReflection, getIndividualReflectionCount, getCurrentUserName } from "@/lib/reflectionStorage";
 import { nameToSlug } from "@/lib/referralSlug";
 import { getReflectionMirrorMessage } from "@/lib/reflectionMirror";
 import { generateStoryCardBlob, generateLetterStoryBlob, downloadStoryCard, shareOrDownloadStoryCard } from "@/lib/storyCard";
+import { getRoundTag } from "@/lib/reflection/roundTagging";
 
 const ROUND_TRANSITION_MS = 500;
 const GENERATING_PHASE_2_MS = 3500;
@@ -22,10 +24,15 @@ const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 export default function TestPage() {
   const router = useRouter();
   const [phase, setPhase] = useState("intro");
+  const [started, setStarted] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
   const [answers, setAnswers] = useState({});
+  const [selectedTags, setSelectedTags] = useState({});
   const [textValue, setTextValue] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null); // number | "none" | null
+  const [selectedOption, setSelectedOption] = useState(null); // "image" | "none"
+  const [noneText, setNoneText] = useState("");
+  const [showNoneSection, setShowNoneSection] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -36,6 +43,7 @@ export default function TestPage() {
   const [saveEmail, setSaveEmail] = useState("");
   const [saveName, setSaveName] = useState("");
   const [savePassword, setSavePassword] = useState("");
+  const [reminderEmail, setReminderEmail] = useState("");
   const [savedWithEmail, setSavedWithEmail] = useState(false);
   const [saveError, setSaveError] = useState(null);
   const [storyLoading, setStoryLoading] = useState(false);
@@ -50,12 +58,64 @@ export default function TestPage() {
   const [referralLink, setReferralLink] = useState("");
   const [referralCopied, setReferralCopied] = useState(false);
 
+  const registerReminder = async (email) => {
+    const value = (email || "").trim();
+    if (!value) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return;
+    try {
+      localStorage.setItem("luma_reminder_email", value);
+    } catch {}
+    try {
+      await fetch("/api/reminder-register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: value, lastReflectionAt: new Date().toISOString() }),
+        keepalive: true,
+      });
+    } catch {}
+  };
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("luma_reminder_email");
+      if (saved && saved.trim()) setReminderEmail(saved.trim());
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (phase !== "rounds") return;
+    const handler = () => {
+      try {
+        const email = (reminderEmail || localStorage.getItem("luma_reminder_email") || "").trim();
+        if (!email) return;
+        const payload = JSON.stringify({ email, lastReflectionAt: new Date().toISOString() });
+        if (navigator.sendBeacon) {
+          const blob = new Blob([payload], { type: "application/json" });
+          navigator.sendBeacon("/api/reminder-register", blob);
+          return;
+        }
+        fetch("/api/reminder-register", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: payload,
+          keepalive: true,
+        }).catch(() => {});
+      } catch {}
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [phase, reminderEmail]);
+
   useEffect(() => {
     if (phase !== "rounds") return;
     setIsTransitioning(true);
     setShowNone(false);
     setTextValue("");
-    setSelectedIndex(null);
+    setSelectedImage(null);
+    setSelectedOption(null);
+    setNoneText("");
+    setShowNoneSection(false);
+    setSelectedTags((prev) => ({ ...prev, [currentRound]: [] }));
     setError(null);
 
     const transitionTimer = setTimeout(() => {
@@ -156,18 +216,58 @@ export default function TestPage() {
       .finally(() => setLetterLoading(false));
   }, [result]);
 
-  const handleSelectImage = (index) => {
-    setSelectedIndex(index);
+  const handleImageSelect = (id) => {
+    setSelectedImage(id);
+    setSelectedOption("image");
+    setNoneText("");
+    setShowNoneSection(false);
+    const tag = getRoundTag(currentRound, id);
     setAnswers((prev) => ({
       ...prev,
       [currentRound]: {
-        image: index,
+        selectedType: "image",
+        image: id,
+        selectedImageId: id,
+        tag: tag ?? undefined,
+        tags: selectedTags[currentRound] ?? [],
+        userExplanation: "",
         text: textValue,
       },
     }));
   };
 
-  const canProceed = selectedIndex !== null && textValue.trim().length > 0;
+  const toggleTag = (tagValue) => {
+    setSelectedTags((prev) => {
+      const current = prev[currentRound] || [];
+      const next = current.includes(tagValue)
+        ? current.filter((t) => t !== tagValue)
+        : [...current, tagValue];
+      // Auto-fill input text from selected tags (comma-separated)
+      setTextValue(next.join(", "));
+      // keep answers in sync for AI payload
+      setAnswers((aPrev) => ({
+        ...aPrev,
+        [currentRound]: {
+          ...(aPrev?.[currentRound] ?? {}),
+          tags: next,
+        },
+      }));
+      return { ...prev, [currentRound]: next };
+    });
+  };
+
+  const handleNoneClick = () => {
+    setSelectedImage("none"); // IMPORTANT: treat like image
+    setSelectedOption("none");
+    setShowNoneSection(true);
+    setSelectedTags((prev) => ({ ...prev, [currentRound]: [] }));
+    setTimeout(() => {
+      document.getElementById("none-section")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  const inputText = selectedOption === "none" ? noneText : textValue;
+  const canProceed = inputText.trim().length > 0;
 
   const handleNext = async () => {
     if (!canProceed) return;
@@ -184,12 +284,38 @@ export default function TestPage() {
       setIsGenerating(true);
       setError(null);
 
-      const response = await fetch("/api/analyze", {
+      const finalAnswers = {
+        ...answers,
+        [currentRound]:
+          selectedOption === "none"
+            ? {
+                selectedType: "none",
+                selectedImage: "none",
+                image: null,
+                selectedImageId: null,
+                tag: undefined,
+                tags: [],
+                userExplanation: noneText,
+                noneText,
+                text: noneText,
+              }
+            : {
+                selectedType: "image",
+                image: selectedImage,
+                selectedImageId: selectedImage,
+                tag: typeof selectedImage === "number" ? getRoundTag(currentRound, selectedImage) ?? undefined : undefined,
+                tags: selectedTags[currentRound] ?? [],
+                userExplanation: "",
+                text: textValue,
+              },
+      };
+
+      const response = await fetch("/api/generate", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ selections: finalAnswers }),
       });
 
       if (!response.ok) {
@@ -219,25 +345,21 @@ export default function TestPage() {
   return (
     <div className="min-h-screen bg-[#F7F6F3] text-[#2F2F2F]">
       <Navigation />
-      <main className="pt-20 pb-12 max-w-[720px] mx-auto">
-        {/* Intro */}
-        {phase === "intro" && (
-          <div className="px-6 py-20 md:py-28 text-center animate-luma-fade-in">
-            <h1 className="font-serif text-[36px] md:text-[40px] leading-tight text-[#2F2F2F]">
-              Take a moment.
-            </h1>
-            <p className="mt-8 text-base text-muted-foreground leading-relaxed max-w-md mx-auto">
-              This experience works best when you follow what quietly draws your attention.
-            </p>
-            <button
-              type="button"
-              onClick={() => setPhase("rounds")}
-              className="mt-12 px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90"
-            >
-              Continue
-            </button>
-          </div>
-        )}
+      {!started ? (
+        <PreTestScreen
+          email={reminderEmail}
+          onEmailChange={(v) => {
+            setReminderEmail(v);
+            registerReminder(v);
+          }}
+          onContinue={() => {
+            setStarted(true);
+            setPhase("rounds");
+          }}
+        />
+      ) : (
+        <main className="pt-20 pb-12 max-w-[720px] mx-auto">
+        {/* Intro is handled by PreTestScreen (see started state) */}
 
         {/* Rounds */}
         {showRounds && (
@@ -254,8 +376,15 @@ export default function TestPage() {
               question={questions[currentRound]}
               reflectionLines={reflectionLines[currentRound]}
               images={rounds[currentRound]}
-              selectedIndex={selectedIndex}
-              onSelectImage={handleSelectImage}
+              selectedIndex={typeof selectedImage === "number" ? selectedImage : null}
+              onSelectImage={handleImageSelect}
+              tags={roundTags[currentRound] ?? []}
+              selectedTags={selectedTags[currentRound] ?? []}
+              onToggleTag={toggleTag}
+              selectedOption={selectedOption}
+              onSelectNone={handleNoneClick}
+              noneText={noneText}
+              onNoneTextChange={setNoneText}
               textValue={textValue}
               onTextChange={setTextValue}
               canProceed={canProceed}
@@ -708,6 +837,7 @@ export default function TestPage() {
           </div>
         )}
       </main>
+      )}
     </div>
   );
 }

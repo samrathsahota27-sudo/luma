@@ -197,6 +197,27 @@ export default function TimelinePage() {
           </div>
         </div>
 
+        {/* Actions */}
+        <div className="mt-8">
+          <p className="text-center text-[#5a5a5a] text-sm">
+            Your journey grows with every reflection.
+          </p>
+          <div className="flex flex-col gap-3 mt-6 md:flex-row">
+            <Link
+              href="/choose-mode"
+              className="w-full inline-flex items-center justify-center rounded-full py-3 px-6 bg-[#2F2F2F] text-white text-sm font-medium transition-all duration-200 hover:opacity-90 hover:scale-[1.02] shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
+            >
+              Start Reflection
+            </Link>
+            <Link
+              href="/"
+              className="w-full inline-flex items-center justify-center rounded-full py-3 px-6 bg-white/70 border border-[#E8E3D9] text-[#2F2F2F] text-sm font-medium transition-all duration-200 hover:bg-white hover:scale-[1.02]"
+            >
+              Back to Home
+            </Link>
+          </div>
+        </div>
+
         {entries.length === 0 && (
           <p className="mt-8 text-center text-[#5a5a5a] text-sm">
             Complete a reflection to see it here.

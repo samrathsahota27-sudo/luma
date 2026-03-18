@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { TestRound } from "@/components/TestRound";
-import { reflectionLines, questions, rounds } from "@/lib/testData";
+import { reflectionLines, questions, rounds, roundTags } from "@/lib/coupleTestData";
+import { getRoundTag } from "@/lib/reflection/roundTagging";
 
 const PARTNER_A_STORAGE_KEY = "luma_couple_partner_a";
 const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
@@ -14,8 +15,11 @@ export default function CouplePartnerBPage() {
   const [partnerBName, setPartnerBName] = useState("");
   const [currentRound, setCurrentRound] = useState(1);
   const [answers, setAnswers] = useState({});
+  const [selectedTags, setSelectedTags] = useState({});
   const [textValue, setTextValue] = useState("");
-  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null); // number | "none" | null
+  const [selectedOption, setSelectedOption] = useState(null); // "image" | "none"
+  const [noneText, setNoneText] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -25,7 +29,10 @@ export default function CouplePartnerBPage() {
     setIsTransitioning(true);
     setShowNone(false);
     setTextValue("");
-    setSelectedIndex(null);
+    setSelectedImage(null);
+    setSelectedOption(null);
+    setNoneText("");
+    setSelectedTags((prev) => ({ ...prev, [currentRound]: [] }));
     setError(null);
 
     const transitionTimer = setTimeout(() => {
@@ -43,27 +50,84 @@ export default function CouplePartnerBPage() {
   }, [currentRound]);
 
   const handleSelectImage = (index) => {
-    setSelectedIndex(index);
+    setSelectedImage(index);
+    setSelectedOption("image");
+    setNoneText("");
+    const tag = getRoundTag(currentRound, index);
     setAnswers((prev) => ({
       ...prev,
       [currentRound]: {
+        selectedType: "image",
         image: index,
+        selectedImageId: index,
+        tag: tag ?? undefined,
+        tags: selectedTags[currentRound] ?? [],
+        userExplanation: "",
         text: textValue,
       },
     }));
   };
 
-  const canProceed = selectedIndex !== null && textValue.trim().length > 0;
+  const toggleTag = (tagValue) => {
+    setSelectedTags((prev) => {
+      const current = prev[currentRound] || [];
+      const next = current.includes(tagValue)
+        ? current.filter((t) => t !== tagValue)
+        : [...current, tagValue];
+      setTextValue(next.join(", "));
+      setAnswers((aPrev) => ({
+        ...aPrev,
+        [currentRound]: {
+          ...(aPrev?.[currentRound] ?? {}),
+          tags: next,
+        },
+      }));
+      return { ...prev, [currentRound]: next };
+    });
+  };
+
+  const handleNoneClick = () => {
+    setSelectedImage("none");
+    setSelectedOption("none");
+    setSelectedTags((prev) => ({ ...prev, [currentRound]: [] }));
+    setTimeout(() => {
+      document.getElementById("none-section")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  const inputText = selectedOption === "none" ? noneText : textValue;
+  const canProceed = inputText.trim().length > 0;
 
   const handleNext = async () => {
     if (!canProceed) return;
 
-    if (currentRound < 4) {
+    if (currentRound < 5) {
       setCurrentRound((prev) => prev + 1);
     } else {
       const partnerBAnswers = {
         ...answers,
-        [currentRound]: { image: selectedIndex, text: textValue },
+        [currentRound]:
+          selectedOption === "none"
+            ? {
+                selectedType: "none",
+                selectedImage: "none",
+                image: null,
+                selectedImageId: null,
+                tag: undefined,
+                tags: [],
+                userExplanation: noneText,
+                noneText,
+                text: noneText,
+              }
+            : {
+                selectedType: "image",
+              image: selectedImage,
+              selectedImageId: selectedImage,
+              tag: typeof selectedImage === "number" ? getRoundTag(currentRound, selectedImage) ?? undefined : undefined,
+                tags: selectedTags[currentRound] ?? [],
+                userExplanation: "",
+                text: textValue,
+              },
       };
 
       let partnerAAnswers = null;
@@ -129,7 +193,7 @@ export default function CouplePartnerBPage() {
   };
 
   const showTest =
-    !isGenerating && !error && currentRound <= 4;
+    !isGenerating && !error && currentRound <= 5;
 
   return (
     <div className="min-h-screen bg-[#F7F6F3] text-[#2F2F2F]">
@@ -174,13 +238,21 @@ export default function CouplePartnerBPage() {
               question={questions[currentRound]}
               reflectionLines={reflectionLines[currentRound]}
               images={rounds[currentRound]}
-              selectedIndex={selectedIndex}
+            selectedIndex={typeof selectedImage === "number" ? selectedImage : null}
               onSelectImage={handleSelectImage}
+            tags={roundTags[currentRound] ?? []}
+            selectedTags={selectedTags[currentRound] ?? []}
+            onToggleTag={toggleTag}
+            selectedOption={selectedOption}
+            onSelectNone={handleNoneClick}
+            noneText={noneText}
+            onNoneTextChange={setNoneText}
               textValue={textValue}
               onTextChange={setTextValue}
               canProceed={canProceed}
               onNext={handleNext}
               showNone={showNone}
+              totalRounds={5}
             />
           </div>
         )}

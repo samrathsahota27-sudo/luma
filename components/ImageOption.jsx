@@ -3,17 +3,19 @@
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 
-export function ImageOption({ src, alt, selected, dimmed, onSelect }) {
+export function ImageOption({ src, alt, selected, dimmed, disabled, onSelect }) {
   return (
     <button
       type="button"
       onClick={onSelect}
+      disabled={disabled}
       className={cn(
         "group relative aspect-square overflow-hidden rounded-xl transition-all duration-[220ms] ease-out",
         "focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F2F2F]/30 focus-visible:ring-offset-2 focus-visible:ring-offset-[#F7F6F3]",
         selected && "scale-[1.03] ring-2 ring-[#2F2F2F]/25 ring-offset-2 ring-offset-[#F7F6F3] shadow-[0_8px_24px_rgba(0,0,0,0.08)]",
         !selected && "hover:shadow-[0_8px_30px_rgba(0,0,0,0.06)]",
-        dimmed && "opacity-70"
+        dimmed && "opacity-70",
+        disabled && "cursor-not-allowed"
       )}
       aria-pressed={selected}
       aria-label={alt}

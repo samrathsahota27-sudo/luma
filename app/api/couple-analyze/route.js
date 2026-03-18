@@ -1,15 +1,18 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 
-function buildCouplePrompt(partnerA, partnerB) {
+function buildCouplePrompt(partnerA, partnerB, relationshipDescription) {
   return `
-Two partners each completed a 4-round emotional reflection test. Below are their answers.
+Two partners each completed a 5-round emotional reflection test. Below are their answers.
 
 Partner A answers:
 ${JSON.stringify(partnerA, null, 2)}
 
 Partner B answers:
 ${JSON.stringify(partnerB, null, 2)}
+
+The user described their relationship as:
+${relationshipDescription || "—"}
 
 Generate a relationship reflection (about 350–450 words) that weaves both perspectives together. Structure it into exactly 4 sections with clear headings. Use short paragraphs and a blank line between sections.
 
@@ -21,6 +24,7 @@ Note where their images or words diverge. Describe the difference with care, wit
 
 Section 3 — What may be asking for attention
 From the combined picture, what tension, need, or possibility seems to be asking for attention in the relationship or in each person?
+Use the Round 5 relationship-space description above to ground what feels close vs. distant, present vs. missing, within the “space between you both”.
 
 Section 4 — A gentle direction for growth
 Offer one or two gentle, concrete suggestions for how the couple might nurture what emerged—together or individually.
@@ -67,7 +71,15 @@ export async function POST(req) {
     }
 
     const openai = new OpenAI({ apiKey });
-    const prompt = buildCouplePrompt(partnerA, partnerB);
+    const round5A =
+      partnerA?.[5]?.text ?? partnerA?.[5]?.noneText ?? partnerA?.[5]?.userExplanation ?? "";
+    const round5B =
+      partnerB?.[5]?.text ?? partnerB?.[5]?.noneText ?? partnerB?.[5]?.userExplanation ?? "";
+    const relationshipDescription = [round5A, round5B]
+      .filter((t) => String(t ?? "").trim().length > 0)
+      .join(" / ");
+
+    const prompt = buildCouplePrompt(partnerA, partnerB, relationshipDescription);
 
     const response = await openai.responses.create({
       model: "gpt-4.1-mini",
@@ -81,7 +93,7 @@ export async function POST(req) {
     const imagePromptB =
       "Serene, abstract visual metaphor for another person's inner emotional landscape. Soft pastel colors, dreamlike, no text, no people.";
     const imagePromptBetween =
-      "Serene, abstract visual metaphor for the emotional field and connection between two people. Soft pastels, space and closeness, no text, no faces.";
+      `Serene, abstract visual metaphor for the emotional field and connection between two people. Soft pastels, space and closeness, grounded in: ${relationshipDescription || "a gentle sense of space and distance"}. No text, no faces.`;
 
     const [innerWorldA, innerWorldB, spaceBetween] = await Promise.all([
       generateImage(openai, imagePromptA),

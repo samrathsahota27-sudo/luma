@@ -14,6 +14,13 @@ const EMOTIONAL_TAGS = [
 const SENTENCE_STARTER = "This image makes me feel ";
 const SENTENCE_END = " because ";
 
+const ROUND_QUESTIONS = [
+  "Which image feels closest to you right now?",
+  "Which image creates a sense of discomfort or heaviness for you?",
+  "Which image reflects your current state of mind?",
+  "What attracts you the most?",
+];
+
 function buildGuidedSentence(tags) {
   if (tags.length === 0) return "";
   const words = tags.map((w) => w.toLowerCase()).join(" and ");
@@ -52,6 +59,14 @@ export function TestRound({
   images,
   selectedIndex,
   onSelectImage,
+  tags = [],
+  selectedTags = [],
+  onToggleTag,
+  selectedOption,
+  noneText = "",
+  onNoneTextChange,
+  noneSelected = false, // backward compat
+  onSelectNone,
   textValue,
   onTextChange,
   canProceed,
@@ -62,26 +77,43 @@ export function TestRound({
   roundTitles,
 }) {
   const reflectionRef = useRef(null);
+  const noneSectionRef = useRef(null);
 
-  const trimmed = (textValue || "").trim();
+  const effectiveSelectedOption =
+    selectedOption ?? (noneSelected ? "none" : selectedIndex != null ? "image" : null);
+  const showNoneSection = effectiveSelectedOption === "none";
+  const showReflectionUI = effectiveSelectedOption === "image" && selectedIndex != null;
+
+  const trimmed = String(textValue || "").trim();
   const isEmpty = !trimmed;
   const hasTyped = trimmed.length > 0;
   const guidedTags = parseGuidedSentence(textValue);
   const isGuidedMode = isEmpty || guidedTags !== null;
 
-  const [selectedTags, setSelectedTags] = useState([]);
+  const [legacySelectedTags, setLegacySelectedTags] = useState([]);
   const [pressedTag, setPressedTag] = useState(null);
   const [reflectionRevealed, setReflectionRevealed] = useState(false);
+  const [showIntuition, setShowIntuition] = useState(false);
   const textareaRef = useRef(null);
   const moveCursorToEndRef = useRef(false);
 
   useEffect(() => {
-    if (isEmpty) setSelectedTags([]);
+    if (isEmpty) setLegacySelectedTags([]);
   }, [isEmpty]);
 
   useEffect(() => {
     setReflectionRevealed(false);
+    setShowIntuition(false);
   }, [round]);
+
+  useEffect(() => {
+    // Delay the intuition line until the user has committed to an image.
+    // Also reset whenever selection changes.
+    setShowIntuition(false);
+    if (selectedIndex == null || effectiveSelectedOption !== "image") return;
+    const t = window.setTimeout(() => setShowIntuition(true), 20000);
+    return () => window.clearTimeout(t);
+  }, [selectedIndex, effectiveSelectedOption]);
 
   useEffect(() => {
     if (!moveCursorToEndRef.current || !textareaRef.current) return;
@@ -98,56 +130,7 @@ export function TestRound({
     return regex.test(text.trim());
   }, []);
 
-  const handleTagClick = useCallback(
-    (word) => {
-      setPressedTag(word);
-      setTimeout(() => setPressedTag(null), 150);
-
-      const scheduleCursorToEnd = () => {
-        moveCursorToEndRef.current = true;
-      };
-
-      if (isEmpty) {
-        const selected = selectedTags.includes(word);
-        const nextTags = selected
-          ? selectedTags.filter((w) => w !== word)
-          : [...selectedTags, word];
-        setSelectedTags(nextTags);
-        const next = buildGuidedSentence(nextTags);
-        onTextChange(next);
-        scheduleCursorToEnd();
-        return;
-      }
-
-      if (isGuidedMode && guidedTags !== null) {
-        const selected = guidedTags.some((w) => w.toLowerCase() === word.toLowerCase());
-        const nextTags = selected
-          ? guidedTags.filter((w) => w.toLowerCase() !== word.toLowerCase())
-          : [...guidedTags, word];
-        const next = buildGuidedSentence(nextTags);
-        onTextChange(next);
-        scheduleCursorToEnd();
-        return;
-      }
-
-      if (isTagInText(word, textValue)) {
-        const regex = new RegExp("\\b" + word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "gi");
-        const next = trimmed.replace(regex, "").replace(/\s+/g, " ").trim();
-        onTextChange(next);
-      } else {
-        const next = trimmed ? trimmed + " " + word : word;
-        onTextChange(next);
-        scheduleCursorToEnd();
-      }
-    },
-    [textValue, onTextChange, isTagInText, isEmpty, isGuidedMode, guidedTags, selectedTags]
-  );
-
-  const tagSelected = (word) => {
-    if (isEmpty) return selectedTags.includes(word);
-    if (guidedTags) return guidedTags.some((w) => w.toLowerCase() === word.toLowerCase());
-    return isTagInText(word, textValue);
-  };
+  // Legacy guided writing helpers remain, but round tags now come from config (props).
 
   const scrollToReflection = useCallback(() => {
     if (typeof window === "undefined") return;
@@ -169,8 +152,21 @@ export function TestRound({
     [onSelectImage, scrollToReflection]
   );
 
+  const handleSelectNoneWithScroll = useCallback(() => {
+    if (!onSelectNone) return;
+    onSelectNone();
+    setReflectionRevealed(false);
+    if (typeof window === "undefined") return;
+    window.setTimeout(() => {
+      noneSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  }, [onSelectNone]);
+
   const total = totalRounds ?? 4;
   const progressPercent = total > 0 ? (Math.min(round, total) / total) * 100 : 0;
+
+  const roundQuestion = ROUND_QUESTIONS[Math.max(0, (round ?? 1) - 1)] ?? ROUND_QUESTIONS[0];
+  const topQuestion = question || roundQuestion;
 
   return (
     <>
@@ -205,97 +201,120 @@ export function TestRound({
 
         {/* 2. Image selection section */}
         <section className="mb-10">
-          <p className="text-center text-[#2F2F2F] text-base md:text-lg mb-6 font-medium">
-            Choose the image that draws your attention.
-          </p>
+          <h2 className="text-lg font-medium text-gray-800 mb-4 text-center">
+            {topQuestion}
+          </h2>
           <div className="rounded-[16px] bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-[#E8E3D9]/60">
             <ImageGrid
               images={images}
               selectedIndex={selectedIndex}
               onSelectImage={handleSelectImageWithScroll}
             />
-            {showNone && (
-              <div className="mt-5 text-center text-xs text-[#5a5a5a]">
-                None of these reflect me
-              </div>
-            )}
           </div>
+          {showNone && (
+            <button
+              type="button"
+              onClick={handleSelectNoneWithScroll}
+              className="mt-4 text-sm text-gray-500 underline w-full text-center hover:text-gray-700 transition-colors"
+            >
+              None of these reflect me
+            </button>
+          )}
         </section>
 
-        {/* 3 & 4. Reflection section — fades in after image selection */}
-        <div
-          ref={reflectionRef}
-          className={cn(
-            "transition-opacity transition-transform duration-[300ms] ease-out",
-            reflectionRevealed ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[10px]"
-          )}
-        >
-          <h2 className="font-serif text-[18px] md:text-[20px] text-[#2F2F2F] mb-4 [font-family:var(--font-serif-display)]">
-            Tap words that resonate
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {EMOTIONAL_TAGS.map((word) => {
-              const selected = tagSelected(word);
-              const isPressed = pressedTag === word;
-              return (
-                <button
-                  key={word}
-                  type="button"
-                  onClick={() => handleTagClick(word)}
-                  className={cn(
-                    "px-4 py-2 rounded-full text-sm font-medium transition-all duration-[200ms] ease-out",
-                    selected
-                      ? "bg-[#2F2F2F] text-white"
-                      : "bg-[#E8E3D9]/50 text-[#5a5a5a] hover:bg-[#E8E3D9] border border-[#E8E3D9]"
-                  )}
-                  style={{ transform: isPressed ? "scale(1.08)" : "scale(1)" }}
-                  aria-pressed={selected}
-                >
-                  {word}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-3 text-sm text-[#5a5a5a]">
-            Tap words that resonate — or write your own.
-          </p>
-
-          {/* 5. Reflection writing box — journal style */}
-          <div className="mt-6">
-            <ResponseInput
-              ref={textareaRef}
-              value={textValue}
-              onChange={onTextChange}
-              placeholder="This image makes me feel..."
-              minRows={6}
-              className="min-h-[180px] rounded-[12px] py-4 text-[15px] leading-relaxed placeholder:text-[#5a5a5a]/70"
+        {/* None-of-these deeper reflection */}
+        {showNoneSection && (
+          <div id="none-section" ref={noneSectionRef} className="mt-6">
+            <p className="text-sm text-gray-600 mb-2 text-center">
+              Why none of these feels right?
+            </p>
+            <textarea
+              value={noneText}
+              onChange={(e) => onNoneTextChange?.(e.target.value)}
+              placeholder="Write what feels true…"
+              className="w-full p-3 rounded-lg border text-sm bg-white"
+              rows={4}
             />
           </div>
-        </div>
+        )}
 
-        {/* 6. Continue button — appears when user starts typing */}
-        <div className="mt-8 flex justify-end">
+        {/* 3 & 4. Reflection section — only after selection */}
+        {showReflectionUI && (
           <div
+            ref={reflectionRef}
             className={cn(
               "transition-opacity transition-transform duration-[300ms] ease-out",
-              hasTyped ? "opacity-100 translate-y-0" : "opacity-0 translate-y-[6px] pointer-events-none"
+              reflectionRevealed ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
             )}
           >
+            <h2 className="font-serif text-[18px] md:text-[20px] text-[#2F2F2F] mb-4 [font-family:var(--font-serif-display)]">
+              {((tags ?? []).length ?? 0) > 0 ? "Choose a few words (optional)" : "Write what feels true"}
+            </h2>
+            {((tags ?? []).length ?? 0) > 0 && (
+              <>
+                <div className="flex flex-wrap gap-2">
+                  {(tags ?? []).map((tag) => {
+                    const active = (selectedTags ?? []).includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        onClick={() => onToggleTag?.(tag)}
+                        className={cn(
+                          "px-4 py-2 rounded-full text-sm font-medium transition-all duration-[200ms] ease-out",
+                          active
+                            ? "bg-[#2F2F2F] text-white"
+                            : "bg-[#E8E3D9]/50 text-[#5a5a5a] hover:bg-[#E8E3D9] border border-[#E8E3D9]"
+                        )}
+                        aria-pressed={active}
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-3 text-sm text-[#5a5a5a]">
+                  Or simply write what feels true.
+                </p>
+              </>
+            )}
+
+            <div className="mt-4 space-y-2 text-sm text-gray-600">
+              {(reflectionLines ?? ["What's happening here?", "How does it feel?", "Fast or slow?"]).slice(0, 3).map((q) => (
+                <p key={q}>• {q}</p>
+              ))}
+            </div>
+
+            <div className="mt-3">
+              <ResponseInput
+                ref={textareaRef}
+                value={textValue}
+                onChange={onTextChange}
+                placeholder="Write what feels true…"
+                minRows={6}
+                className="min-h-[180px] rounded-[12px] py-4 text-[15px] leading-relaxed placeholder:text-[#5a5a5a]/70"
+              />
+              {showIntuition && (
+                <p className="text-xs text-gray-400 mt-3 italic">
+                  I&apos;m not sure why this feels right
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Continue button — appears only when canProceed */}
+        {canProceed && (
+          <div className="mt-8 flex justify-end">
             <button
               type="button"
               onClick={onNext}
-              disabled={!canProceed}
-              className={cn(
-                "px-5 py-3 text-base font-medium rounded-[12px] transition-all duration-[250ms]",
-                canProceed
-                  ? "bg-[#2F2F2F] text-white hover:opacity-90"
-                  : "bg-[#E6E8F0] text-[#5a5a5a] cursor-not-allowed"
-              )}
+              className="px-5 py-3 text-base font-medium rounded-[12px] transition-all duration-[250ms] bg-[#2F2F2F] text-white hover:opacity-90"
             >
               {round < total ? "Continue" : "See reflection"}
             </button>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="sr-only" aria-live="polite">

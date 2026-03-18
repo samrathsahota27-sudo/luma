@@ -6,6 +6,7 @@ import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { saveCoupleReflectionWithEmail } from "@/lib/reflectionStorage";
 import { generateStoryCardBlob, downloadStoryCard, shareOrDownloadStoryCard } from "@/lib/storyCard";
+import { StructuredResultSections } from "@/components/structured-result-sections";
 
 const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
 
@@ -210,12 +211,7 @@ export default function CoupleResultPage() {
               <span className="text-xs uppercase tracking-widest text-muted-foreground block mb-4">
                 Your reflection
               </span>
-              <div className="p-6 md:p-8 rounded-[16px] bg-white shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
-                <div
-                  className="font-serif text-base md:text-lg leading-relaxed text-[#2F2F2F] whitespace-pre-wrap [&>br]:block [&>br]:mb-4"
-                  dangerouslySetInnerHTML={{ __html: formattedResult }}
-                />
-              </div>
+              <StructuredResultSections result={result ?? ""} />
             </div>
           )}
 

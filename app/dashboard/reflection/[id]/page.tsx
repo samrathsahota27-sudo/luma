@@ -7,6 +7,7 @@ import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { getReflectionById, type CoupleReflectionEntry } from "@/lib/reflectionStorage";
 import { ArrowRight } from "lucide-react";
+import { StructuredResultSections } from "@/components/structured-result-sections";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -83,61 +84,9 @@ export default function ViewReflectionPage() {
           </div>
         )}
 
-        {/* Structured reflection sections — same as result page */}
-        {(() => {
-          const paragraphs = entry.content.split(/\n\n+/).filter(Boolean);
-          const firstParagraph = paragraphs[0] ?? "";
-          const restParagraphs = paragraphs.slice(1);
-          const restHtml = restParagraphs.length > 0
-            ? restParagraphs.join("<br><br>").replace(/\n/g, "<br>")
-            : null;
-          return (
-            <div className="mt-10 space-y-8 animate-luma-fade-in-slow">
-              <div className="rounded-[16px] bg-[#F5F3EE] border border-[#E8E3D9]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-8">
-                <h2 className="font-serif text-[22px] text-[#2F2F2F] [font-family:var(--font-serif-display)] mb-4">
-                  Core Pattern Insight
-                </h2>
-                <div
-                  className="text-[#5a5a5a] text-base md:text-lg leading-[1.8] [&>br]:block [&>br]:mb-4"
-                  style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                  dangerouslySetInnerHTML={{ __html: firstParagraph.replace(/\n/g, "<br>") }}
-                />
-              </div>
-              <div className="rounded-[16px] bg-[#F5F3EE] border border-[#E8E3D9]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-8">
-                <h2 className="font-serif text-[22px] text-[#2F2F2F] [font-family:var(--font-serif-display)] mb-4">
-                  A Gentle Direction
-                </h2>
-                {restHtml ? (
-                  <div
-                    className="text-[#5a5a5a] text-base md:text-lg leading-[1.85] [&>br]:block [&>br]:mb-4"
-                    style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                    dangerouslySetInnerHTML={{ __html: restHtml }}
-                  />
-                ) : (
-                  <p className="text-[#5a5a5a] text-base leading-[1.85]" style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-                    Take what resonates and leave the rest. There is no need to change anything.
-                  </p>
-                )}
-              </div>
-              {!isCouple && (
-                <div className="rounded-[16px] bg-[#F5F3EE] border border-[#E8E3D9]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-8">
-                  <h2 className="font-serif text-[22px] text-[#2F2F2F] [font-family:var(--font-serif-display)] mb-4">
-                    Explore the Space Between
-                  </h2>
-                  <p className="text-[#5a5a5a] text-base leading-[1.85] mb-6" style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-                    Some patterns only reveal themselves between two inner worlds.
-                  </p>
-                  <Link
-                    href="/couple"
-                    className="inline-flex px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-sm font-medium hover:opacity-90 transition-opacity"
-                  >
-                    Explore Couple Mode
-                  </Link>
-                </div>
-              )}
-            </div>
-          );
-        })()}
+        <div className="mt-10 animate-luma-fade-in-slow">
+          <StructuredResultSections result={entry.content} />
+        </div>
 
         <div className="mt-12 flex flex-wrap gap-4">
           <Link
