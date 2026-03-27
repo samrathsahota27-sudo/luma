@@ -105,7 +105,7 @@ export default function CoupleResultPage() {
               Complete the couple reflection from the start to see your result.
             </p>
             <Link
-              href="/couple"
+              href="/couple-hub"
               className="inline-flex items-center justify-center px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90"
             >
               Back to Couple Reflection

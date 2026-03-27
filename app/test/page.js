@@ -12,6 +12,11 @@ import { nameToSlug } from "@/lib/referralSlug";
 import { getReflectionMirrorMessage } from "@/lib/reflectionMirror";
 import { generateStoryCardBlob, generateLetterStoryBlob, downloadStoryCard, shareOrDownloadStoryCard } from "@/lib/storyCard";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
+import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { updateMemory } from "@/lib/memory";
+import { getMemory } from "@/lib/memory";
+import { saveMemoryForCurrentUser, signInWithPassword, signUpWithPassword } from "@/lib/memoryCloud";
+import { supabase } from "@/lib/supabase";
 
 const ROUND_TRANSITION_MS = 500;
 const GENERATING_PHASE_2_MS = 3500;
@@ -23,6 +28,7 @@ const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 
 export default function TestPage() {
   const router = useRouter();
+  const [depthMode, setDepthMode] = useState("balanced");
   const [phase, setPhase] = useState("intro");
   const [started, setStarted] = useState(false);
   const [currentRound, setCurrentRound] = useState(1);
@@ -57,6 +63,42 @@ export default function TestPage() {
   const [referralLinkShown, setReferralLinkShown] = useState(false);
   const [referralLink, setReferralLink] = useState("");
   const [referralCopied, setReferralCopied] = useState(false);
+
+  useEffect(() => {
+    console.log("Current depthMode:", depthMode);
+  }, [depthMode]);
+
+  useEffect(() => {
+    const loadMemory = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          console.log("No user logged in");
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from("users_memory")
+          .select("memory")
+          .eq("user_id", user.id)
+          .single();
+
+        if (error) {
+          console.log("No memory found yet");
+          return;
+        }
+
+        console.log("Loaded memory:", data?.memory);
+      } catch (e) {
+        console.log("No memory found yet");
+      }
+    };
+
+    loadMemory();
+  }, []);
 
   const registerReminder = async (email) => {
     const value = (email || "").trim();
@@ -283,6 +325,7 @@ export default function TestPage() {
     try {
       setIsGenerating(true);
       setError(null);
+      recordFeatureUse("generate");
 
       const finalAnswers = {
         ...answers,
@@ -315,14 +358,86 @@ export default function TestPage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ selections: finalAnswers }),
+        body: JSON.stringify({
+          selections: finalAnswers,
+          depthMode,
+          context: buildRelationshipContext("generate"),
+        }),
       });
+      console.log("API status:", response.status);
 
       if (!response.ok) {
+        const errorText = await response.text();
+        console.error("API ERROR:", errorText);
         throw new Error("AI generation failed");
       }
 
       const data = await response.json();
+      if (!data?.result || typeof data.result !== "string") {
+        console.error("API ERROR: invalid payload", data);
+        throw new Error("AI generation failed");
+      }
+
+      console.log("Saving memory:", data);
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          console.log("No user logged in");
+        } else {
+          console.log("User ID:", user.id);
+          // Store a unified memory object; include the latest AI result.
+          const nextMemory = updateMemory((m) => {
+            const now = new Date().toISOString();
+            const reflections = Array.isArray(m.reflections) ? m.reflections : [];
+            const timeline = Array.isArray(m.timeline) ? m.timeline : [];
+            const scores = m.scores ?? { connection: 0, conflict: 0 };
+
+            reflections.push({ result: data, createdAt: now });
+            timeline.push({ type: "reflection", date: now });
+
+            return {
+              ...m,
+              reflections,
+              timeline,
+              scores: {
+                connection: (scores.connection ?? 0) + 1,
+                conflict: scores.conflict ?? 0,
+              },
+              patterns: {
+                ...m.patterns,
+                emotionalTrends: [
+                  ...(Array.isArray(m.patterns?.emotionalTrends) ? m.patterns.emotionalTrends : []),
+                  { type: "reflection_completed", at: now },
+                ],
+              },
+            };
+          });
+
+          await supabase.from("users_memory").upsert({
+            user_id: user.id,
+            memory: nextMemory ?? data,
+            updated_at: new Date().toISOString(),
+          });
+        }
+      } catch (e) {
+        console.error("API ERROR:", e);
+      }
+
+      try {
+        const profileData = { user: finalAnswers, partner: null, connection: 60, conflict: 40 };
+        localStorage.setItem("luma_profile", JSON.stringify(profileData)); // legacy key (kept)
+        updateMemory((m) => {
+          const now = new Date().toISOString();
+          return {
+            ...m,
+            profile: { ...(m.profile || {}), updatedAt: now },
+            scores: { ...(m.scores || { connection: 0, conflict: 0 }), connection: 60, conflict: 40 },
+          };
+        });
+      } catch {}
       setResult(data.result);
     } catch (err) {
       console.error("AI ERROR:", err);
@@ -341,6 +456,9 @@ export default function TestPage() {
   const resultParagraphs = result != null ? result.split(/\n\n+/).filter(Boolean) : [];
   const firstParagraph = resultParagraphs[0] ?? "";
   const restParagraphs = resultParagraphs.slice(1);
+  const restSplitMid = Math.ceil(restParagraphs.length / 2);
+  const deepExplanationParas = restParagraphs.slice(0, restSplitMid);
+  const patternBreakdownParas = restParagraphs.slice(restSplitMid);
 
   return (
     <div className="min-h-screen bg-[#F7F6F3] text-[#2F2F2F]">
@@ -352,6 +470,8 @@ export default function TestPage() {
             setReminderEmail(v);
             registerReminder(v);
           }}
+          depthMode={depthMode}
+          onDepthModeChange={setDepthMode}
           onContinue={() => {
             setStarted(true);
             setPhase("rounds");
@@ -416,13 +536,13 @@ export default function TestPage() {
               Your Reflection
             </h1>
 
-            {/* Section 1: Core Pattern Insight */}
+            {/* Section 1: Main insight (full clarity) */}
             <div
               className={`transition-all duration-700 ease-out ${resultReveal.section1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
             >
               <div className="rounded-[16px] bg-[#F5F3EE] border border-[#E8E3D9]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-8 mb-8">
                 <h2 className="font-serif text-[22px] text-[#2F2F2F] [font-family:var(--font-serif-display)] mb-4">
-                  Core Pattern Insight
+                  Main insight
                 </h2>
                 {firstParagraph && (
                   <div
@@ -436,27 +556,83 @@ export default function TestPage() {
               </div>
             </div>
 
-            {/* Section 2: A Gentle Direction */}
+            {/* Section 2: Gated depth — blur deeper read + pattern breakdown */}
             <div
               className={`transition-all duration-700 ease-out ${resultReveal.section2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
             >
-              <div className="rounded-[16px] bg-[#F5F3EE] border border-[#E8E3D9]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-8 mb-8">
-                <h2 className="font-serif text-[22px] text-[#2F2F2F] [font-family:var(--font-serif-display)] mb-4">
-                  A Gentle Direction
-                </h2>
-                {restParagraphs.length > 0 ? (
+              <div className="rounded-[16px] bg-[#F5F3EE] border border-[#E8E3D9]/60 shadow-[0_8px_30px_rgba(0,0,0,0.06)] p-8 mb-8 overflow-hidden">
+                <div className="relative max-h-[min(340px,52vh)] overflow-hidden rounded-[12px]">
+                  <div className="pointer-events-none select-none pr-1">
+                    {restParagraphs.length > 0 ? (
+                      <>
+                        <h3 className="font-serif text-lg text-[#2F2F2F]/90 [font-family:var(--font-serif-display)] mb-3">
+                          Deep explanation
+                        </h3>
+                        <div
+                          className="blur-[7px] opacity-[0.88] text-[#5a5a5a] text-base md:text-lg leading-[1.85] [&>br]:block [&>br]:mb-4"
+                          style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
+                          dangerouslySetInnerHTML={{
+                            __html:
+                              (deepExplanationParas.length > 0
+                                ? deepExplanationParas.join("<br><br>")
+                                : ""
+                              ).replace(/\n/g, "<br>"),
+                          }}
+                        />
+                        {(patternBreakdownParas.length > 0 || restParagraphs.length > 1) && (
+                          <>
+                            <h3 className="font-serif text-lg text-[#2F2F2F]/90 [font-family:var(--font-serif-display)] mt-8 mb-3">
+                              Emotional pattern breakdown
+                            </h3>
+                            <div
+                              className="blur-[7px] opacity-[0.88] text-[#5a5a5a] text-base md:text-lg leading-[1.85] [&>br]:block [&>br]:mb-4"
+                              style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
+                              dangerouslySetInnerHTML={{
+                                __html:
+                                  (patternBreakdownParas.length > 0
+                                    ? patternBreakdownParas.join("<br><br>")
+                                    : deepExplanationParas[0] ?? ""
+                                  ).replace(/\n/g, "<br>"),
+                              }}
+                            />
+                          </>
+                        )}
+                      </>
+                    ) : (
+                      <div className="space-y-4 blur-[6px] opacity-70" aria-hidden>
+                        <div className="h-3 rounded-full bg-[#E8E3D9]/80 w-full" />
+                        <div className="h-3 rounded-full bg-[#E8E3D9]/60 w-[92%]" />
+                        <div className="h-3 rounded-full bg-[#E8E3D9]/50 w-[88%]" />
+                        <div className="h-3 rounded-full bg-[#dee5e0]/70 w-[95%] mt-8" />
+                        <div className="h-3 rounded-full bg-[#dee5e0]/55 w-[85%]" />
+                      </div>
+                    )}
+                  </div>
                   <div
-                    className="text-[#5a5a5a] text-base md:text-lg leading-[1.85] [&>br]:block [&>br]:mb-4"
-                    style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                    dangerouslySetInnerHTML={{
-                      __html: restParagraphs.join("<br><br>").replace(/\n/g, "<br>"),
-                    }}
+                    className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-[#F5F3EE]/55 to-[#F5F3EE]"
+                    aria-hidden
                   />
-                ) : (
-                  <p className="text-[#5a5a5a] text-base leading-[1.85]" style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-                    Take what resonates and leave the rest. There is no need to change anything.
-                  </p>
-                )}
+                </div>
+                <p className="text-center text-sm md:text-[15px] text-[#6a6560] font-sans leading-relaxed mt-5 italic px-2">
+                  There&apos;s more beneath this — how the pattern holds, where it tightens, and what
+                  usually triggers it next.
+                </p>
+              </div>
+
+              <div className="rounded-[16px] border border-dashed border-[#c4beb4] bg-[#faf9f6] shadow-[0_8px_28px_rgba(0,0,0,0.05)] p-8 md:p-10 mb-8 text-center">
+                <p className="font-serif text-[1.15rem] md:text-xl text-[#2F2F2F] [font-family:var(--font-serif-display)] leading-snug max-w-md mx-auto">
+                  See the full pattern in your relationships
+                </p>
+                <p className="mt-3 text-sm text-[#5a5a5a] max-w-md mx-auto leading-relaxed">
+                  The free read stops at the surface. The rest is for when you&apos;re ready to see the
+                  whole map.
+                </p>
+                <Link
+                  href="/couples/checkout"
+                  className="mt-6 inline-flex items-center justify-center px-6 py-3.5 rounded-[12px] bg-[#2F2F2F] text-white text-sm font-medium hover:opacity-90 transition-opacity shadow-[0_6px_24px_rgba(47,47,47,0.15)]"
+                >
+                  Unlock deeper insight
+                </Link>
               </div>
             </div>
 
@@ -488,7 +664,7 @@ export default function TestPage() {
                     Connect Inner Worlds
                   </button>
                   <Link
-                    href="/couple"
+                    href="/couple-hub"
                     className="inline-flex px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-sm font-medium hover:opacity-90 transition-opacity"
                   >
                     Explore Couple Mode
@@ -657,7 +833,7 @@ export default function TestPage() {
                   Create an account to save this reflection. Your name will be used to personalize your shareable story card.
                 </p>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     setSaveError(null);
                     const name = saveName.trim();
@@ -686,6 +862,15 @@ export default function TestPage() {
                         name,
                         selectedImages: answers,
                       });
+                      // Supabase auth + cloud memory sync (best effort)
+                      const signInRes = await signInWithPassword(email, password);
+                      if (signInRes.error) {
+                        const signUpRes = await signUpWithPassword(email, password);
+                        if (!signUpRes.error) {
+                          await signInWithPassword(email, password);
+                        }
+                      }
+                      await saveMemoryForCurrentUser(getMemory());
                       setSavedWithEmail(true);
                       fetch("/api/reminder-register", {
                         method: "POST",

@@ -1,15 +1,21 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { DepthMode } from "@/lib/depthMode";
+import { DepthModeSelector } from "@/components/DepthModeSelector";
 
 export default function PreTestScreen({
   onContinue,
   email,
   onEmailChange,
+  depthMode,
+  onDepthModeChange,
 }: {
   onContinue: () => void;
   email?: string;
   onEmailChange?: (value: string) => void;
+  depthMode?: DepthMode;
+  onDepthModeChange?: (mode: DepthMode) => void;
 }) {
   const [visible, setVisible] = useState(false);
 
@@ -48,6 +54,17 @@ export default function PreTestScreen({
           <p className="text-sm text-white/90 mb-6 leading-relaxed">
             This experience works best when you follow what quietly draws your attention.
           </p>
+
+          {depthMode != null && onDepthModeChange && (
+            <div className="mb-6 text-left">
+              <DepthModeSelector
+                value={depthMode}
+                onChange={onDepthModeChange}
+                variant="dark"
+                className="[&_span]:!text-white/70"
+              />
+            </div>
+          )}
 
           <button
             onClick={onContinue}

@@ -14,6 +14,11 @@ import { getReflectionMirrorMessage } from "@/lib/reflectionMirror";
 import { generateStoryCardBlob, generateLetterStoryBlob, downloadStoryCard, shareOrDownloadStoryCard } from "@/lib/storyCard";
 import { StructuredResultSections } from "@/components/structured-result-sections";
 import { Loader2 } from "lucide-react";
+import { DepthModeSelector } from "@/components/DepthModeSelector";
+import { useDepthMode } from "@/hooks/useDepthMode";
+import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { getMemory } from "@/lib/memory";
+import { saveMemoryForCurrentUser, signInWithPassword, signUpWithPassword } from "@/lib/memoryCloud";
 
 type ReflectionPhase = "intro" | "rounds" | "generating" | "complete";
 
@@ -21,6 +26,7 @@ const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 
 export default function ReflectPage() {
   const router = useRouter();
+  const { depthMode, setDepthMode } = useDepthMode();
   const [phase, setPhase] = useState<ReflectionPhase>("intro");
   const [currentRound, setCurrentRound] = useState(1);
   const [answers, setAnswers] = useState<
@@ -242,10 +248,15 @@ export default function ReflectPage() {
     }
 
     try {
+      recordFeatureUse("generate");
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ selections: finalAnswers }),
+        body: JSON.stringify({
+          selections: finalAnswers,
+          depthMode,
+          context: buildRelationshipContext("generate"),
+        }),
       });
 
       if (!response.ok) {
@@ -367,7 +378,16 @@ export default function ReflectPage() {
               Take your time. There are no right or wrong choices.
             </p>
 
-            <div className="mt-8 max-w-md mx-auto text-left">
+            <div className="mt-8 max-w-md mx-auto">
+              <DepthModeSelector
+                value={depthMode}
+                onChange={setDepthMode}
+                variant="light"
+                className="mb-8 text-left"
+              />
+            </div>
+
+            <div className="mt-2 max-w-md mx-auto text-left">
               <label className="block text-sm text-muted-foreground mb-2">
                 Email me a reminder (optional)
               </label>
@@ -595,7 +615,7 @@ export default function ReflectPage() {
                     Connect Inner Worlds
                   </button>
                   <Link
-                    href="/couple"
+                    href="/couple-hub"
                     className="inline-flex px-5 py-3 rounded-xl border border-[#e8e3d9] text-[#2a2a2a] text-sm font-medium hover:bg-[#f8f6f3] transition-colors"
                   >
                     Explore Couple Mode
@@ -660,7 +680,7 @@ export default function ReflectPage() {
                   Create an account to save this reflection. Your name will be used to personalize your shareable story card.
                 </p>
                 <form
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     setSaveError(null);
                     const name = saveName.trim();
@@ -689,6 +709,15 @@ export default function ReflectPage() {
                         name,
                         selectedImages: answers,
                       });
+                      // Supabase auth + cloud memory sync (best effort)
+                      const signInRes = await signInWithPassword(email, password);
+                      if (signInRes.error) {
+                        const signUpRes = await signUpWithPassword(email, password);
+                        if (!signUpRes.error) {
+                          await signInWithPassword(email, password);
+                        }
+                      }
+                      await saveMemoryForCurrentUser(getMemory());
                       setSavedWithEmail(true);
                       fetch("/api/reminder-register", {
                         method: "POST",

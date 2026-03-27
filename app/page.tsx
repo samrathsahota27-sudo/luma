@@ -198,10 +198,10 @@ export default function HomePage() {
             </p>
             <div className="mt-10 text-center">
               <Link
-                href="/couple"
+                href="/couple-hub"
                 className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90 shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
               >
-                Try Couple Reflection
+                Start Together
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -248,7 +248,7 @@ export default function HomePage() {
               Luma simply helps you notice it.
             </p>
             <Link
-              href="/individual"
+              href="/test"
               className="inline-flex items-center justify-center gap-2 mt-10 px-6 py-3.5 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90 shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
             >
               Begin Reflection

@@ -12,7 +12,7 @@ const navLinks = [
   { href: "/science", label: "The Science Behind Luma" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/test", label: "Individual" },
-  { href: "/couple", label: "Couple" },
+  { href: "/couple-hub", label: "Couple" },
 ]
 
 const timelineLink = { href: "/dashboard/timeline", label: "Timeline" }

@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import OpenAI from "openai";
 import { buildPrompt } from "@/lib/prompt";
+import { depthModeInstructions, normalizeDepthMode } from "@/lib/depthMode";
 
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -7,40 +9,65 @@ async function callOpenAI(prompt) {
     throw new Error("Missing OPENAI_API_KEY");
   }
 
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-4.1-mini",
-      input: prompt,
-    }),
+  const client = new OpenAI({ apiKey });
+  const aiResponse = await client.responses.create({
+    model: "gpt-4.1-mini",
+    input: prompt,
   });
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
-    throw new Error(`OpenAI request failed: ${response.status} ${text}`);
+  const outputText = aiResponse.output_text?.trim?.() ?? "";
+  if (outputText) {
+    return outputText;
   }
 
-  const data = await response.json();
-  const result = data?.output?.[0]?.content?.[0]?.text ?? "";
-  return result;
+  const fallbackText =
+    aiResponse?.output?.[0]?.content?.find?.((c) => c?.type === "output_text")?.text ?? "";
+
+  if (!fallbackText || typeof fallbackText !== "string") {
+    console.log("AI RAW:", aiResponse);
+    throw new Error("OpenAI returned empty output");
+  }
+
+  return fallbackText.trim();
 }
 
 export async function POST(req) {
   try {
     const body = await req.json().catch(() => ({}));
     const selections = body?.selections ?? body?.answers;
+    if (!selections || typeof selections !== "object") {
+      return NextResponse.json({ error: "Missing or invalid selections payload" }, { status: 400 });
+    }
 
-    const prompt = buildPrompt(selections);
+    const context = body?.context ?? null;
+    const depthMode = normalizeDepthMode(body?.depthMode);
+    const contextJson = (() => {
+      if (!context || typeof context !== "object") return "";
+      try {
+        const s = JSON.stringify(context);
+        return s.length > 8000 ? `${s.slice(0, 8000)}…` : s;
+      } catch {
+        return "";
+      }
+    })();
+
+    const prompt =
+      buildPrompt(selections) +
+      depthModeInstructions(depthMode) +
+      (contextJson
+        ? `\n\nRelationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret. If context is missing/unknown, say so rather than guessing.`
+        : "");
     const result = await callOpenAI(prompt);
+    if (!result) {
+      throw new Error("AI result was empty");
+    }
+
     return NextResponse.json({ result });
   } catch (error) {
-    console.error("AI ERROR:", error);
+    const message = error instanceof Error ? error.message : "Unknown server error";
+    console.error("API CRASH:", error);
     return NextResponse.json(
-      { error: "AI generation failed" },
+      { error: message },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Source_Serif_4, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
+import { MemoryBootstrap } from '@/components/MemoryBootstrap'
 import './globals.css'
 
 const sourceSerif = Source_Serif_4({
@@ -52,6 +53,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${sourceSerif.variable} ${inter.variable} ${playfair.variable}`}>
       <body className="font-sans antialiased">
+        <MemoryBootstrap />
         {children}
         <Analytics />
       </body>

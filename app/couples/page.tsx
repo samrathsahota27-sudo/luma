@@ -2,6 +2,7 @@ import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { ArrowRight, Users, Lock, Heart } from "lucide-react"
+import { ConflictPreview } from "@/components/ConflictPreview"
 
 export default function CouplesPage() {
   return (
@@ -148,6 +149,8 @@ export default function CouplesPage() {
             </div>
           </div>
         </section>
+
+        <ConflictPreview enableToggle />
 
         {/* Pricing */}
         <section className="border-t border-border">

@@ -45,7 +45,7 @@ export default function BeginPage() {
             </p>
             <div className="mt-auto pt-8">
               <Link
-                href="/couple"
+                href="/couple-hub"
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90"
               >
                 Begin Couple
