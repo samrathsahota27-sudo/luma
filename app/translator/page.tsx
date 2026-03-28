@@ -9,6 +9,7 @@ import { ArrowLeft, Check, Copy, Loader2 } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { translatorTagline } from "@/lib/depthUiMicrocopy";
 import { updateMemory } from "@/lib/memory";
 import { supabase } from "@/lib/supabase";
 import { setMemory } from "@/lib/memory";
@@ -195,7 +196,7 @@ export default function TranslatorPage() {
               Decode Their Words
             </h1>
             <p className="mt-3 text-center text-[#9a9288] text-sm md:text-base font-light leading-relaxed">
-              Not what they said. What they meant.
+              {translatorTagline(depthMode)}
             </p>
 
             <DepthModeSelector

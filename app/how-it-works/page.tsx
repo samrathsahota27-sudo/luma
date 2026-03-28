@@ -1,157 +1,108 @@
-import Link from "next/link"
-import { Navigation } from "@/components/navigation"
-import { Footer } from "@/components/footer"
-import { ArrowRight, ImageIcon, Heart, Sparkles, Leaf } from "lucide-react"
+import Link from "next/link";
+import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
+import { ArrowRight } from "lucide-react";
+import { RelationshipMapHero } from "@/components/RelationshipMapHero";
 
-const steps = [
+const STORY_SECTIONS = [
   {
-    number: 1,
-    title: "Choose the images that resonate with you",
-    description: "Each round presents a grid of symbolic images. There are no right or wrong answers — only what draws your attention, creates tension, or feels significant in the moment.",
-    icon: ImageIcon,
+    statement: "You're not fighting. You're misunderstanding.",
+    line: "And it repeats more than you think.",
   },
   {
-    number: 2,
-    title: "Your choices reveal emotional patterns",
-    description: "What you select and how you respond to short prompts creates a pattern. These patterns often reflect underlying emotional terrain that is hard to name directly.",
-    icon: Heart,
+    statement: "Decode what they actually meant",
+    line: "Before it turns into distance.",
   },
   {
-    number: 3,
-    title: "AI generates a reflective interpretation",
-    description: "Based on your selections and words, a reflective narrative is generated. It describes themes and textures — it does not diagnose, advise, or compare you to others.",
-    icon: Sparkles,
+    statement: "See the pattern forming",
+    line: "Not one moment. A cycle.",
   },
   {
-    number: 4,
-    title: "Over time your inner landscape evolves",
-    description: "Returning to the experience over time lets you notice how your responses shift. The focus is on awareness and curiosity, not on fixing or improving.",
-    icon: Leaf,
+    statement: "See where this leads",
+    line: "If nothing changes.",
   },
-]
+  {
+    statement: "Change the direction",
+    line: "Before it becomes your normal.",
+  },
+] as const;
 
 export default function HowItWorksPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
 
       <main className="flex-1 pt-20">
-        {/* Hero */}
-        <section className="max-w-[720px] mx-auto px-6 py-20 md:py-28 animate-luma-fade-in">
-          <span className="text-xs uppercase tracking-widest text-[#5a5a5a]">
-            The Process
-          </span>
-          <h1 className="font-serif text-4xl md:text-5xl leading-tight text-[#2F2F2F] mt-4 text-balance [font-family:var(--font-serif-display)]">
-            How It Works
-          </h1>
-          <p className="mt-6 text-lg text-[#5a5a5a] leading-relaxed max-w-xl">
-            Four rounds of visual selection. You choose what resonates, respond to
-            brief prompts, and receive a personalized reflection — no scores, no labels.
-          </p>
-        </section>
-
-        {/* 4 Steps with icons */}
-        <section className="border-t border-[#E8E3D9]">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <div className="space-y-16 md:space-y-20">
-              {steps.map((step, index) => {
-                const Icon = step.icon
-                return (
-                  <div
-                    key={step.number}
-                    className="animate-luma-fade-in"
-                    style={{ animationDelay: `${index * 80}ms` }}
-                  >
-                    <div className="flex gap-6 md:gap-8">
-                      <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-[#E8E3D9]/60 border border-[#E8E3D9] flex items-center justify-center">
-                        <Icon className="w-6 h-6 text-[#2F2F2F]" strokeWidth={1.5} />
-                      </div>
-                      <div>
-                        <span className="text-xs text-[#5a5a5a] font-medium">
-                          Step {step.number}
-                        </span>
-                        <h2 className="font-serif text-xl md:text-2xl text-[#2F2F2F] mt-2 [font-family:var(--font-serif-display)]">
-                          {step.title}
-                        </h2>
-                        <p className="mt-4 text-[#5a5a5a] leading-relaxed">
-                          {step.description}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
+        {/* HERO (full screen visual) */}
+        <section className="relative min-h-[92svh] flex items-center justify-center px-4 sm:px-6 overflow-hidden">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-20%,rgba(120,90,180,0.22),transparent),radial-gradient(ellipse_55%_40%_at_85%_105%,rgba(100,140,200,0.12),transparent)]"
+          />
+          <div className="relative w-full md:max-w-[1040px] md:mx-auto">
+            <div className="animate-in fade-in slide-in-from-bottom-2 duration-700 -mx-1 sm:mx-0">
+              <RelationshipMapHero
+                size="lg"
+                className="rounded-[28px] shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_26px_120px_rgba(0,0,0,0.65)]"
+                connection={58}
+                distance={46}
+                conflict={52}
+                resolvedCount={3}
+              />
+            </div>
+            <div className="mt-10 text-center px-1">
+              <h1 className="font-serif text-[32px] leading-[1.08] md:text-[48px] md:leading-tight [font-family:var(--font-serif-display)] tracking-tight">
+                Luma shows you what's happening between you.
+              </h1>
+              <p className="mt-4 text-[15px] md:text-base text-white/60 font-light">
+                Not what you say. What you mean.
+              </p>
+              <div className="mt-10 flex justify-center">
+                <Link
+                  href="/couple-hub"
+                  className="w-full max-w-[420px] inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-[#0b0a0d] px-7 py-4 text-base font-medium shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_18px_70px_rgba(140,110,200,0.15)] hover:opacity-95 transition"
+                >
+                  Start Together
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Rounds detail */}
-        <section className="border-t border-[#E8E3D9] bg-[#E8E3D9]/20">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <span className="text-xs uppercase tracking-widest text-[#5a5a5a]">
-              The four rounds
+        {STORY_SECTIONS.map(({ statement, line }) => (
+          <section
+            key={statement}
+            className="border-t border-white/10 px-5 sm:px-8 min-h-svh flex flex-col items-center justify-center py-28 md:py-36"
+          >
+            <div className="w-full max-w-[34rem] mx-auto text-center">
+              <h2 className="font-serif text-[clamp(1.5rem,6vw,2.75rem)] leading-[1.12] [font-family:var(--font-serif-display)] tracking-tight text-white font-medium">
+                {statement}
+              </h2>
+              <p className="mt-6 text-[15px] md:text-lg text-white/55 font-light leading-relaxed">
+                {line}
+              </p>
+            </div>
+          </section>
+        ))}
+
+        {/* Final CTA */}
+        <section className="border-t border-white/10 px-5 sm:px-8 min-h-[85svh] md:min-h-[70svh] flex flex-col items-center justify-center py-28 md:py-36">
+          <Link
+            href="/couple-hub"
+            className="group w-full max-w-[420px] inline-flex items-center justify-center rounded-2xl bg-white px-7 py-4 text-base font-medium text-[#0b0a0d] shadow-[0_0_0_1px_rgba(255,255,255,0.12),0_18px_70px_rgba(140,110,200,0.15)] transition hover:opacity-95"
+          >
+            <span className="inline-flex items-center gap-2">
+              Start seeing clearly
+              <span className="inline-block transition-transform duration-300 group-hover:translate-x-0.5" aria-hidden>
+                →
+              </span>
             </span>
-            <h2 className="font-serif text-2xl text-[#2F2F2F] mt-4 [font-family:var(--font-serif-display)]">
-              Orientation, Tension, Pace, Direction
-            </h2>
-            <p className="mt-4 text-[#5a5a5a] leading-relaxed">
-              Each round has a theme: where your attention rests, what feels unresolved,
-              what rhythm emerges, and what might begin to change. You&apos;ll choose one
-              image per round and answer a short reflective prompt. The whole experience
-              takes about 10–15 minutes.
-            </p>
-          </div>
-        </section>
-
-        {/* Time & Privacy */}
-        <section className="border-t border-[#E8E3D9]">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <div className="grid md:grid-cols-2 gap-12">
-              <div>
-                <h2 className="font-serif text-xl text-[#2F2F2F] [font-family:var(--font-serif-display)]">
-                  Time required
-                </h2>
-                <p className="mt-4 text-[#5a5a5a] leading-relaxed">
-                  The individual reflection takes approximately 10–15 minutes. There
-                  is no timer. Move at your own pace.
-                </p>
-              </div>
-              <div>
-                <h2 className="font-serif text-xl text-[#2F2F2F] [font-family:var(--font-serif-display)]">
-                  Privacy
-                </h2>
-                <p className="mt-4 text-[#5a5a5a] leading-relaxed">
-                  Your selections and responses are used to generate your reflection.
-                  We don&apos;t create profiles or track you across sessions. Each reflection
-                  is a single, private moment.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* CTA */}
-        <section className="border-t border-[#E8E3D9] bg-[#2F2F2F] text-white">
-          <div className="max-w-[720px] mx-auto px-6 py-20 text-center">
-            <h2 className="font-serif text-2xl md:text-3xl [font-family:var(--font-serif-display)]">
-              Begin your reflection
-            </h2>
-            <p className="mt-4 text-white/70 max-w-md mx-auto">
-              The individual reflection is free. Find a quiet moment and see what
-              emerges.
-            </p>
-            <Link
-              href="/begin"
-              className="inline-flex items-center justify-center gap-2 mt-8 px-6 py-3 bg-white text-[#2F2F2F] text-sm font-medium rounded-[12px] hover:opacity-90 transition-opacity"
-            >
-              Start Reflection
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-          </div>
+          </Link>
         </section>
       </main>
 
       <Footer />
     </div>
-  )
+  );
 }

@@ -1,11 +1,11 @@
 "use client";
 
 import type { DepthMode } from "@/lib/depthMode";
+import { depthToneHint } from "@/lib/depthUiMicrocopy";
 
 const OPTIONS: { id: DepthMode; label: string }[] = [
-  { id: "gentle", label: "Gentle" },
-  { id: "balanced", label: "Balanced" },
-  { id: "direct", label: "Direct" },
+  { id: "satin", label: "Satin" },
+  { id: "steel", label: "Steel" },
 ];
 
 type Props = {
@@ -13,7 +13,7 @@ type Props = {
   onChange: (mode: DepthMode) => void;
   className?: string;
   disabled?: boolean;
-  /** Cream/light surfaces (e.g. /test, /reflect) */
+  /** @deprecated Kept for API compatibility; styling is always dark glass. */
   variant?: "dark" | "light";
 };
 
@@ -22,28 +22,18 @@ export function DepthModeSelector({
   onChange,
   className = "",
   disabled = false,
-  variant = "dark",
+  variant: _variant = "dark",
 }: Props) {
-  const light = variant === "light";
-
   return (
     <div
       className={`flex flex-col gap-1.5 ${className}`}
       role="group"
-      aria-label="Insight depth"
+      aria-label="Depth tone"
     >
-      <span
-        className={`text-[10px] font-medium uppercase tracking-[0.12em] ${light ? "text-[#7a7268]" : "text-[#6d6578]"}`}
-      >
-        Depth mode
+      <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+        Depth tone
       </span>
-      <div
-        className={`inline-flex rounded-xl border p-1 shadow-inner ${
-          light
-            ? "border-[#E8E3D9] bg-[#FDFCF9]/95"
-            : "border-[#2e2a35]/90 bg-[#141218]/90"
-        }`}
-      >
+      <div className="inline-flex rounded-xl border border-white/10 bg-white/[0.04] p-1 shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] backdrop-blur-sm">
         {OPTIONS.map(({ id, label }) => {
           const active = value === id;
           return (
@@ -54,14 +44,10 @@ export function DepthModeSelector({
               onClick={() => onChange(id)}
               className={[
                 "relative rounded-lg px-3 py-2 text-xs font-medium transition-all duration-200 md:px-4 md:text-[13px]",
-                light
-                  ? active
-                    ? "bg-[#2F2F2F] text-white shadow-sm"
-                    : "text-[#5a5a5a] hover:text-[#2F2F2F]"
-                  : active
-                    ? "bg-[#2a2635] text-[#f0ebe4] shadow-[0_2px_12px_rgba(0,0,0,0.35)]"
-                    : "text-[#8a8278] hover:text-[#c9c0b4]",
-                disabled ? "opacity-45 pointer-events-none" : "",
+                active
+                  ? "bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_24px_rgba(120,90,180,0.2)]"
+                  : "text-muted-foreground hover:bg-white/[0.05] hover:text-foreground",
+                disabled ? "pointer-events-none opacity-45" : "",
               ].join(" ")}
             >
               {label}
@@ -69,6 +55,9 @@ export function DepthModeSelector({
           );
         })}
       </div>
+      <p className="mt-2.5 max-w-[20rem] self-center text-center text-xs leading-snug text-muted-foreground/85 md:mt-3 md:text-[13px] md:leading-relaxed">
+        {depthToneHint(value)}
+      </p>
     </div>
   );
 }

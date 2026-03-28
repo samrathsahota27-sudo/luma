@@ -17,6 +17,7 @@ export async function GET(req, { params }) {
     return NextResponse.json({
       fromReflectionContent: invite.fromReflectionContent,
       toEmail: invite.toEmail,
+      recipientReady: Boolean(invite.recipientReadyAt),
     });
   } catch (error) {
     console.error("Invites GET error:", error);

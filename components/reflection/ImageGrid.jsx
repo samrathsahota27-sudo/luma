@@ -12,7 +12,7 @@ export function ImageGrid({
 }) {
   const hasSelection = selectedIndex != null;
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid w-full min-w-0 grid-cols-2 gap-3 sm:gap-4">
       {images.map((imgName, index) => (
         <ImageOption
           key={imgName}

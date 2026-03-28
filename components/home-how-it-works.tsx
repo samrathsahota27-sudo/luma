@@ -57,9 +57,9 @@ export function HomeHowItWorks() {
   }, [updateActiveIndex])
 
   return (
-    <section className="px-6 py-20 md:py-24 bg-[#E8E3D9]/20 border-t border-[#E8E3D9]">
+    <section className="px-6 py-20 md:py-24 bg-white/[0.03] border-t border-white/10">
       <div className="max-w-[960px] mx-auto">
-        <h2 className="font-serif text-[26px] md:text-[30px] text-center text-[#2F2F2F] [font-family:var(--font-serif-display)] mb-12">
+        <h2 className="font-serif text-[26px] md:text-[30px] text-center text-foreground [font-family:var(--font-serif-display)] mb-12">
           How it works
         </h2>
 
@@ -81,16 +81,16 @@ export function HomeHowItWorks() {
                 }`}
               >
                 {step.num === "1" || step.num === "2" || step.num === "3" ? (
-                  <div className="relative rounded-2xl overflow-hidden bg-white shadow-[0_10px_30px_rgba(0,0,0,0.05)]">
+                  <div className="relative overflow-hidden rounded-2xl border border-white/10 shadow-[var(--luma-card-shadow)]">
                     {/* TEXT */}
-                    <div className="relative z-10 p-6 text-center">
-                      <p className="text-xs tracking-widest text-gray-400 mb-2">
+                    <div className="relative z-10 bg-white/[0.04] p-6 text-center backdrop-blur-md">
+                      <p className="mb-2 text-xs tracking-widest text-muted-foreground">
                         STEP {step.num}
                       </p>
-                      <h3 className="text-lg font-medium text-gray-900">
+                      <h3 className="text-lg font-medium text-foreground">
                         {step.title}
                       </h3>
-                      <p className="text-sm text-gray-500 mt-2">
+                      <p className="mt-2 text-sm text-muted-foreground">
                         {step.text}
                       </p>
                     </div>
@@ -111,20 +111,20 @@ export function HomeHowItWorks() {
                         decoding="async"
                       />
                       {/* FADE EFFECT */}
-                      <div className="absolute inset-0 bg-gradient-to-b from-white via-white/70 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-[#0a0910]/95 via-[#0a0910]/40 to-transparent" />
                     </div>
                   </div>
                 ) : (
-                  <div className="relative rounded-[24px] bg-white/70 backdrop-blur-sm border border-[#E8E3D9]/70 shadow-[0_12px_40px_rgba(0,0,0,0.06)] p-6 md:p-8">
-                    <div className="relative overflow-hidden rounded-2xl p-6 md:p-8 bg-white">
+                  <div className="relative rounded-[24px] border border-white/10 bg-white/[0.05] p-6 shadow-[var(--luma-card-shadow)] backdrop-blur-sm md:p-8">
+                    <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-6 md:p-8">
                       <div className="relative z-10 text-center">
-                        <p className="text-xs tracking-widest text-gray-400 uppercase">
+                        <p className="text-xs uppercase tracking-widest text-muted-foreground">
                           STEP {step.num}
                         </p>
-                        <h3 className="text-lg md:text-xl font-medium mt-1 text-[#2F2F2F]">
+                        <h3 className="mt-1 text-lg font-medium text-foreground md:text-xl">
                           {step.title}
                         </h3>
-                        <p className="text-sm md:text-[15px] text-gray-500 mt-2 leading-relaxed max-w-[520px] mx-auto">
+                        <p className="mx-auto mt-2 max-w-[520px] text-sm leading-relaxed text-muted-foreground md:text-[15px]">
                           {step.text}
                         </p>
                       </div>
@@ -138,7 +138,7 @@ export function HomeHowItWorks() {
                       />
                       <div
                         aria-hidden
-                        className="absolute bottom-0 left-0 w-full h-48 bg-gradient-to-t from-white via-white/80 to-transparent"
+                        className="absolute bottom-0 left-0 h-48 w-full bg-gradient-to-t from-[#0a0910] via-[#0a0910]/70 to-transparent"
                       />
                     </div>
                   </div>
@@ -155,10 +155,10 @@ export function HomeHowItWorks() {
               type="button"
               onClick={() => scrollToIndex(index)}
               aria-label={`Go to step ${index + 1}`}
-              className={`rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F2F2F]/20 ${
+              className={`rounded-full transition-all duration-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
                 index === activeIndex
-                  ? "w-8 h-2.5 bg-[#2F2F2F]/55"
-                  : "w-2.5 h-2.5 bg-[#2F2F2F]/20 hover:bg-[#2F2F2F]/35"
+                  ? "w-8 h-2.5 bg-violet-400/45"
+                  : "w-2.5 h-2.5 bg-violet-400/25 hover:bg-violet-400/30"
               }`}
             />
           ))}

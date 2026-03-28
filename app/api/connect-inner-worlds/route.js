@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
+import { extractOpenAIResponsesText, parseAiReflectionOutput } from "@/lib/aiReflectionOutput";
 
 /**
  * Generates a couple insight from two users' individual reflection texts.
@@ -34,13 +35,34 @@ Section 4 — A gentle direction for growth
 Offer one or two gentle, concrete suggestions for how the couple might nurture what emerged—together or individually.
 
 Tone: Calm, psychologically precise, respectful of both. Speak to "you" (the couple) in second person. Do not diagnose or prescribe; reflect and invite.
+
+Identity-based language (reflection, brutalTruth, trackerInsight, shadowInsight, conflictFrictionPoints, dangerousQuestion):
+- Habit phrasing that lands as personally seen: "You both tend to…", "You often…", "One of you tends to… while the other…", "You avoid…", "You reach for…" — vary stems; ground every claim in the two reflection texts below.
+- No generic couple platitudes ("You balance each other") unless tied to a specific pattern in the texts.
+- conflictFrictionPoints: personA / personB as behavioral snapshots ("tends to" / "often"); mismatch = mechanics.
+- Forbidden: vague personality typing, horoscope tone, filler.
+
+CRITICAL — OUTPUT FORMAT:
+Return a single JSON object only. No markdown code fences, no text before or after the JSON.
+
+Required keys:
+- "brutalTruth": one sentence only (about 14–26 words). Prefer "You both tend to…" / "You often…" (or similar identity-habit open) naming a concrete relational tension visible across these two reflection texts, with a clear cost. Direct, emotionally sharp, slightly uncomfortable, honest but never insulting. Not generic or soft.
+- "emotionalTag": 2–5 words, shared mood between these two inner worlds for a timeline.
+- "trackerInsight": one line max ~100 characters; "you" as the couple; identity-habit phrasing when natural; scannable; grounded in the two texts.
+- "calendarState": exactly one of "calm" | "friction" | "distance" | "clarity" for this couple snapshot.
+- "reflection": string containing the full four-section reflection (headings, blank lines between sections). Preserve newlines.
+- "dangerousQuestion": REQUIRED. Exactly one short question (one sentence, must end with ?). For the couple—specific to the two reflection texts below; invites real conversation, slightly uncomfortable but fair. Not generic.
+- "shadowInsight": one or two short sentences (max ~220 characters). A pattern both may be missing—specific to these two reflection texts. ~70% pattern / ~30% grounding. Behaviors only; no harsh labels.
+- "conflictFrictionPoints": JSON array of 2 or 3 objects. Each object: "personA" (≤120 chars, one sentence about the author of Reflection A’s style in that slice), "personB" (same for Reflection B), "mismatch" (≤160 chars, why those patterns collide—mechanics not blame). Vary rows across communication, emotional expression, conflict response, needs vs behavior.
+
+Do not repeat brutalTruth, emotionalTag, trackerInsight, dangerousQuestion, shadowInsight, or conflictFrictionPoints inside "reflection".
 `;
 }
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { reflectionA, reflectionB } = body;
+    const payload = await req.json();
+    const { reflectionA, reflectionB } = payload;
 
     if (!reflectionA || !reflectionB || typeof reflectionA !== "string" || typeof reflectionB !== "string") {
       return NextResponse.json(
@@ -65,9 +87,31 @@ export async function POST(req) {
       input: prompt,
     });
 
-    const result = response.output[0].content[0].text;
+    const raw = extractOpenAIResponsesText(response);
+    const {
+      brutalTruth,
+      body: reflectionBody,
+      emotionalTag,
+      trackerInsight,
+      dangerousQuestion,
+      shadowInsight,
+      conflictFrictionPoints,
+    } = parseAiReflectionOutput(raw);
+    const result = reflectionBody || raw;
+    if (!result) {
+      return NextResponse.json({ error: "Could not generate couple insight" }, { status: 500 });
+    }
 
-    return NextResponse.json({ result });
+    return NextResponse.json({
+      result,
+      ...(brutalTruth ? { brutalTruth } : {}),
+      ...(emotionalTag ? { emotionalTag } : {}),
+      ...(trackerInsight ? { trackerInsight } : {}),
+      ...(calendarState ? { calendarState } : {}),
+      ...(dangerousQuestion ? { dangerousQuestion } : {}),
+      ...(shadowInsight ? { shadowInsight } : {}),
+      ...(conflictFrictionPoints?.length ? { conflictFrictionPoints } : {}),
+    });
   } catch (error) {
     console.error("Connect inner worlds error:", error);
     return NextResponse.json(

@@ -89,6 +89,16 @@ function getIndividualTitle(userName: string | null | undefined): string {
   return userName && userName.trim() ? `${userName.trim()}'s Inner World` : "Your Inner World";
 }
 
+/** Display title for DOM story card (same copy as canvas export). */
+export function getStoryCardTitle(
+  options: Pick<StoryCardOptions, "mode" | "userName" | "nameA" | "nameB" | "cardVariant">
+): string {
+  if (options.mode === "individual") {
+    return getIndividualTitle(options.userName);
+  }
+  return getCoupleTitle(options.cardVariant, options.nameA, options.nameB);
+}
+
 function getCoupleTitle(
   variant: CoupleCardVariant | undefined,
   nameA: string | null | undefined,
@@ -160,8 +170,12 @@ export function downloadStoryCard(blob: Blob, filename = "luma-story.png") {
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  a.rel = "noopener";
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(a);
+  window.setTimeout(() => URL.revokeObjectURL(url), 2500);
 }
 
 /**

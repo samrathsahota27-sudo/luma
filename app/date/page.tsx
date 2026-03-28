@@ -9,6 +9,7 @@ import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { dateExampleHint, dateTagline } from "@/lib/depthUiMicrocopy";
 
 type DateResult = {
   state: string;
@@ -125,7 +126,7 @@ export default function DatePrescriptionPage() {
               />
             </label>
             <p className="mt-2 text-xs text-[#5c564c] font-light leading-relaxed">
-              Example: We&apos;ve been arguing a lot lately — or — We feel distant and disconnected
+              {dateExampleHint(depthMode)}
             </p>
 
             {error && (

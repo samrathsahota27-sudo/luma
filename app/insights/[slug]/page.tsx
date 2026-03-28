@@ -58,34 +58,34 @@ export default async function InsightArticlePage({ params }: Props) {
   if (!article) notFound()
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
 
       <main className="flex-1 pt-20">
         <article className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
           <Link
             href="/insights"
-            className="text-sm text-[#5a5a5a] hover:text-[#2F2F2F] transition-colors"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             ← Insights
           </Link>
-          <h1 className="font-serif text-3xl md:text-4xl leading-tight text-[#2F2F2F] mt-6 text-balance [font-family:var(--font-serif-display)]">
+          <h1 className="font-serif text-3xl md:text-4xl leading-tight text-foreground mt-6 text-balance [font-family:var(--font-serif-display)]">
             {article.title}
           </h1>
-          <p className="mt-4 text-[#5a5a5a] text-lg leading-relaxed">
+          <p className="mt-4 text-muted-foreground text-lg leading-relaxed">
             {article.excerpt}
           </p>
           <div className="mt-12 space-y-6">
             {article.content.map((paragraph, i) => (
-              <p key={i} className="text-[#5a5a5a] leading-relaxed">
+              <p key={i} className="text-muted-foreground leading-relaxed">
                 {paragraph}
               </p>
             ))}
           </div>
-          <div className="mt-14 pt-8 border-t border-[#E8E3D9]">
+          <div className="mt-14 pt-8 border-t border-white/10">
             <Link
               href="/insights"
-              className="inline-flex items-center gap-2 text-sm text-[#2F2F2F] font-medium hover:opacity-80 transition-opacity"
+              className="inline-flex items-center gap-2 text-sm text-foreground font-medium hover:opacity-80 transition-opacity"
             >
               All insights
               <ArrowRight className="w-4 h-4" />
@@ -93,14 +93,14 @@ export default async function InsightArticlePage({ params }: Props) {
           </div>
         </article>
 
-        <section className="border-t border-[#E8E3D9] bg-[#E8E3D9]/20">
+        <section className="border-t border-white/10 bg-white/[0.03]">
           <div className="max-w-[720px] mx-auto px-6 py-16 text-center">
-            <p className="text-[#2F2F2F] font-serif text-lg [font-family:var(--font-serif-display)]">
+            <p className="text-foreground font-serif text-lg [font-family:var(--font-serif-display)]">
               Ready to explore your inner world?
             </p>
             <Link
               href="/test"
-              className="inline-flex items-center justify-center gap-2 mt-6 px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center justify-center gap-2 mt-6 px-5 py-3 rounded-[12px] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Begin Reflection
               <ArrowRight className="w-4 h-4" />

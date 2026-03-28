@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useCallback, useState, useEffect, useRef } from "react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ImageGrid } from "@/components/reflection/ImageGrid";
+import { RoundFiveImageGrid } from "@/components/reflection/RoundFiveImageGrid";
 import { ResponseInput } from "@/components/reflection/ResponseInput";
 
 const EMOTIONAL_TAGS = [
@@ -75,6 +77,8 @@ export function TestRound({
   totalRounds = 4,
   showProgressBar = false,
   roundTitles,
+  spaceBetweenRound = false,
+  onBack,
 }) {
   const reflectionRef = useRef(null);
   const noneSectionRef = useRef(null);
@@ -82,7 +86,8 @@ export function TestRound({
   const effectiveSelectedOption =
     selectedOption ?? (noneSelected ? "none" : selectedIndex != null ? "image" : null);
   const showNoneSection = effectiveSelectedOption === "none";
-  const showReflectionUI = effectiveSelectedOption === "image" && selectedIndex != null;
+  const showReflectionUI =
+    !spaceBetweenRound && effectiveSelectedOption === "image" && selectedIndex != null;
 
   const trimmed = String(textValue || "").trim();
   const isEmpty = !trimmed;
@@ -152,6 +157,14 @@ export function TestRound({
     [onSelectImage, scrollToReflection]
   );
 
+  const handleSpaceBetweenSelect = useCallback(
+    (index) => {
+      onSelectImage(index);
+      setReflectionRevealed(false);
+    },
+    [onSelectImage]
+  );
+
   const handleSelectNoneWithScroll = useCallback(() => {
     if (!onSelectNone) return;
     onSelectNone();
@@ -168,24 +181,39 @@ export function TestRound({
   const roundQuestion = ROUND_QUESTIONS[Math.max(0, (round ?? 1) - 1)] ?? ROUND_QUESTIONS[0];
   const topQuestion = question || roundQuestion;
 
+  const showBack = typeof onBack === "function" && round > 1;
+
   return (
     <>
       <div className="max-w-[720px] mx-auto px-6 py-8 md:py-10">
         {/* 1. Header: LUMA, round indicator, thin progress bar */}
         <header className="mb-10 md:mb-12">
+          {showBack ? (
+            <div className="mb-4 flex justify-start">
+              <button
+                type="button"
+                onClick={onBack}
+                className="inline-flex min-h-[44px] min-w-[44px] items-center gap-1.5 rounded-xl border border-white/12 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-foreground shadow-[0_1px_0_rgba(255,255,255,0.06)] transition-[transform,background-color] motion-safe:active:scale-[0.98] hover:bg-white/[0.08] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500/45 -ml-1"
+                aria-label="Back to previous round"
+              >
+                <ChevronLeft className="h-5 w-5 shrink-0 opacity-90" strokeWidth={2} aria-hidden />
+                Back
+              </button>
+            </div>
+          ) : null}
           <div className="flex items-center justify-between">
             <Link
               href="/"
-              className="font-serif text-xl tracking-tight text-[#2F2F2F] hover:opacity-80 transition-opacity duration-200 [font-family:var(--font-serif-display)]"
+              className="font-serif text-xl tracking-tight text-foreground hover:opacity-80 transition-opacity duration-200 [font-family:var(--font-serif-display)]"
             >
               LUMA
             </Link>
-            <span className="text-xs uppercase tracking-widest text-[#5a5a5a]">
+            <span className="text-xs uppercase tracking-widest text-muted-foreground">
               Round {round} of {total}
             </span>
           </div>
           <div
-            className="mt-3 h-0.5 w-full rounded-full bg-[#E8E3D9] overflow-hidden"
+            className="mt-3 h-0.5 w-full rounded-full bg-white/10 overflow-hidden"
             role="progressbar"
             aria-valuenow={round}
             aria-valuemin={1}
@@ -193,7 +221,7 @@ export function TestRound({
             aria-label={`Round ${round} of ${total}`}
           >
             <div
-              className="h-full bg-[#2F2F2F] rounded-full transition-all duration-[300ms] ease-out"
+              className="h-full bg-primary rounded-full transition-all duration-[300ms] ease-out"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -201,21 +229,33 @@ export function TestRound({
 
         {/* 2. Image selection section */}
         <section className="mb-10">
-          <h2 className="text-lg font-medium text-gray-800 mb-4 text-center">
+          <h2 className="mb-4 text-center text-lg font-medium text-foreground">
             {topQuestion}
           </h2>
-          <div className="rounded-[16px] bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-[#E8E3D9]/60">
-            <ImageGrid
-              images={images}
-              selectedIndex={selectedIndex}
-              onSelectImage={handleSelectImageWithScroll}
-            />
+          <div
+            className={cn(
+              "rounded-[16px] luma-glass border border-white/10",
+              spaceBetweenRound ? "p-4 sm:p-5" : "p-6"
+            )}
+          >
+            {spaceBetweenRound ? (
+              <RoundFiveImageGrid
+                selectedIndex={selectedIndex}
+                onSelectImage={handleSpaceBetweenSelect}
+              />
+            ) : (
+              <ImageGrid
+                images={images}
+                selectedIndex={selectedIndex}
+                onSelectImage={handleSelectImageWithScroll}
+              />
+            )}
           </div>
-          {showNone && (
+          {showNone && !spaceBetweenRound && (
             <button
               type="button"
               onClick={handleSelectNoneWithScroll}
-              className="mt-4 text-sm text-gray-500 underline w-full text-center hover:text-gray-700 transition-colors"
+              className="mt-4 text-sm text-muted-foreground underline w-full text-center hover:text-foreground transition-colors"
             >
               None of these reflect me
             </button>
@@ -225,14 +265,14 @@ export function TestRound({
         {/* None-of-these deeper reflection */}
         {showNoneSection && (
           <div id="none-section" ref={noneSectionRef} className="mt-6">
-            <p className="text-sm text-gray-600 mb-2 text-center">
+            <p className="text-sm text-muted-foreground mb-2 text-center">
               Why none of these feels right?
             </p>
             <textarea
               value={noneText}
               onChange={(e) => onNoneTextChange?.(e.target.value)}
               placeholder="Write what feels true…"
-              className="w-full p-3 rounded-lg border text-sm bg-white"
+              className="w-full p-3 rounded-lg border border-white/10 text-sm bg-white/[0.04] text-foreground placeholder:text-muted-foreground"
               rows={4}
             />
           </div>
@@ -247,7 +287,7 @@ export function TestRound({
               reflectionRevealed ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
             )}
           >
-            <h2 className="font-serif text-[18px] md:text-[20px] text-[#2F2F2F] mb-4 [font-family:var(--font-serif-display)]">
+            <h2 className="font-serif text-[18px] md:text-[20px] text-foreground mb-4 [font-family:var(--font-serif-display)]">
               {((tags ?? []).length ?? 0) > 0 ? "Choose a few words (optional)" : "Write what feels true"}
             </h2>
             {((tags ?? []).length ?? 0) > 0 && (
@@ -263,8 +303,8 @@ export function TestRound({
                         className={cn(
                           "px-4 py-2 rounded-full text-sm font-medium transition-all duration-[200ms] ease-out",
                           active
-                            ? "bg-[#2F2F2F] text-white"
-                            : "bg-[#E8E3D9]/50 text-[#5a5a5a] hover:bg-[#E8E3D9] border border-[#E8E3D9]"
+                            ? "bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)]"
+                            : "bg-white/[0.06] text-muted-foreground hover:bg-white/[0.1] border border-white/10"
                         )}
                         aria-pressed={active}
                       >
@@ -273,13 +313,13 @@ export function TestRound({
                     );
                   })}
                 </div>
-                <p className="mt-3 text-sm text-[#5a5a5a]">
+                <p className="mt-3 text-sm text-muted-foreground">
                   Or simply write what feels true.
                 </p>
               </>
             )}
 
-            <div className="mt-4 space-y-2 text-sm text-gray-600">
+            <div className="mt-4 space-y-2 text-sm text-muted-foreground">
               {(reflectionLines ?? ["What's happening here?", "How does it feel?", "Fast or slow?"]).slice(0, 3).map((q) => (
                 <p key={q}>• {q}</p>
               ))}
@@ -292,10 +332,10 @@ export function TestRound({
                 onChange={onTextChange}
                 placeholder="Write what feels true…"
                 minRows={6}
-                className="min-h-[180px] rounded-[12px] py-4 text-[15px] leading-relaxed placeholder:text-[#5a5a5a]/70"
+                className="min-h-[180px] rounded-[12px] py-4 text-[15px] leading-relaxed placeholder:text-muted-foreground/70"
               />
               {showIntuition && (
-                <p className="text-xs text-gray-400 mt-3 italic">
+                <p className="text-xs text-white/45 mt-3 italic">
                   I&apos;m not sure why this feels right
                 </p>
               )}
@@ -304,12 +344,12 @@ export function TestRound({
         )}
 
         {/* Continue button — appears only when canProceed */}
-        {canProceed && (
+        {canProceed && !spaceBetweenRound && (
           <div className="mt-8 flex justify-end">
             <button
               type="button"
               onClick={onNext}
-              className="px-5 py-3 text-base font-medium rounded-[12px] transition-all duration-[250ms] bg-[#2F2F2F] text-white hover:opacity-90"
+              className="px-5 py-3 text-base font-medium rounded-[12px] transition-all duration-[250ms] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] hover:opacity-90"
             >
               {round < total ? "Continue" : "See reflection"}
             </button>

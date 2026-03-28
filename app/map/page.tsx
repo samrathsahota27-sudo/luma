@@ -6,9 +6,10 @@ import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { TimelineBar, COUPLE_MAIN_PADDING_TOP } from "@/components/TimelineBar";
 import { ArrowLeft, Lock } from "lucide-react";
+import { RelationshipMapHero } from "@/components/RelationshipMapHero";
 
 /** Flip when Pro / entitlements are wired */
-const MAP_LOCKED = true;
+const MAP_LOCKED = false;
 
 export type RelationshipMapSnapshot = {
   /** ISO timestamp for when this reading was captured */
@@ -23,9 +24,6 @@ const MOCK_DATA = {
   distance: 40,
   conflict: 55,
 } as const;
-
-const MOCK_INSIGHT =
-  "Your connection is stable, but emotional distance is increasing slightly.";
 
 const WEEKLY_DELTAS = [
   { label: "Connection", value: "+5%", up: true },
@@ -128,6 +126,17 @@ export default function RelationshipMapPage() {
             </p>
           </header>
 
+          <div className="mb-10 -mx-1 sm:mx-0">
+            <RelationshipMapHero
+              size="md"
+              className="rounded-2xl border-[#2e2a35]/90 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+              connection={MOCK_DATA.connection}
+              distance={MOCK_DATA.distance}
+              conflict={MOCK_DATA.conflict}
+              resolvedCount={2}
+            />
+          </div>
+
           <div className="rounded-2xl border border-[#2e2a35]/90 bg-[#131118]/88 p-7 md:p-9 shadow-[0_20px_60px_rgba(0,0,0,0.5)] backdrop-blur-xl">
             <div className="space-y-8">
               <MetricBar
@@ -148,10 +157,6 @@ export default function RelationshipMapPage() {
                 invertWarm
               />
             </div>
-
-            <p className="mt-10 text-[15px] leading-relaxed text-[#c4b8a8] font-light border-t border-[#2e2a35]/80 pt-8">
-              {MOCK_INSIGHT}
-            </p>
 
             <div className="mt-6 flex flex-wrap gap-3 justify-center">
               {WEEKLY_DELTAS.map((d) => (
@@ -194,17 +199,17 @@ export default function RelationshipMapPage() {
                 aria-hidden
               />
               <h2 className="relative mt-6 font-serif text-xl md:text-2xl text-[#f2eef6] [font-family:var(--font-serif-display)]">
-                Unlock your relationship map
+                Relationship map
               </h2>
               <p className="relative mt-3 text-sm text-[#9a9288] font-light leading-relaxed">
                 Track connection, distance, and conflict over time — and see where you&apos;re trending
                 before small shifts become habits.
               </p>
               <Link
-                href="/couples/checkout"
+                href="/couple-hub"
                 className="relative mt-8 inline-flex w-full items-center justify-center rounded-xl bg-[#e8e4e0] px-6 py-3.5 text-sm font-semibold text-[#1a1816] transition-opacity hover:opacity-90"
               >
-                Upgrade to Pro
+                Back to hub
               </Link>
             </div>
           </div>

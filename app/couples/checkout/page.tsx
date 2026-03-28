@@ -1,162 +1,52 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Navigation } from "@/components/navigation"
-import { ArrowLeft, Loader2 } from "lucide-react"
-import Link from "next/link"
+import Link from "next/link";
+import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
+import { ArrowRight } from "lucide-react";
 
 export default function CheckoutPage() {
-  const [email, setEmail] = useState("")
-  const [partnerEmail, setPartnerEmail] = useState("")
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsLoading(true)
-    setError(null)
-
-    // Validate emails
-    if (!email || !partnerEmail) {
-      setError("Please enter both email addresses.")
-      setIsLoading(false)
-      return
-    }
-
-    if (email === partnerEmail) {
-      setError("Please enter different email addresses for each partner.")
-      setIsLoading(false)
-      return
-    }
-
-    try {
-      // In production, this would redirect to Stripe Checkout
-      const response = await fetch("/api/create-checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, partnerEmail })
-      })
-
-      if (!response.ok) {
-        throw new Error("Unable to create checkout session")
-      }
-
-      const data = await response.json()
-      
-      // Redirect to Stripe (or show success for demo)
-      if (data.url) {
-        window.location.href = data.url
-      } else {
-        // Demo mode - show success
-        window.location.href = `/couples/success?session=${data.sessionId}`
-      }
-    } catch {
-      setError("Something went wrong. Please try again.")
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen flex flex-col bg-[#050508] text-[#e8e4df]">
       <Navigation />
-      
-      <main className="pt-20 pb-12">
-        <div className="max-w-md mx-auto px-6 py-16">
-          <Link
-            href="/couples"
-            className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-8"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Couple Reflection
-          </Link>
 
-          <h1 className="font-serif text-2xl md:text-3xl text-foreground">
-            Start your couple reflection
-          </h1>
-          <p className="mt-4 text-muted-foreground">
-            Enter both email addresses to receive private reflection links.
-          </p>
+      <main className="flex-1 pt-20 px-4 sm:px-6 flex items-center justify-center">
+        <div className="w-full max-w-[640px]">
+          <div className="relative overflow-hidden rounded-3xl bg-white/[0.035] backdrop-blur-2xl p-7 md:p-9 shadow-[0_0_0_1px_rgba(255,255,255,0.07),0_30px_120px_rgba(0,0,0,0.70)]">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-0 rounded-3xl bg-[radial-gradient(ellipse_90%_60%_at_50%_-20%,rgba(180,150,255,0.14),transparent),radial-gradient(ellipse_60%_45%_at_90%_120%,rgba(255,210,160,0.10),transparent)]"
+            />
+            <div className="relative text-center">
+              <p className="text-[10px] uppercase tracking-[0.22em] text-white/55 font-medium">Couple mode</p>
+              <h1 className="mt-4 font-serif text-[28px] md:text-[34px] text-white [font-family:var(--font-serif-display)] tracking-tight">
+                Open access (for now)
+              </h1>
+              <p className="mt-4 text-sm text-white/60 font-light">
+                Payments are disabled. Couple mode is unlocked.
+              </p>
 
-          <form onSubmit={handleSubmit} className="mt-10 space-y-6">
-            <div>
-              <label 
-                htmlFor="email" 
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Your email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 border border-border rounded-sm bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
-                required
-              />
-            </div>
-
-            <div>
-              <label 
-                htmlFor="partnerEmail" 
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Your partner&apos;s email
-              </label>
-              <input
-                id="partnerEmail"
-                type="email"
-                value={partnerEmail}
-                onChange={(e) => setPartnerEmail(e.target.value)}
-                placeholder="partner@example.com"
-                className="w-full px-4 py-3 border border-border rounded-sm bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="p-4 bg-destructive/10 border border-destructive/20 rounded-sm">
-                <p className="text-sm text-destructive">{error}</p>
-              </div>
-            )}
-
-            <div className="pt-4 border-t border-border">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm text-muted-foreground">Couple Reflection</span>
-                <span className="text-lg font-serif text-foreground">$29</span>
+              <div className="mt-8 flex justify-center">
+                <Link
+                  href="/couple-hub"
+                  className="w-full max-w-[420px] inline-flex items-center justify-center gap-2 rounded-2xl bg-white text-[#0b0a0d] px-7 py-4 text-base font-medium shadow-[0_14px_70px_rgba(255,255,255,0.14)] hover:opacity-95 transition"
+                >
+                  Go to Control Panel
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
               </div>
 
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded-sm hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Processing...
-                  </>
-                ) : (
-                  "Continue to Payment"
-                )}
-              </button>
+              <div className="mt-5">
+                <Link href="/couples" className="text-xs text-white/55 hover:text-white/80 transition-colors">
+                  Back to Couples
+                </Link>
+              </div>
             </div>
-          </form>
-
-          <p className="mt-8 text-xs text-muted-foreground text-center">
-            By continuing, you agree to our{" "}
-            <Link href="/privacy" className="underline hover:text-foreground">
-              Privacy Policy
-            </Link>{" "}
-            and{" "}
-            <Link href="/disclaimer" className="underline hover:text-foreground">
-              Disclaimer
-            </Link>
-            .
-          </p>
+          </div>
         </div>
       </main>
+
+      <Footer />
     </div>
-  )
+  );
 }

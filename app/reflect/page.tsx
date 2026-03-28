@@ -1,26 +1,55 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { TestRound } from "@/components/reflection/TestRound";
-import { reflectionRounds } from "@/lib/reflection/reflectionRounds";
+import { reflectionRounds, INDIVIDUAL_TOTAL_ROUNDS } from "@/lib/reflection/reflectionRounds";
+import { parseRound5SpaceBetweenFromApi } from "@/lib/reflection/round5OutputGenerator";
 import { getNextRound, buildReflectionSummary } from "@/lib/reflection/reflectionEngine";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
+import { deriveUiFromSavedRound, persistCurrentRoundIntoAnswers } from "@/lib/reflection/roundFlowState";
 import { saveIndividualReflectionWithEmail, getLastIndividualReflection, getIndividualReflectionCount, getCurrentUserName } from "@/lib/reflectionStorage";
 import { nameToSlug } from "@/lib/referralSlug";
 import { getReflectionMirrorMessage } from "@/lib/reflectionMirror";
-import { generateStoryCardBlob, generateLetterStoryBlob, downloadStoryCard, shareOrDownloadStoryCard } from "@/lib/storyCard";
+import {
+  generateStoryCardBlob,
+  generateLetterStoryBlob,
+  downloadStoryCard,
+  shareOrDownloadStoryCard,
+  getStoryCardTitle,
+} from "@/lib/storyCard";
+import { StoryCardFrame } from "@/components/StoryCardFrame";
+import { StoryShareButtons } from "@/components/StoryShareButtons";
 import { StructuredResultSections } from "@/components/structured-result-sections";
+import { HowToReadThisVisual } from "@/components/HowToReadThisVisual";
+import { InSimpleWordsSection } from "@/components/InSimpleWordsSection";
+import { DangerousQuestionBlock } from "@/components/DangerousQuestionBlock";
+import { BrutalTruthHeadline } from "@/components/BrutalTruthHeadline";
+import { RoundFiveInsightCard, type Round5SpaceBetweenPayload } from "@/components/RoundFiveInsightCard";
 import { Loader2 } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { reflectIntroPrimary, reflectIntroSecondary } from "@/lib/depthUiMicrocopy";
 import { getMemory } from "@/lib/memory";
 import { saveMemoryForCurrentUser, signInWithPassword, signUpWithPassword } from "@/lib/memoryCloud";
+import {
+  buildEmotionSessionSignature,
+  tryRecordEmotionTrackerSession,
+} from "@/lib/emotionalTracker";
+import { insertEmotionTrackerRowOncePerSession } from "@/lib/emotionalTrackerSupabase";
+import { resolveCalendarMood } from "@/lib/calendarOfUs";
+import {
+  resolveHowToReadTagsFromSelections,
+  resolveRound5PsychologicalSupplementLines,
+  parseInSimpleWordsFromApi,
+} from "@/lib/resultHelpers";
+import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
+import { ReviewAnswersScreen } from "@/components/ReviewAnswersScreen";
 
-type ReflectionPhase = "intro" | "rounds" | "generating" | "complete";
+type ReflectionPhase = "intro" | "rounds" | "review" | "generating" | "complete";
 
 const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 
@@ -50,6 +79,13 @@ export default function ReflectPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
   const [reflection, setReflection] = useState<string | null>(null);
+  const [brutalTruth, setBrutalTruth] = useState<string | null>(null);
+  const [inSimpleWords, setInSimpleWords] = useState<string[] | null>(null);
+  const [dangerousQuestion, setDangerousQuestion] = useState<string | null>(null);
+  const [shadowInsight, setShadowInsight] = useState<string | null>(null);
+  const [emotionalTag, setEmotionalTag] = useState<string | null>(null);
+  const [trackerInsight, setTrackerInsight] = useState<string | null>(null);
+  const [calendarState, setCalendarState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saveEmail, setSaveEmail] = useState("");
   const [reminderEmail, setReminderEmail] = useState("");
@@ -58,6 +94,7 @@ export default function ReflectPage() {
   const [savedWithEmail, setSavedWithEmail] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [storyLoading, setStoryLoading] = useState(false);
+  const storyCardRef = useRef<HTMLDivElement | null>(null);
   const [previousReflection, setPreviousReflection] = useState<{ content: string } | null>(null);
   const [innerShiftText, setInnerShiftText] = useState<string | null>(null);
   const [innerShiftLoading, setInnerShiftLoading] = useState(false);
@@ -68,6 +105,13 @@ export default function ReflectPage() {
   const [referralLinkShown, setReferralLinkShown] = useState(false);
   const [referralLink, setReferralLink] = useState("");
   const [referralCopied, setReferralCopied] = useState(false);
+  const [round5SpaceBetween, setRound5SpaceBetween] = useState<Round5SpaceBetweenPayload | null>(null);
+
+  const answersRef = useRef(answers);
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
 
   const registerReminder = async (email: string) => {
     const value = email.trim();
@@ -95,7 +139,7 @@ export default function ReflectPage() {
   }, []);
 
   useEffect(() => {
-    if (phase !== "rounds") return;
+    if (phase !== "rounds" && phase !== "review") return;
     const handler = () => {
       try {
         const email = (reminderEmail || localStorage.getItem("luma_reminder_email") || "").trim();
@@ -121,15 +165,22 @@ export default function ReflectPage() {
   useEffect(() => {
     if (phase !== "rounds") return;
     setIsTransitioning(true);
-    setShowNone(false);
-    setTextValue("");
-    setSelectedIndex(null);
-    setSelectedImage(null);
-    setSelectedOption(null);
-    setNoneText("");
-    setSelectedTags((prev) => ({ ...prev, [currentRound]: [] }));
     setError(null);
 
+    const saved = answersRef.current[currentRound];
+    const ui = deriveUiFromSavedRound(saved);
+
+    setSelectedIndex(ui.selectedIndex);
+    setSelectedImage(ui.selectedImage);
+    setSelectedOption(ui.selectedOption);
+    setTextValue(ui.textValue);
+    setNoneText(ui.noneText);
+    setSelectedTags((prev) => ({
+      ...prev,
+      [currentRound]: ui.tagsForRound,
+    }));
+
+    setShowNone(false);
     const transitionTimer = setTimeout(() => {
       setIsTransitioning(false);
     }, 500);
@@ -143,6 +194,25 @@ export default function ReflectPage() {
       clearTimeout(transitionTimer);
     };
   }, [currentRound, phase]);
+
+  const handleBack = () => {
+    if (currentRound <= 1) return;
+    setAnswers((prev) => {
+      const next = persistCurrentRoundIntoAnswers({
+        answers: prev,
+        currentRound,
+        selectedOption: selectedOption ?? undefined,
+        selectedImage,
+        textValue,
+        noneText,
+        selectedTagsForRound: selectedTags[currentRound] ?? [],
+        getRoundTag,
+      });
+      answersRef.current = next;
+      return next;
+    });
+    setCurrentRound((r) => r - 1);
+  };
 
   const handleSelectImage = (index: number) => {
     setSelectedIndex(index);
@@ -199,52 +269,113 @@ export default function ReflectPage() {
   const handleNext = async () => {
     if (!canProceed) return;
 
-    const next = getNextRound(currentRound);
-    if (next !== null) {
-      setCurrentRound(next);
+    const nextRound = getNextRound(currentRound, INDIVIDUAL_TOTAL_ROUNDS);
+
+    setAnswers((prev) => {
+      const next = persistCurrentRoundIntoAnswers({
+        answers: prev,
+        currentRound,
+        selectedOption: selectedOption ?? undefined,
+        selectedImage,
+        textValue,
+        noneText,
+        selectedTagsForRound: selectedTags[currentRound] ?? [],
+        getRoundTag,
+      });
+      answersRef.current = next;
+      return next;
+    });
+
+    if (nextRound !== null) {
+      setCurrentRound(nextRound);
     } else {
-      await generateReflection();
+      setPhase("review");
     }
   };
 
-  const generateReflection = async () => {
+  const handleReviewEdit = (roundNumber: number) => {
+    setError(null);
+    setPhase("rounds");
+    setCurrentRound(roundNumber);
+  };
+
+  const handleReviewContinue = () => {
+    void generateReflection(answersRef.current);
+  };
+
+  const generateReflection = async (
+    selectionsOverride?: Record<
+      number,
+      {
+        selectedType?: "image" | "none";
+        image?: number | null;
+        selectedImageId?: number | null;
+        tag?: string;
+        tags?: string[];
+        userExplanation?: string;
+        text: string;
+        noneText?: string;
+      }
+    > | null
+  ) => {
     setPhase("generating");
     setError(null);
 
-    const finalAnswers = buildReflectionSummary(
-      answers,
-      currentRound,
-      selectedIndex,
-      textValue,
-      selectedOption === "none",
-      noneText
-    );
+    type AnswerMap = Record<
+      number,
+      {
+        selectedType?: "image" | "none";
+        image?: number | null;
+        selectedImageId?: number | null;
+        tag?: string;
+        tags?: string[];
+        userExplanation?: string;
+        text: string;
+        noneText?: string;
+      }
+    >;
 
-    // Ensure last-round tag is present when an image is selected.
-    if (selectedImage !== "none" && selectedIndex != null) {
-      const tag = getRoundTag(currentRound, selectedIndex);
-      finalAnswers[currentRound] = {
-        ...(finalAnswers[currentRound] ?? {}),
-        selectedType: "image",
-        image: selectedIndex,
-        selectedImageId: selectedIndex,
-        tag: tag ?? finalAnswers[currentRound]?.tag,
-        tags: selectedTags[currentRound] ?? finalAnswers[currentRound]?.tags ?? [],
-      };
-    }
-    if (selectedImage === "none") {
-      finalAnswers[currentRound] = {
-        ...(finalAnswers[currentRound] ?? {}),
-        selectedType: "none",
-        selectedImage: "none",
-        image: null,
-        selectedImageId: null,
-        tag: undefined,
-        tags: [],
-        userExplanation: noneText,
-        noneText,
-        text: noneText,
-      };
+    let finalAnswers: AnswerMap;
+
+    if (selectionsOverride && typeof selectionsOverride === "object") {
+      finalAnswers = selectionsOverride;
+    } else {
+      finalAnswers = buildReflectionSummary(
+        answers,
+        currentRound,
+        selectedIndex,
+        textValue,
+        selectedOption === "none",
+        noneText
+      ) as AnswerMap;
+
+      // Ensure last-round tag is present when an image is selected.
+      if (selectedImage !== "none" && selectedIndex != null) {
+        const tag =
+          getRoundTag(currentRound, selectedIndex) ?? finalAnswers[currentRound]?.tag;
+        finalAnswers[currentRound] = {
+          ...(finalAnswers[currentRound] ?? {}),
+          selectedType: "image",
+          image: selectedIndex,
+          selectedImageId: selectedIndex,
+          tag: tag ?? finalAnswers[currentRound]?.tag,
+          tags: selectedTags[currentRound] ?? finalAnswers[currentRound]?.tags ?? [],
+        };
+      }
+      if (selectedImage === "none") {
+        finalAnswers[currentRound] = {
+          ...(finalAnswers[currentRound] ?? {}),
+          selectedType: "none",
+          selectedImage: "none",
+          image: null,
+          selectedImageId: null,
+          tag: undefined,
+          tags: [],
+          userExplanation: noneText,
+          noneText,
+          text: noneText,
+        };
+      }
     }
 
     try {
@@ -265,11 +396,49 @@ export default function ReflectPage() {
 
       const data = await response.json();
       setReflection(data.result);
+      setRound5SpaceBetween(parseRound5SpaceBetweenFromApi(data));
+      setBrutalTruth(typeof data.brutalTruth === "string" ? data.brutalTruth.trim() || null : null);
+      const simpleLines = parseInSimpleWordsFromApi(data);
+      setInSimpleWords(simpleLines.length > 0 ? simpleLines : null);
+      setEmotionalTag(typeof data.emotionalTag === "string" ? data.emotionalTag.trim() || null : null);
+      setTrackerInsight(typeof data.trackerInsight === "string" ? data.trackerInsight.trim() || null : null);
+      setCalendarState(
+        typeof data.calendarState === "string" ? data.calendarState.trim().toLowerCase() || null : null
+      );
+      setDangerousQuestion(
+        typeof data.dangerousQuestion === "string" ? data.dangerousQuestion.trim() || null : null
+      );
+      setShadowInsight(
+        typeof data.shadowInsight === "string" ? data.shadowInsight.trim() || null : null
+      );
+      const sig = buildEmotionSessionSignature({
+        resultPreview: data.result,
+        brutalTruth: typeof data.brutalTruth === "string" ? data.brutalTruth : "",
+        emotionalTag: typeof data.emotionalTag === "string" ? data.emotionalTag : "",
+        sessionType: "individual",
+      });
+      const tracked = tryRecordEmotionTrackerSession({
+        emotionalTag: typeof data.emotionalTag === "string" ? data.emotionalTag : null,
+        trackerInsight: typeof data.trackerInsight === "string" ? data.trackerInsight : null,
+        brutalTruth: typeof data.brutalTruth === "string" ? data.brutalTruth : null,
+        resultPreview: data.result,
+        sessionType: "individual",
+        sessionSignature: sig,
+        calendarState: typeof data.calendarState === "string" ? data.calendarState : null,
+      });
+      if (tracked) {
+        void insertEmotionTrackerRowOncePerSession(sig, {
+          emotionalTag: tracked.tag,
+          shortInsight: tracked.insight,
+          sessionType: "individual",
+          calendarState: tracked.calendarState,
+        });
+      }
       setPhase("complete");
     } catch (err) {
       console.error("Reflect page error:", err);
       setError("Unable to generate your reflection. Please try again.");
-      setPhase("rounds");
+      setPhase("review");
     }
   };
 
@@ -345,6 +514,13 @@ export default function ReflectPage() {
     setTextValue("");
     setSelectedIndex(null);
     setReflection(null);
+    setRound5SpaceBetween(null);
+    setBrutalTruth(null);
+    setInSimpleWords(null);
+    setDangerousQuestion(null);
+    setShadowInsight(null);
+    setEmotionalTag(null);
+    setTrackerInsight(null);
     setError(null);
     setSaveEmail("");
     setSavedWithEmail(false);
@@ -356,6 +532,7 @@ export default function ReflectPage() {
   };
 
   const showRounds = phase === "rounds" && !reflection && !error;
+  const showReview = phase === "review" && !reflection;
   const roundData = reflectionRounds.find((r) => r.roundNumber === currentRound);
 
   return (
@@ -370,12 +547,10 @@ export default function ReflectPage() {
               Individual Reflection
             </h1>
             <p className="mt-6 text-muted-foreground leading-relaxed">
-              You will move through four rounds of visual selection. Each round
-              presents a grid of symbolic images. Choose the one that feels most
-              resonant, then respond to a brief reflective prompt.
+              {reflectIntroPrimary(depthMode)}
             </p>
             <p className="mt-4 text-sm text-muted-foreground">
-              Take your time. There are no right or wrong choices.
+              {reflectIntroSecondary(depthMode)}
             </p>
 
             <div className="mt-8 max-w-md mx-auto">
@@ -450,12 +625,26 @@ export default function ReflectPage() {
                 canProceed={canProceed}
                 onNext={handleNext}
                 showNone={showNone}
-                totalRounds={reflectionRounds.length}
+                totalRounds={INDIVIDUAL_TOTAL_ROUNDS}
                 showProgressBar
-                roundTitles={reflectionRounds.map((r) => r.question)}
+                roundTitles={reflectionRounds
+                  .filter((r) => r.roundNumber <= INDIVIDUAL_TOTAL_ROUNDS)
+                  .map((r) => r.question)}
+                spaceBetweenRound={false}
+                onBack={handleBack}
               />
             )}
           </div>
+        )}
+
+        {showReview && (
+          <ReviewAnswersScreen
+            answers={answers}
+            maxRound={INDIVIDUAL_TOTAL_ROUNDS}
+            onEdit={handleReviewEdit}
+            onContinue={handleReviewContinue}
+            errorMessage={error}
+          />
         )}
 
         {/* Generating Phase */}
@@ -474,9 +663,30 @@ export default function ReflectPage() {
         {/* Complete Phase — premium reading experience */}
         {phase === "complete" && reflection && (
           <div className="max-w-[680px] mx-auto px-6 py-16 md:py-20">
-            <div className="text-center animate-luma-fade-in-slow">
+            <div className="animate-luma-fade-in-slow space-y-8 md:space-y-10">
+              {typeof resolveHowToReadTagsFromSelections === "function" ? (
+                <HowToReadThisVisual
+                  tags={resolveHowToReadTagsFromSelections(answers)}
+                  round5SupplementLines={(() => {
+                    const lines = resolveRound5PsychologicalSupplementLines(answers);
+                    return lines.length ? lines : null;
+                  })()}
+                  className="mx-auto w-full max-w-[680px]"
+                />
+              ) : null}
+              {inSimpleWords && inSimpleWords.length > 0 ? (
+                <InSimpleWordsSection lines={inSimpleWords} className="mx-auto w-full max-w-[680px]" />
+              ) : null}
+              <BrutalTruthHeadline text={brutalTruth} />
+            </div>
+
+            <div className="animate-luma-fade-in-slow" style={{ animationDelay: "40ms" }}>
+              <RoundFiveInsightCard payload={round5SpaceBetween} className="mt-8" />
+            </div>
+
+            <div className="text-center animate-luma-fade-in-slow" style={{ animationDelay: "80ms" }}>
               <h1
-                className="text-[#2a2a2a] text-3xl md:text-4xl tracking-wide [font-family:var(--font-serif-display)]"
+                className="text-foreground text-3xl md:text-4xl tracking-wide [font-family:var(--font-serif-display)]"
                 style={{ letterSpacing: "0.02em" }}
               >
                 Your Reflection
@@ -484,33 +694,33 @@ export default function ReflectPage() {
             </div>
 
             <div className="animate-luma-fade-in" style={{ animationDelay: "200ms" }}>
-              <StructuredResultSections result={reflection} />
+              <StructuredResultSections result={reflection} shadowInsight={shadowInsight} />
             </div>
 
             {/* Your Inner Shift — only when user has a previous reflection */}
             {previousReflection && (
               <div className="mt-16 md:mt-20 max-w-[680px] animate-luma-fade-in" style={{ animationDelay: "250ms" }}>
-                <h2 className="text-[#2a2a2a] text-xl md:text-2xl [font-family:var(--font-serif-display)] mb-4 border-b border-[#e8e3d9] pb-3">
+                <h2 className="text-foreground text-xl md:text-2xl [font-family:var(--font-serif-display)] mb-4 border-b border-white/10 pb-3">
                   Your Inner Shift
                 </h2>
                 {innerShiftLoading && (
-                  <p className="text-[#5a5a5a] text-base italic">Noting how your reflection has shifted...</p>
+                  <p className="text-muted-foreground text-base italic">Noting how your reflection has shifted...</p>
                 )}
                 {!innerShiftLoading && innerShiftText && (
                   <>
-                    <p className="text-[#3d3d3d] text-base leading-[1.8] font-sans">
+                    <p className="text-foreground/90 text-base leading-[1.8] font-sans">
                       {innerShiftText}
                     </p>
                     <div className="mt-8 grid grid-cols-2 gap-4">
-                      <div className="rounded-2xl bg-[#f8f6f3] border border-[#e8e3d9] p-4">
-                        <p className="text-xs uppercase tracking-wider text-[#5a5a5a] mb-2">Then</p>
-                        <p className="text-sm text-[#3d3d3d] leading-relaxed line-clamp-4">
+                      <div className="luma-glass border border-white/10 p-4">
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Then</p>
+                        <p className="text-sm text-foreground/90 leading-relaxed line-clamp-4">
                           {previousReflection.content.replace(/\n/g, " ").slice(0, 180)}…
                         </p>
                       </div>
-                      <div className="rounded-2xl bg-[#f8f6f3] border border-[#e8e3d9] p-4">
-                        <p className="text-xs uppercase tracking-wider text-[#5a5a5a] mb-2">Now</p>
-                        <p className="text-sm text-[#3d3d3d] leading-relaxed line-clamp-4">
+                      <div className="luma-glass border border-white/10 p-4">
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Now</p>
+                        <p className="text-sm text-foreground/90 leading-relaxed line-clamp-4">
                           {reflection.replace(/\n/g, " ").slice(0, 180)}…
                         </p>
                       </div>
@@ -523,15 +733,15 @@ export default function ReflectPage() {
             {/* A Letter From Your Inner World — only when reflectionCount >= 3 (2+ saved) */}
             {showLetterSection && (
               <div className="mt-16 md:mt-20 max-w-[680px] animate-luma-fade-in" style={{ animationDelay: "300ms" }}>
-                <h2 className="text-[#2a2a2a] text-xl md:text-2xl [font-family:var(--font-serif-display)] mb-4 border-b border-[#e8e3d9] pb-3">
+                <h2 className="text-foreground text-xl md:text-2xl [font-family:var(--font-serif-display)] mb-4 border-b border-white/10 pb-3">
                   A Letter From Your Inner World
                 </h2>
                 {letterLoading && (
-                  <p className="text-[#5a5a5a] text-base italic">Writing your letter...</p>
+                  <p className="text-muted-foreground text-base italic">Writing your letter...</p>
                 )}
                 {!letterLoading && letter && (
                   <>
-                    <p className="text-[#3d3d3d] text-base leading-[1.9] font-sans whitespace-pre-wrap [font-family:var(--font-serif-display)]">
+                    <p className="text-foreground/90 text-base leading-[1.9] font-sans whitespace-pre-wrap [font-family:var(--font-serif-display)]">
                       {letter}
                     </p>
                     <div className="mt-8 flex flex-wrap gap-3">
@@ -549,7 +759,7 @@ export default function ReflectPage() {
                             setLetterStoryLoading(false);
                           }
                         }}
-                        className="px-5 py-3 rounded-xl border border-[#e8e3d9] text-[#2a2a2a] text-sm font-medium hover:bg-[#f8f6f3] transition-colors disabled:opacity-60"
+                        className="px-5 py-3 rounded-xl border border-white/10 text-foreground text-sm font-medium hover:bg-white/[0.08] transition-colors disabled:opacity-60"
                       >
                         {letterStoryLoading ? "Preparing…" : "Share Letter"}
                       </button>
@@ -567,7 +777,7 @@ export default function ReflectPage() {
                             setLetterStoryLoading(false);
                           }
                         }}
-                        className="px-5 py-3 rounded-xl bg-[#2a2a2a] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+                        className="rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity hover:opacity-90 disabled:opacity-60"
                       >
                         {letterStoryLoading ? "Preparing…" : "Download Story"}
                       </button>
@@ -580,10 +790,10 @@ export default function ReflectPage() {
             {/* Reflection Mirror — compare with previous reflection (no AI, saved data only) */}
             {previousReflection?.content && (
               <div className="mt-16 md:mt-20 max-w-[680px] animate-luma-fade-in" style={{ animationDelay: "300ms" }}>
-                <h2 className="text-[#2a2a2a] text-xl md:text-2xl [font-family:var(--font-serif-display)] mb-4 border-b border-[#e8e3d9] pb-3">
+                <h2 className="text-foreground text-xl md:text-2xl [font-family:var(--font-serif-display)] mb-4 border-b border-white/10 pb-3">
                   Reflection Mirror
                 </h2>
-                <p className="text-[#3d3d3d] text-base leading-[1.8] font-sans">
+                <p className="text-foreground/90 text-base leading-[1.8] font-sans">
                   {getReflectionMirrorMessage(previousReflection.content, reflection)}
                 </p>
               </div>
@@ -591,11 +801,11 @@ export default function ReflectPage() {
 
             {/* Explore the Space Between — couple mode + Connect Inner Worlds */}
             <div className="mt-16 md:mt-20 animate-luma-fade-in" style={{ animationDelay: "400ms" }}>
-              <div className="rounded-2xl bg-[#f8f6f3] border border-[#e8e3d9] p-6 md:p-8 hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)] transition-shadow duration-300">
-                <h2 className="text-[#2a2a2a] text-xl md:text-2xl font-medium border-b border-[#e8e3d9] pb-3 mb-4 [font-family:var(--font-serif-display)]">
+              <div className="luma-glass border border-white/10 p-6 md:p-8 hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)] transition-shadow duration-300">
+                <h2 className="text-foreground text-xl md:text-2xl font-medium border-b border-white/10 pb-3 mb-4 [font-family:var(--font-serif-display)]">
                   Explore the Space Between
                 </h2>
-                <p className="text-[#5a5a5a] text-base leading-[1.8] mb-6">
+                <p className="text-muted-foreground text-base leading-[1.8] mb-6">
                   Some patterns only reveal themselves between two inner worlds. Invite someone to connect your inner worlds.
                 </p>
                 <div className="flex flex-wrap gap-3">
@@ -610,13 +820,13 @@ export default function ReflectPage() {
                         router.push("/connect");
                       }
                     }}
-                    className="inline-flex px-5 py-3 rounded-xl bg-[#2a2a2a] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                    className="inline-flex rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity hover:opacity-90"
                   >
                     Connect Inner Worlds
                   </button>
                   <Link
                     href="/couple-hub"
-                    className="inline-flex px-5 py-3 rounded-xl border border-[#e8e3d9] text-[#2a2a2a] text-sm font-medium hover:bg-[#f8f6f3] transition-colors"
+                    className="inline-flex px-5 py-3 rounded-xl border border-white/10 text-foreground text-sm font-medium hover:bg-white/[0.08] transition-colors"
                   >
                     Explore Couple Mode
                   </Link>
@@ -624,59 +834,48 @@ export default function ReflectPage() {
               </div>
             </div>
 
-            {/* Share / Download Story */}
-            <div className="mt-10 flex flex-wrap gap-3 justify-center">
-              <button
-                type="button"
-                disabled={storyLoading}
-                onClick={async () => {
-                  setStoryLoading(true);
-                  try {
-                    const blob = await generateStoryCardBlob({
-                      mode: "individual",
-                      userName: getCurrentUserName(),
-                    });
-                    await shareOrDownloadStoryCard(blob);
-                  } catch (e) {
-                    console.warn("Story share failed", e);
-                  } finally {
-                    setStoryLoading(false);
-                  }
+            <div className="mt-16 md:mt-20 max-w-[680px] mx-auto w-full animate-luma-fade-in luma-glass border border-white/10 p-6 md:p-8">
+              <PatternOverTimeSection variant="light" />
+            </div>
+
+            <DangerousQuestionBlock
+              text={dangerousQuestion}
+              brutalTruth={brutalTruth}
+              emotionalTag={emotionalTag}
+              resultPreview={reflection}
+              mode="individual"
+            />
+
+            {/* Share / Download Story — DOM card + html-to-image */}
+            <div className="mx-auto mt-10 w-full min-w-0 max-w-[680px]">
+              <p className="mb-3 text-center text-xs text-muted-foreground">Your shareable story card</p>
+              <StoryCardFrame
+                ref={storyCardRef}
+                title={getStoryCardTitle({
+                  mode: "individual",
+                  userName: getCurrentUserName(),
+                })}
+              />
+              <StoryShareButtons
+                targetRef={storyCardRef}
+                loading={storyLoading}
+                setLoading={setStoryLoading}
+                filename="luma-story.png"
+                canvasFallback={{
+                  mode: "individual",
+                  userName: getCurrentUserName(),
                 }}
-                className="px-5 py-3 rounded-xl border border-[#e8e3d9] text-[#2a2a2a] text-sm font-medium hover:bg-[#f8f6f3] transition-colors disabled:opacity-60"
-              >
-                {storyLoading ? "Preparing…" : "Share Story"}
-              </button>
-              <button
-                type="button"
-                disabled={storyLoading}
-                onClick={async () => {
-                  setStoryLoading(true);
-                  try {
-                    const blob = await generateStoryCardBlob({
-                      mode: "individual",
-                      userName: getCurrentUserName(),
-                    });
-                    downloadStoryCard(blob);
-                  } catch (e) {
-                    console.warn("Story download failed", e);
-                  } finally {
-                    setStoryLoading(false);
-                  }
-                }}
-                className="px-5 py-3 rounded-xl bg-[#2a2a2a] text-white text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
-              >
-                {storyLoading ? "Preparing…" : "Download Story"}
-              </button>
+                className="mt-5"
+              />
             </div>
 
             {/* Save Your Reflection — account creation (name, email, password) */}
             {!savedWithEmail ? (
-              <div className="mt-16 md:mt-20 rounded-2xl bg-white p-6 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-[#e8e3d9]">
-                <h2 className="text-[#2a2a2a] text-xl [font-family:var(--font-serif-display)] mb-2">
+              <div className="mt-16 md:mt-20 luma-glass p-6 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-white/10">
+                <h2 className="text-foreground text-xl [font-family:var(--font-serif-display)] mb-2">
                   Save Your Reflection
                 </h2>
-                <p className="text-[#5a5a5a] text-base leading-relaxed mb-6">
+                <p className="text-muted-foreground text-base leading-relaxed mb-6">
                   Create an account to save this reflection. Your name will be used to personalize your shareable story card.
                 </p>
                 <form
@@ -705,6 +904,11 @@ export default function ReflectPage() {
                     try {
                       saveIndividualReflectionWithEmail({
                         content: reflection,
+                        brutalTruth,
+                        dangerousQuestion,
+                        shadowInsight,
+                        inSimpleWords,
+                        howToReadTags: resolveHowToReadTagsFromSelections(answers),
                         email,
                         name,
                         selectedImages: answers,
@@ -717,6 +921,34 @@ export default function ReflectPage() {
                           await signInWithPassword(email, password);
                         }
                       }
+                      const saveSig = buildEmotionSessionSignature({
+                        resultPreview: reflection,
+                        brutalTruth: brutalTruth ?? "",
+                        emotionalTag: emotionalTag ?? "",
+                        sessionType: "individual",
+                      });
+                      void insertEmotionTrackerRowOncePerSession(saveSig, {
+                        emotionalTag:
+                          (emotionalTag && emotionalTag.trim()) ||
+                          (brutalTruth && brutalTruth.trim().split(/\s+/).slice(0, 4).join(" ")) ||
+                          "Reflection",
+                        shortInsight:
+                          (trackerInsight && trackerInsight.trim()) ||
+                          (brutalTruth && brutalTruth.trim()) ||
+                          (reflection && reflection.replace(/\s+/g, " ").trim().slice(0, 220)) ||
+                          "—",
+                        sessionType: "individual",
+                        calendarState: resolveCalendarMood(
+                          (emotionalTag && emotionalTag.trim()) ||
+                            (brutalTruth && brutalTruth.trim().split(/\s+/).slice(0, 4).join(" ")) ||
+                            "Reflection",
+                          (trackerInsight && trackerInsight.trim()) ||
+                            (brutalTruth && brutalTruth.trim()) ||
+                            (reflection && reflection.replace(/\s+/g, " ").trim().slice(0, 220)) ||
+                            "—",
+                          calendarState
+                        ),
+                      });
                       await saveMemoryForCurrentUser(getMemory());
                       setSavedWithEmail(true);
                       fetch("/api/reminder-register", {
@@ -738,7 +970,7 @@ export default function ReflectPage() {
                     value={saveName}
                     onChange={(e) => setSaveName(e.target.value)}
                     placeholder="Name"
-                    className="w-full rounded-xl border border-[#e8e3d9] px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[#2a2a2a]/20 focus:border-[#e8e3d9]"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm focus:border-white/10 focus:ring-2 focus:ring-ring/35"
                     aria-label="Name"
                   />
                   <input
@@ -746,7 +978,7 @@ export default function ReflectPage() {
                     value={saveEmail}
                     onChange={(e) => setSaveEmail(e.target.value)}
                     placeholder="Email"
-                    className="w-full rounded-xl border border-[#e8e3d9] px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[#2a2a2a]/20 focus:border-[#e8e3d9]"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm focus:border-white/10 focus:ring-2 focus:ring-ring/35"
                     aria-label="Email"
                   />
                   <input
@@ -755,7 +987,7 @@ export default function ReflectPage() {
                     onChange={(e) => setSavePassword(e.target.value)}
                     placeholder="Password (min 6 characters)"
                     minLength={6}
-                    className="w-full rounded-xl border border-[#e8e3d9] px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[#2a2a2a]/20 focus:border-[#e8e3d9]"
+                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm focus:border-white/10 focus:ring-2 focus:ring-ring/35"
                     aria-label="Password"
                   />
                   {saveError && (
@@ -763,29 +995,29 @@ export default function ReflectPage() {
                   )}
                   <button
                     type="submit"
-                    className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#2a2a2a] text-white text-base font-medium hover:opacity-90 transition-opacity"
+                    className="w-full rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity hover:opacity-90 sm:w-auto"
                   >
                     Save My Reflection
                   </button>
                 </form>
               </div>
             ) : (
-              <div className="mt-16 md:mt-20 rounded-2xl bg-[#f8f6f3] border border-[#e8e3d9] p-6 md:p-8">
-                <p className="text-[#2a2a2a] font-medium">
+              <div className="mt-16 md:mt-20 luma-glass border border-white/10 p-6 md:p-8">
+                <p className="text-foreground font-medium">
                   Your reflection has been saved.
                 </p>
-                <p className="text-[#5a5a5a] text-base mt-2 leading-relaxed">
+                <p className="text-muted-foreground text-base mt-2 leading-relaxed">
                   Return in 10 days to explore how your inner landscape evolves.
                 </p>
               </div>
             )}
 
             {/* Referral — invite a friend */}
-            <div className="mt-16 md:mt-20 rounded-2xl bg-[#f8f6f3] border border-[#e8e3d9] p-6 md:p-8">
-              <p className="text-[#2a2a2a] font-serif text-lg [font-family:var(--font-serif-display)]">
+            <div className="mt-16 md:mt-20 luma-glass border border-white/10 p-6 md:p-8">
+              <p className="text-foreground font-serif text-lg [font-family:var(--font-serif-display)]">
                 Reflection often becomes deeper when shared.
               </p>
-              <p className="mt-2 text-[#5a5a5a] text-base leading-relaxed">
+              <p className="mt-2 text-muted-foreground text-base leading-relaxed">
                 Invite someone to explore their inner world too.
               </p>
               {!referralLinkShown ? (
@@ -797,7 +1029,7 @@ export default function ReflectPage() {
                     setReferralLink(url);
                     setReferralLinkShown(true);
                   }}
-                  className="mt-6 px-5 py-3 rounded-xl bg-[#2a2a2a] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+                  className="mt-6 rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] transition-opacity hover:opacity-90"
                 >
                   Invite a Friend
                 </button>
@@ -807,7 +1039,7 @@ export default function ReflectPage() {
                     type="text"
                     readOnly
                     value={referralLink}
-                    className="flex-1 min-w-0 rounded-xl border border-[#e8e3d9] bg-white px-4 py-2.5 text-sm text-[#2F2F2F]"
+                    className="flex-1 min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm text-foreground backdrop-blur-sm"
                   />
                   <button
                     type="button"
@@ -818,13 +1050,13 @@ export default function ReflectPage() {
                         setTimeout(() => setReferralCopied(false), 2000);
                       }
                     }}
-                    className="px-5 py-2.5 rounded-xl border border-[#e8e3d9] text-[#2a2a2a] text-sm font-medium hover:bg-white transition-colors"
+                    className="rounded-xl border border-white/10 bg-white/[0.06] px-5 py-2.5 text-sm font-medium text-foreground shadow-[0_0_20px_rgba(0,0,0,0.15)] transition-colors hover:bg-white/[0.1]"
                   >
                     {referralCopied ? "Copied!" : "Copy link"}
                   </button>
                 </div>
               )}
-              <p className="mt-4 text-xs text-[#5a5a5a] leading-relaxed">
+              <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
                 When someone you invite completes a reflection, you&apos;ll unlock a bonus reflection insight.
               </p>
             </div>
@@ -832,11 +1064,11 @@ export default function ReflectPage() {
             <div className="mt-14 md:mt-16 flex flex-col sm:flex-row items-center justify-center gap-6">
               <button
                 onClick={resetExperience}
-                className="text-sm text-[#5a5a5a] hover:text-[#2a2a2a] transition-colors underline underline-offset-4"
+                className="text-sm text-muted-foreground hover:text-foreground transition-colors underline underline-offset-4"
               >
                 Begin Again
               </button>
-              <p className="text-xs text-[#5a5a5a] max-w-sm text-center">
+              <p className="text-xs text-muted-foreground max-w-sm text-center">
                 This reflection is not diagnosis or advice. It is a mirror for your own awareness.
               </p>
             </div>

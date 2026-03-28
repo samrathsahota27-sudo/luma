@@ -15,9 +15,9 @@ export function ProgressBar({ currentRound, totalRounds, roundTitles }) {
           Round {current} of {total}
         </span>
       </div>
-      <div className="h-1.5 w-full rounded-full bg-[#E6E8F0] overflow-hidden">
+      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
         <div
-          className="h-full bg-[#2F2F2F] rounded-full transition-all duration-500 ease-out"
+          className="h-full bg-primary rounded-full transition-all duration-500 ease-out"
           style={{ width: `${percent}%` }}
         />
       </div>

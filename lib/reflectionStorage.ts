@@ -8,12 +8,36 @@ const USER_ID = "default";
 
 export type ReflectionMode = "individual" | "couple";
 
+/** Person A vs B friction row from couple / connect conflict analysis. */
+export type ConflictFrictionPointStored = {
+  personA: string;
+  personB: string;
+  mismatch: string;
+};
+
+/** Tags used to generate dynamic “How to Read This” copy for couple reflections. */
+export type HowToReadTagsStored = {
+  round2Tag?: string | null;
+  round3Tag?: string | null;
+  round5Tag?: string | null;
+};
+
 export type IndividualReflectionEntry = {
   id: string;
   userId: string;
   date: string; // ISO
   mode: "individual";
   content: string;
+  /** Plain 3–4 line summary (optional; older saves omit). */
+  inSimpleWords?: string[];
+  /** Tags for “How to Read This” when replaying (optional). */
+  howToReadTags?: HowToReadTagsStored | null;
+  /** One-line AI TL;DR (optional; older saves omit). */
+  brutalTruth?: string;
+  /** AI conversation prompt at end of result (optional; older saves omit). */
+  dangerousQuestion?: string;
+  /** Pattern the user may be avoiding (optional; older saves omit). */
+  shadowInsight?: string;
   email?: string;
   name?: string;
   corePattern?: string;
@@ -27,12 +51,17 @@ export type CoupleReflectionEntry = {
   date: string;
   mode: "couple";
   content: string;
+  brutalTruth?: string;
+  dangerousQuestion?: string;
+  shadowInsight?: string;
   email?: string;
   nameA?: string;
   nameB?: string;
   innerWorldAImage?: string | null;
   innerWorldBImage?: string | null;
   spaceBetweenImage?: string | null;
+  conflictFrictionPoints?: ConflictFrictionPointStored[];
+  howToReadTags?: HowToReadTagsStored | null;
 };
 
 export type ReflectionEntry = IndividualReflectionEntry | CoupleReflectionEntry;
@@ -102,6 +131,11 @@ const CURRENT_USER_NAME_KEY = "luma_user_name";
 
 export function saveIndividualReflectionWithEmail(payload: {
   content: string;
+  brutalTruth?: string | null;
+  dangerousQuestion?: string | null;
+  shadowInsight?: string | null;
+  inSimpleWords?: string[] | null;
+  howToReadTags?: HowToReadTagsStored | null;
   email: string;
   name?: string;
   selectedImages?: Record<number, { image: number; text: string }>;
@@ -109,12 +143,32 @@ export function saveIndividualReflectionWithEmail(payload: {
   const entries = loadEntries();
   const id = `ind-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   const name = payload.name?.trim();
+  const bt = typeof payload.brutalTruth === "string" ? payload.brutalTruth.trim() : "";
+  const dq =
+    typeof payload.dangerousQuestion === "string" ? payload.dangerousQuestion.trim() : "";
+  const si = typeof payload.shadowInsight === "string" ? payload.shadowInsight.trim() : "";
+  const isw = Array.isArray(payload.inSimpleWords)
+    ? payload.inSimpleWords
+        .map((s) => (typeof s === "string" ? s.trim() : ""))
+        .filter(Boolean)
+        .slice(0, 4)
+    : [];
+  const htr = payload.howToReadTags;
+  const hasHowToRead =
+    htr &&
+    typeof htr === "object" &&
+    !!(htr.round2Tag || htr.round3Tag || htr.round5Tag);
   const entry: IndividualReflectionEntry = {
     id,
     userId: USER_ID,
     date: new Date().toISOString(),
     mode: "individual",
     content: payload.content,
+    ...(isw.length > 0 ? { inSimpleWords: isw } : {}),
+    ...(hasHowToRead ? { howToReadTags: htr } : {}),
+    ...(bt ? { brutalTruth: bt } : {}),
+    ...(dq ? { dangerousQuestion: dq } : {}),
+    ...(si ? { shadowInsight: si } : {}),
     email: payload.email.trim(),
     name: name || undefined,
     selectedImages: payload.selectedImages,
@@ -142,27 +196,64 @@ export function getCurrentUserName(): string | null {
   }
 }
 
+function normalizeConflictFrictionPointsForSave(
+  raw: unknown
+): ConflictFrictionPointStored[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: ConflictFrictionPointStored[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const a = typeof o.personA === "string" ? o.personA.trim() : "";
+    const b = typeof o.personB === "string" ? o.personB.trim() : "";
+    const m = typeof o.mismatch === "string" ? o.mismatch.trim() : "";
+    if (a && b && m) out.push({ personA: a, personB: b, mismatch: m });
+    if (out.length >= 3) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 export function saveCoupleReflection(payload: {
   content: string;
+  brutalTruth?: string | null;
+  dangerousQuestion?: string | null;
+  shadowInsight?: string | null;
+  conflictFrictionPoints?: ConflictFrictionPointStored[] | null;
   nameA?: string;
   nameB?: string;
   innerWorldA?: string | null;
   innerWorldB?: string | null;
   spaceBetween?: string | null;
+  howToReadTags?: HowToReadTagsStored | null;
 }): void {
   const entries = loadEntries();
   const id = `couple-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const bt = typeof payload.brutalTruth === "string" ? payload.brutalTruth.trim() : "";
+  const dq =
+    typeof payload.dangerousQuestion === "string" ? payload.dangerousQuestion.trim() : "";
+  const si = typeof payload.shadowInsight === "string" ? payload.shadowInsight.trim() : "";
+  const cfp = normalizeConflictFrictionPointsForSave(payload.conflictFrictionPoints);
   const entry: CoupleReflectionEntry = {
     id,
     userId: USER_ID,
     date: new Date().toISOString(),
     mode: "couple",
     content: payload.content,
+    ...(bt ? { brutalTruth: bt } : {}),
+    ...(dq ? { dangerousQuestion: dq } : {}),
+    ...(si ? { shadowInsight: si } : {}),
+    ...(cfp ? { conflictFrictionPoints: cfp } : {}),
     nameA: payload.nameA?.trim(),
     nameB: payload.nameB?.trim(),
     innerWorldAImage: payload.innerWorldA ?? null,
     innerWorldBImage: payload.innerWorldB ?? null,
     spaceBetweenImage: payload.spaceBetween ?? null,
+    ...(payload.howToReadTags &&
+    (payload.howToReadTags.round2Tag ||
+      payload.howToReadTags.round3Tag ||
+      payload.howToReadTags.round5Tag)
+      ? { howToReadTags: payload.howToReadTags }
+      : {}),
   };
   entries.push(entry);
   saveEntries(entries);
@@ -170,27 +261,43 @@ export function saveCoupleReflection(payload: {
 
 export function saveCoupleReflectionWithEmail(payload: {
   content: string;
+  brutalTruth?: string | null;
+  dangerousQuestion?: string | null;
+  shadowInsight?: string | null;
+  conflictFrictionPoints?: ConflictFrictionPointStored[] | null;
   email: string;
   nameA?: string;
   nameB?: string;
   innerWorldA?: string | null;
   innerWorldB?: string | null;
   spaceBetween?: string | null;
+  howToReadTags?: HowToReadTagsStored | null;
 }): void {
   const entries = loadEntries();
   const id = `couple-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  const bt = typeof payload.brutalTruth === "string" ? payload.brutalTruth.trim() : "";
+  const dq =
+    typeof payload.dangerousQuestion === "string" ? payload.dangerousQuestion.trim() : "";
+  const si = typeof payload.shadowInsight === "string" ? payload.shadowInsight.trim() : "";
+  const cfp = normalizeConflictFrictionPointsForSave(payload.conflictFrictionPoints);
+  const htr = payload.howToReadTags;
   const entry: CoupleReflectionEntry = {
     id,
     userId: USER_ID,
     date: new Date().toISOString(),
     mode: "couple",
     content: payload.content,
+    ...(bt ? { brutalTruth: bt } : {}),
+    ...(dq ? { dangerousQuestion: dq } : {}),
+    ...(si ? { shadowInsight: si } : {}),
+    ...(cfp ? { conflictFrictionPoints: cfp } : {}),
     email: payload.email.trim(),
     nameA: payload.nameA?.trim(),
     nameB: payload.nameB?.trim(),
     innerWorldAImage: payload.innerWorldA ?? null,
     innerWorldBImage: payload.innerWorldB ?? null,
     spaceBetweenImage: payload.spaceBetween ?? null,
+    ...(htr && (htr.round2Tag || htr.round3Tag || htr.round5Tag) ? { howToReadTags: htr } : {}),
   };
   entries.push(entry);
   saveEntries(entries);

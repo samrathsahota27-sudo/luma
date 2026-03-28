@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { depthModeInstructions, readDepthModeFromBody } from "@/lib/depthMode";
+import {
+  dateDepthSuffix,
+  depthModeInstructions,
+  readDepthModeFromBody,
+} from "@/lib/depthMode";
 
 const SYSTEM = `You are a relationship strategist.
 
@@ -109,7 +113,7 @@ Output ONLY the JSON object with keys state, missing, plan.`;
       }
     })();
 
-    const input = `${SYSTEM}${depthModeInstructions(depthMode)}
+    const input = `${SYSTEM}${depthModeInstructions(depthMode)}${dateDepthSuffix(depthMode)}
 
 ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret behavior. Do not guess blindly.\n\n` : ""}${userBlock}`;
 

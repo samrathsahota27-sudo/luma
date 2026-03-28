@@ -13,34 +13,35 @@
 }
 
 :root {
-  /* Luma calm palette */
-  --luma-bg: #F7F6F3;
-  --luma-text: #2F2F2F;
-  --luma-sage: #D8E3DC;
-  --luma-sand: #E8E3D9;
-  --luma-lavender: #E6E8F0;
-  --luma-card-shadow: 0 8px 30px rgba(0, 0, 0, 0.05);
+  /* Luma dark system — immersive, one palette app-wide */
+  --luma-bg: #050508;
+  --luma-text: #e8e4df;
+  --luma-muted: #a39a94;
+  --luma-glass: rgba(255, 255, 255, 0.04);
+  --luma-glow-purple: rgba(140, 110, 200, 0.14);
+  --luma-glow-blue: rgba(90, 130, 200, 0.1);
+  --luma-card-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06), 0 24px 80px rgba(0, 0, 0, 0.55);
   --luma-radius: 16px;
 
-  --background: #F7F6F3;
-  --foreground: #2F2F2F;
-  --card: #ffffff;
-  --card-foreground: #2F2F2F;
-  --popover: #ffffff;
-  --popover-foreground: #2F2F2F;
-  --primary: #2F2F2F;
-  --primary-foreground: #ffffff;
-  --secondary: #E8E3D9;
-  --secondary-foreground: #2F2F2F;
-  --muted: #E6E8F0;
-  --muted-foreground: #5a5a5a;
-  --accent: #D8E3DC;
-  --accent-foreground: #2F2F2F;
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: #E8E3D9;
-  --input: #E6E8F0;
-  --ring: #2F2F2F;
+  --background: #050508;
+  --foreground: #e8e4df;
+  --card: #121018;
+  --card-foreground: #e8e4df;
+  --popover: #121018;
+  --popover-foreground: #e8e4df;
+  --primary: #e8e4df;
+  --primary-foreground: #0a090c;
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #e8e4df;
+  --muted: rgba(255, 255, 255, 0.08);
+  --muted-foreground: #a39a94;
+  --accent: rgba(140, 110, 200, 0.12);
+  --accent-foreground: #e8e4df;
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.96 0.02 25);
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.08);
+  --ring: rgba(160, 140, 220, 0.45);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -139,8 +140,19 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground min-h-screen antialiased;
+    background-image:
+      radial-gradient(ellipse 90% 55% at 50% -18%, rgba(95, 75, 125, 0.22), transparent),
+      radial-gradient(ellipse 50% 42% at 100% 85%, rgba(60, 100, 160, 0.1), transparent),
+      radial-gradient(ellipse 45% 35% at 0% 60%, rgba(120, 80, 140, 0.08), transparent);
+    background-attachment: fixed;
   }
+}
+
+/* Shared glass surface (cards, panels) */
+.luma-glass {
+  @apply rounded-2xl bg-white/[0.04] backdrop-blur-xl;
+  box-shadow: var(--luma-card-shadow);
 }
 
 /* Luma reflective animations – subtle, 300–700ms */
@@ -174,4 +186,36 @@
 
 .animate-luma-fade-only {
   animation: luma-fade-in-only 0.5s ease-out forwards;
+}
+
+/* Couple hub — soft pulse on relationship map focal card */
+@keyframes luma-map-hub-glow {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.07),
+      0 28px 100px rgba(0, 0, 0, 0.72),
+      0 0 48px rgba(140, 110, 200, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.1),
+      0 32px 110px rgba(0, 0, 0, 0.75),
+      0 0 72px rgba(150, 120, 220, 0.2),
+      0 0 100px rgba(90, 130, 200, 0.08);
+  }
+}
+
+.animate-luma-map-hub-glow {
+  animation: luma-map-hub-glow 5.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-luma-map-hub-glow {
+    animation: none;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 28px 100px rgba(0, 0, 0, 0.72),
+      0 0 56px rgba(140, 110, 200, 0.16);
+  }
 }

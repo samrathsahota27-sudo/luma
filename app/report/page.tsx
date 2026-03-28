@@ -9,6 +9,7 @@ import { ArrowLeft, Headphones, Loader2, RefreshCw } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { reportSubtitle } from "@/lib/depthUiMicrocopy";
 
 export type WeatherTheme = "storm" | "fog" | "clear" | "heat" | "calm";
 
@@ -189,7 +190,7 @@ export default function WeeklyReportPage() {
               Your Weekly Reflection
             </h1>
             <p className="mt-2 text-[#9a9288] text-base font-light leading-relaxed">
-              What actually happened this week
+              {reportSubtitle(depthMode)}
             </p>
           </header>
 

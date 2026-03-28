@@ -7,6 +7,7 @@ import { TimelineBar } from "@/components/TimelineBar";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { chatPageSubtitle } from "@/lib/depthUiMicrocopy";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -117,7 +118,7 @@ export default function ChatPage() {
               Talk Without Escalation
             </h1>
             <p className="mt-0.5 text-xs md:text-sm text-[#7a7268] font-light">
-              Say anything. No judgment.
+              {chatPageSubtitle(depthMode)}
             </p>
           </div>
         </div>

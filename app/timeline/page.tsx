@@ -13,6 +13,8 @@ import {
   type CoupleReflectionEntry,
 } from "@/lib/reflectionStorage";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
+import { ConflictAnalysisPanel } from "@/components/ConflictAnalysisPanel";
+import { GeneratedCoupleArtImage } from "@/components/GeneratedCoupleArtImage";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -102,18 +104,18 @@ export default function TimelinePage() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3]">
+    <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
       <main className="flex-1 pt-24 pb-20 px-6 max-w-[720px] mx-auto w-full">
-        <h1 className="text-[#2a2a2a] text-3xl md:text-4xl [font-family:var(--font-serif-display)] tracking-wide mb-2">
+        <h1 className="text-foreground text-3xl md:text-4xl [font-family:var(--font-serif-display)] tracking-wide mb-2">
           Your Timeline
         </h1>
-        <p className="text-[#5a5a5a] text-base mb-10">
+        <p className="text-muted-foreground text-base mb-10">
           A quiet record of your reflections over time.
         </p>
 
         {/* Legend */}
-        <div className="flex flex-wrap gap-6 mb-8 text-sm text-[#5a5a5a]">
+        <div className="flex flex-wrap gap-6 mb-8 text-sm text-muted-foreground">
           <span className="flex items-center gap-2">
             <span className="text-[#6b7b8a] font-medium">○</span> Individual Reflection
           </span>
@@ -124,32 +126,32 @@ export default function TimelinePage() {
 
         {/* Next reflection message */}
         {showNextMessage && (
-          <div className="mb-8 p-4 rounded-2xl bg-[#f8f6f3] border border-[#e8e3d9]">
-            <p className="text-[#2a2a2a] font-medium">Your inner landscape needs time to shift.</p>
-            <p className="text-[#5a5a5a] text-sm mt-1">
+          <div className="mb-8 rounded-2xl border border-white/10 p-4 luma-glass">
+            <p className="text-foreground font-medium">Your inner landscape needs time to shift.</p>
+            <p className="text-muted-foreground text-sm mt-1">
               Next reflection available in {daysUntil} day{daysUntil !== 1 ? "s" : ""}.
             </p>
           </div>
         )}
 
         {/* Calendar */}
-        <div className="rounded-2xl bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
+        <div className="luma-glass p-6 shadow-[0_8px_30px_rgba(0,0,0,0.05)]">
           <div className="flex items-center justify-between mb-6">
             <button
               type="button"
               onClick={prevMonth}
-              className="p-2 text-[#5a5a5a] hover:text-[#2a2a2a] transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Previous month"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
-            <span className="text-[#2a2a2a] font-medium [font-family:var(--font-serif-display)]">
+            <span className="text-foreground font-medium [font-family:var(--font-serif-display)]">
               {monthLabel}
             </span>
             <button
               type="button"
               onClick={nextMonth}
-              className="p-2 text-[#5a5a5a] hover:text-[#2a2a2a] transition-colors"
+              className="p-2 text-muted-foreground hover:text-foreground transition-colors"
               aria-label="Next month"
             >
               <ChevronRight className="w-5 h-5" />
@@ -158,7 +160,7 @@ export default function TimelinePage() {
 
           <div className="grid grid-cols-7 gap-1 text-center">
             {WEEKDAYS.map((d) => (
-              <div key={d} className="text-xs text-[#5a5a5a] py-2 font-medium">
+              <div key={d} className="text-xs text-muted-foreground py-2 font-medium">
                 {d}
               </div>
             ))}
@@ -178,11 +180,11 @@ export default function TimelinePage() {
                   disabled={!hasAny}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm transition-colors ${
                     hasAny
-                      ? "bg-[#f0eeeb] hover:bg-[#e8e3d9] text-[#2a2a2a] cursor-pointer"
+                      ? "bg-[#f0eeeb] hover:bg-[#e8e3d9] text-foreground cursor-pointer"
                       : "text-[#9a9a9a] cursor-default"
                   }`}
                 >
-                  <span className="text-[#2a2a2a] font-medium">{day}</span>
+                  <span className="text-foreground font-medium">{day}</span>
                   <div className="flex gap-0.5 mt-0.5">
                     {hasIndividual && (
                       <span className="text-[#6b7b8a]" title="Individual">○</span>
@@ -199,19 +201,19 @@ export default function TimelinePage() {
 
         {/* Actions */}
         <div className="mt-8">
-          <p className="text-center text-[#5a5a5a] text-sm">
+          <p className="text-center text-muted-foreground text-sm">
             Your journey grows with every reflection.
           </p>
           <div className="flex flex-col gap-3 mt-6 md:flex-row">
             <Link
               href="/choose-mode"
-              className="w-full inline-flex items-center justify-center rounded-full py-3 px-6 bg-[#2F2F2F] text-white text-sm font-medium transition-all duration-200 hover:opacity-90 hover:scale-[1.02] shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
+              className="w-full inline-flex items-center justify-center rounded-full py-3 px-6 bg-primary text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] transition-all duration-200 hover:opacity-90 hover:scale-[1.02]"
             >
               Start Reflection
             </Link>
             <Link
               href="/"
-              className="w-full inline-flex items-center justify-center rounded-full py-3 px-6 bg-white/70 border border-[#E8E3D9] text-[#2F2F2F] text-sm font-medium transition-all duration-200 hover:bg-white hover:scale-[1.02]"
+              className="w-full inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.05] py-3 px-6 text-sm font-medium text-foreground shadow-[0_0_24px_rgba(0,0,0,0.2)] transition-all duration-200 hover:bg-white/[0.1] hover:scale-[1.02]"
             >
               Back to Home
             </Link>
@@ -219,7 +221,7 @@ export default function TimelinePage() {
         </div>
 
         {entries.length === 0 && (
-          <p className="mt-8 text-center text-[#5a5a5a] text-sm">
+          <p className="mt-8 text-center text-muted-foreground text-sm">
             Complete a reflection to see it here.
           </p>
         )}
@@ -232,12 +234,12 @@ export default function TimelinePage() {
           onClick={() => setModalOpen(false)}
         >
           <div
-            className="bg-[#F7F6F3] rounded-2xl shadow-xl max-w-[680px] w-full max-h-[90vh] overflow-y-auto"
+            className="bg-background rounded-2xl shadow-xl max-w-[680px] w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 md:p-8">
               <div className="flex justify-between items-start mb-6">
-                <h2 className="text-[#2a2a2a] text-2xl [font-family:var(--font-serif-display)]">
+                <h2 className="text-foreground text-2xl [font-family:var(--font-serif-display)]">
                   {new Date(selectedDate + "T12:00:00").toLocaleDateString("default", {
                     weekday: "long",
                     month: "long",
@@ -248,7 +250,7 @@ export default function TimelinePage() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="p-2 text-[#5a5a5a] hover:text-[#2a2a2a]"
+                  className="p-2 text-muted-foreground hover:text-foreground"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -275,7 +277,7 @@ export default function TimelinePage() {
 function IndividualModalContent({ entry }: { entry: IndividualReflectionEntry }) {
   return (
     <div className="mb-10 last:mb-0">
-      <h3 className="text-[#2a2a2a] text-xl [font-family:var(--font-serif-display)] mb-4 border-b border-[#e8e3d9] pb-2">
+      <h3 className="text-foreground text-xl [font-family:var(--font-serif-display)] mb-4 border-b border-white/10 pb-2">
         Your Reflection
       </h3>
       <div
@@ -294,58 +296,72 @@ function CoupleModalContent({ entry }: { entry: CoupleReflectionEntry }) {
 
   return (
     <div className="mb-10 last:mb-0">
-      <h3 className="text-[#2a2a2a] text-xl [font-family:var(--font-serif-display)] mb-4 border-b border-[#e8e3d9] pb-2">
+      <h3 className="text-foreground text-xl [font-family:var(--font-serif-display)] mb-4 border-b border-white/10 pb-2">
         Relationship Reflection
       </h3>
 
       {hasImages && (
         <div className="space-y-6 mb-8">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-[#5a5a5a] mb-2">Inner World A</p>
+          <div className="grid min-w-0 grid-cols-2 gap-3 sm:gap-4">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground mb-2">Inner World A</p>
               {entry.innerWorldAImage ? (
-                <img
-                  src={entry.innerWorldAImage}
-                  alt="Inner World A"
-                  className="w-full aspect-square object-cover rounded-xl"
-                />
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl">
+                  <GeneratedCoupleArtImage
+                    src={entry.innerWorldAImage}
+                    alt="Inner World A"
+                    className="absolute inset-0 h-full w-full"
+                  />
+                </div>
               ) : (
-                <div className="w-full aspect-square rounded-xl bg-[#E6E8F0]/50 flex items-center justify-center text-xs text-[#5a5a5a]">
+                <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-white/[0.05] text-xs text-muted-foreground">
                   —
                 </div>
               )}
             </div>
-            <div>
-              <p className="text-xs text-[#5a5a5a] mb-2">Inner World B</p>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground mb-2">Inner World B</p>
               {entry.innerWorldBImage ? (
-                <img
-                  src={entry.innerWorldBImage}
-                  alt="Inner World B"
-                  className="w-full aspect-square object-cover rounded-xl"
-                />
+                <div className="relative aspect-square w-full overflow-hidden rounded-xl">
+                  <GeneratedCoupleArtImage
+                    src={entry.innerWorldBImage}
+                    alt="Inner World B"
+                    className="absolute inset-0 h-full w-full"
+                  />
+                </div>
               ) : (
-                <div className="w-full aspect-square rounded-xl bg-[#E6E8F0]/50 flex items-center justify-center text-xs text-[#5a5a5a]">
+                <div className="flex aspect-square w-full items-center justify-center rounded-xl bg-white/[0.05] text-xs text-muted-foreground">
                   —
                 </div>
               )}
             </div>
           </div>
-          <div>
-            <p className="text-xs text-[#5a5a5a] mb-2">The Space Between</p>
+          <div className="min-w-0">
+            <p className="text-xs text-muted-foreground mb-2">The Space Between</p>
             {entry.spaceBetweenImage ? (
-              <img
-                src={entry.spaceBetweenImage}
-                alt="The Space Between"
-                className="w-full max-w-sm aspect-square object-cover rounded-xl mx-auto block"
-              />
+              <div className="relative mx-auto aspect-square w-full max-w-sm overflow-hidden rounded-xl">
+                <GeneratedCoupleArtImage
+                  src={entry.spaceBetweenImage}
+                  alt="The Space Between"
+                  className="absolute inset-0 h-full w-full"
+                />
+              </div>
             ) : (
-              <div className="w-full max-w-sm aspect-square rounded-xl bg-[#E6E8F0]/50 flex items-center justify-center text-xs text-[#5a5a5a] mx-auto">
+              <div className="mx-auto flex aspect-square w-full max-w-sm items-center justify-center rounded-xl bg-white/[0.05] text-xs text-muted-foreground">
                 —
               </div>
             )}
           </div>
         </div>
       )}
+
+      {entry.conflictFrictionPoints && entry.conflictFrictionPoints.length > 0 ? (
+        <ConflictAnalysisPanel
+          points={entry.conflictFrictionPoints}
+          labelA={entry.nameA?.trim() ? entry.nameA.trim() : "Person A"}
+          labelB={entry.nameB?.trim() ? entry.nameB.trim() : "Person B"}
+        />
+      ) : null}
 
       <div className="text-[#3d3d3d] text-base leading-[1.8] whitespace-pre-wrap [&>br]:block [&>br]:mb-4">
         <div

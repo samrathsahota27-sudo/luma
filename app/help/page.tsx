@@ -32,32 +32,32 @@ const faqs = [
 
 export default function HelpPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
 
       <main className="flex-1 pt-20">
         {/* Hero */}
         <section className="max-w-[720px] mx-auto px-6 py-20 md:py-28 animate-luma-fade-in">
-          <h1 className="font-serif text-4xl md:text-5xl leading-tight text-[#2F2F2F] text-balance [font-family:var(--font-serif-display)]">
+          <h1 className="font-serif text-4xl md:text-5xl leading-tight text-foreground text-balance [font-family:var(--font-serif-display)]">
             Frequently Asked Questions
           </h1>
-          <p className="mt-6 text-[#5a5a5a] text-lg leading-relaxed max-w-xl">
+          <p className="mt-6 text-muted-foreground text-lg leading-relaxed max-w-xl">
             Answers to common questions about how Luma works and what to expect.
           </p>
         </section>
 
         {/* FAQ sections */}
-        <section className="border-t border-[#E8E3D9]">
+        <section className="border-t border-white/10">
           <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
             <div className="space-y-16">
               {faqs.map((faq, index) => (
                 <div key={index}>
-                  <h2 className="font-serif text-xl md:text-2xl text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+                  <h2 className="font-serif text-xl md:text-2xl text-foreground [font-family:var(--font-serif-display)]">
                     {faq.question}
                   </h2>
                   <div className="mt-4 space-y-4">
                     {faq.answer.map((paragraph, i) => (
-                      <p key={i} className="text-[#5a5a5a] leading-relaxed">
+                      <p key={i} className="text-muted-foreground leading-relaxed">
                         {paragraph}
                       </p>
                     ))}
@@ -69,14 +69,14 @@ export default function HelpPage() {
         </section>
 
         {/* CTA */}
-        <section className="border-t border-[#E8E3D9] bg-[#E8E3D9]/20">
+        <section className="border-t border-white/10 bg-white/[0.03]">
           <div className="max-w-[720px] mx-auto px-6 py-16 text-center">
-            <p className="text-[#2F2F2F] font-serif text-lg [font-family:var(--font-serif-display)]">
+            <p className="text-foreground font-serif text-lg [font-family:var(--font-serif-display)]">
               Ready to explore your inner world?
             </p>
             <Link
               href="/test"
-              className="inline-flex items-center justify-center gap-2 mt-6 px-5 py-3 rounded-[12px] bg-[#2F2F2F] text-white text-sm font-medium hover:opacity-90 transition-opacity"
+              className="inline-flex items-center justify-center gap-2 mt-6 px-5 py-3 rounded-[12px] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Begin Reflection
               <ArrowRight className="w-4 h-4" />

@@ -32,41 +32,41 @@ const articles = [
 
 export default function InsightsPage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
 
       <main className="flex-1 pt-20">
         {/* Hero */}
         <section className="max-w-[720px] mx-auto px-6 py-20 md:py-28 animate-luma-fade-in">
-          <span className="text-xs uppercase tracking-widest text-[#5a5a5a]">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">
             Insights
           </span>
-          <h1 className="font-serif text-4xl md:text-5xl leading-tight text-[#2F2F2F] mt-4 text-balance [font-family:var(--font-serif-display)]">
+          <h1 className="font-serif text-4xl md:text-5xl leading-tight text-foreground mt-4 text-balance [font-family:var(--font-serif-display)]">
             Ideas behind Luma
           </h1>
-          <p className="mt-6 text-[#5a5a5a] text-lg leading-relaxed max-w-xl">
+          <p className="mt-6 text-muted-foreground text-lg leading-relaxed max-w-xl">
             Articles on visual cognition, perception, and the science of reflection — written to deepen your understanding of how Luma works.
           </p>
         </section>
 
         {/* Article list */}
-        <section className="border-t border-[#E8E3D9]">
+        <section className="border-t border-white/10">
           <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
             <div className="space-y-12">
               {articles.map((article) => (
                 <article
                   key={article.slug}
-                  className="group border-b border-[#E8E3D9] pb-12 last:border-b-0 last:pb-0"
+                  className="group border-b border-white/10 pb-12 last:border-b-0 last:pb-0"
                 >
-                  <h2 className="font-serif text-xl md:text-2xl text-[#2F2F2F] [font-family:var(--font-serif-display)] group-hover:text-[#2F2F2F]/90 transition-colors">
+                  <h2 className="font-serif text-xl md:text-2xl text-foreground [font-family:var(--font-serif-display)] group-hover:text-foreground/90 transition-colors">
                     {article.title}
                   </h2>
-                  <p className="mt-3 text-[#5a5a5a] leading-relaxed">
+                  <p className="mt-3 text-muted-foreground leading-relaxed">
                     {article.excerpt}
                   </p>
                   <Link
                     href={`/insights/${article.slug}`}
-                    className="inline-flex items-center gap-2 mt-4 text-sm text-[#2F2F2F] font-medium hover:opacity-80 transition-opacity"
+                    className="inline-flex items-center gap-2 mt-4 text-sm text-foreground font-medium hover:opacity-80 transition-opacity"
                   >
                     Read more
                     <ArrowRight className="w-4 h-4" />
@@ -78,14 +78,14 @@ export default function InsightsPage() {
         </section>
 
         {/* CTA */}
-        <section className="border-t border-[#E8E3D9] bg-[#2F2F2F] text-white">
+        <section className="border-t border-white/10 bg-card/85 backdrop-blur-xl text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_-24px_80px_rgba(100,80,160,0.1)]">
           <div className="max-w-[720px] mx-auto px-6 py-16 text-center">
             <p className="font-serif text-xl [font-family:var(--font-serif-display)]">
               Curious what your inner world looks like?
             </p>
             <Link
               href="/test"
-              className="inline-flex items-center justify-center gap-2 mt-6 px-5 py-3 rounded-[12px] bg-white text-[#2F2F2F] text-sm font-medium hover:opacity-90 transition-opacity"
+              className="mt-6 inline-flex items-center justify-center gap-2 rounded-[12px] bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] transition-opacity hover:opacity-90"
             >
               Begin Reflection
               <ArrowRight className="w-4 h-4" />

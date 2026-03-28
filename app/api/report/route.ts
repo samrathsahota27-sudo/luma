@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { depthModeInstructions, readDepthModeFromBody } from "@/lib/depthMode";
+import {
+  depthModeInstructions,
+  readDepthModeFromBody,
+  reportDepthSuffix,
+} from "@/lib/depthMode";
 
 const SYSTEM = `You are analyzing a relationship like a weather system.
 
@@ -114,7 +118,7 @@ Translator usage (what they tried to decode):
 ${translatorUsage}
 ---
 
-Overall mood / energy this week:
+Overall mood this week:
 ---
 ${mood}
 ---
@@ -131,7 +135,7 @@ Read the emotional atmosphere like weather. Output ONLY the JSON with keys label
       }
     })();
 
-    const input = `${SYSTEM}${depthModeInstructions(depthMode)}
+    const input = `${SYSTEM}${depthModeInstructions(depthMode)}${reportDepthSuffix(depthMode)}
 
 ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret behavior. Do not guess blindly.\n\n` : ""}${userBlock}`;
 

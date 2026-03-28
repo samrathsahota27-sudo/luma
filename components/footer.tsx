@@ -1,3 +1,5 @@
+"use client"
+
 import Link from "next/link"
 
 const footerLinks = [
@@ -10,33 +12,33 @@ const footerLinks = [
 
 export function Footer() {
   return (
-    <footer className="border-t border-[#E8E3D9] bg-[#E8E3D9]/30">
+    <footer className="border-t border-white/10 bg-[#08070a] shadow-[0_-20px_60px_-20px_rgba(100,80,160,0.12)]">
       <div className="max-w-[720px] mx-auto px-6 py-12">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
-            <Link href="/" className="font-serif text-lg text-foreground">
+            <Link href="/" className="font-serif text-lg text-white/95">
               Luma
             </Link>
-            <p className="text-sm text-muted-foreground mt-2 max-w-xs">
+            <p className="text-sm mt-2 max-w-xs text-white/55">
               A quiet space for noticing what moves within.
             </p>
           </div>
-          
+
           <div className="flex flex-wrap gap-6">
             {footerLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm text-white/55 hover:text-white/90 transition-colors"
               >
                 {link.label}
               </Link>
             ))}
           </div>
         </div>
-        
-        <div className="mt-8 pt-6 border-t border-border">
-          <p className="text-xs text-muted-foreground">
+
+        <div className="mt-8 pt-6 border-t border-white/10">
+          <p className="text-xs text-white/45">
             Luma is not therapy, diagnosis, or treatment. It is a reflective experience.
           </p>
         </div>

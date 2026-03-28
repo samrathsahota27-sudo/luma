@@ -1,7 +1,14 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
 import { buildPrompt } from "@/lib/prompt";
-import { depthModeInstructions, normalizeDepthMode } from "@/lib/depthMode";
+import { buildRound5SpaceBetweenFromAnswersBlock } from "@/lib/reflection/round5OutputGenerator";
+import { buildFinalNarrativeFromSelections } from "@/lib/narrative/finalNarrativeEngine";
+import {
+  depthModeInstructions,
+  individualReflectionDepthSuffix,
+  readDepthModeFromBody,
+} from "@/lib/depthMode";
+import { extractOpenAIResponsesText, parseAiReflectionOutput } from "@/lib/aiReflectionOutput";
 
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -15,32 +22,25 @@ async function callOpenAI(prompt) {
     input: prompt,
   });
 
-  const outputText = aiResponse.output_text?.trim?.() ?? "";
-  if (outputText) {
-    return outputText;
-  }
-
-  const fallbackText =
-    aiResponse?.output?.[0]?.content?.find?.((c) => c?.type === "output_text")?.text ?? "";
-
-  if (!fallbackText || typeof fallbackText !== "string") {
+  const outputText = extractOpenAIResponsesText(aiResponse);
+  if (!outputText) {
     console.log("AI RAW:", aiResponse);
     throw new Error("OpenAI returned empty output");
   }
 
-  return fallbackText.trim();
+  return outputText;
 }
 
 export async function POST(req) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const selections = body?.selections ?? body?.answers;
+    const payload = await req.json().catch(() => ({}));
+    const selections = payload?.selections ?? payload?.answers;
     if (!selections || typeof selections !== "object") {
       return NextResponse.json({ error: "Missing or invalid selections payload" }, { status: 400 });
     }
 
-    const context = body?.context ?? null;
-    const depthMode = normalizeDepthMode(body?.depthMode);
+    const context = payload?.context ?? null;
+    const depthMode = readDepthModeFromBody(payload);
     const contextJson = (() => {
       if (!context || typeof context !== "object") return "";
       try {
@@ -52,17 +52,46 @@ export async function POST(req) {
     })();
 
     const prompt =
-      buildPrompt(selections) +
+      buildPrompt(selections, depthMode) +
       depthModeInstructions(depthMode) +
+      individualReflectionDepthSuffix(depthMode) +
       (contextJson
         ? `\n\nRelationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret. If context is missing/unknown, say so rather than guessing.`
         : "");
-    const result = await callOpenAI(prompt);
-    if (!result) {
+    const raw = await callOpenAI(prompt);
+    if (!raw) {
       throw new Error("AI result was empty");
     }
 
-    return NextResponse.json({ result });
+    const {
+      brutalTruth,
+      body: reflectionBody,
+      inSimpleWords,
+      emotionalTag,
+      trackerInsight,
+      calendarState,
+      dangerousQuestion,
+      shadowInsight,
+    } = parseAiReflectionOutput(raw);
+    if (!reflectionBody) {
+      throw new Error("AI result was empty");
+    }
+
+    const round5SpaceBetween = buildRound5SpaceBetweenFromAnswersBlock(selections?.[5]);
+    const finalNarrative = buildFinalNarrativeFromSelections(selections);
+
+    return NextResponse.json({
+      result: reflectionBody,
+      ...(Array.isArray(inSimpleWords) && inSimpleWords.length > 0 ? { inSimpleWords } : {}),
+      ...(brutalTruth ? { brutalTruth } : {}),
+      ...(emotionalTag ? { emotionalTag } : {}),
+      ...(trackerInsight ? { trackerInsight } : {}),
+      ...(calendarState ? { calendarState } : {}),
+      ...(dangerousQuestion ? { dangerousQuestion } : {}),
+      ...(shadowInsight ? { shadowInsight } : {}),
+      ...(round5SpaceBetween ? { round5SpaceBetween } : {}),
+      finalNarrative,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown server error";
     console.error("API CRASH:", error);

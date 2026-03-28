@@ -11,15 +11,15 @@ function buildFirstReminderHtml(baseUrl) {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #2F2F2F; max-width: 480px; margin: 0 auto; padding: 24px;">
+<body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #e8e4df; background: #050508; max-width: 480px; margin: 0 auto; padding: 28px 24px;">
   <p>Hello,</p>
   <p>Sometimes the quiet patterns inside us change without us noticing.</p>
   <p>Your last reflection was some time ago.</p>
   <p>You may discover something new today.</p>
   <p style="margin-top: 28px;">
-    <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #2F2F2F; color: #fff; text-decoration: none; border-radius: 12px; font-weight: 500;">Begin Reflection</a>
+    <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #e8e4df; color: #0a090c; text-decoration: none; border-radius: 12px; font-weight: 500; box-shadow: 0 12px 40px rgba(120, 90, 180, 0.25);">Begin Reflection</a>
   </p>
-  <p style="margin-top: 32px; font-size: 14px; color: #5a5a5a;">Luma — a quiet space for noticing what moves within.</p>
+  <p style="margin-top: 32px; font-size: 14px; color: #a39a94;">Luma — a quiet space for noticing what moves within.</p>
 </body>
 </html>
   `.trim();
@@ -31,13 +31,13 @@ function buildSecondReminderHtml(baseUrl) {
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #2F2F2F; max-width: 480px; margin: 0 auto; padding: 24px;">
+<body style="font-family: system-ui, sans-serif; line-height: 1.6; color: #e8e4df; background: #050508; max-width: 480px; margin: 0 auto; padding: 28px 24px;">
   <p>Your inner world may have moved in ways you haven't noticed yet.</p>
   <p>Take a moment to see what has changed.</p>
   <p style="margin-top: 28px;">
-    <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #2F2F2F; color: #fff; text-decoration: none; border-radius: 12px; font-weight: 500;">Begin Reflection</a>
+    <a href="${url}" style="display: inline-block; padding: 12px 24px; background: #e8e4df; color: #0a090c; text-decoration: none; border-radius: 12px; font-weight: 500; box-shadow: 0 12px 40px rgba(120, 90, 180, 0.25);">Begin Reflection</a>
   </p>
-  <p style="margin-top: 32px; font-size: 14px; color: #5a5a5a;">Luma — a quiet space for noticing what moves within.</p>
+  <p style="margin-top: 32px; font-size: 14px; color: #a39a94;">Luma — a quiet space for noticing what moves within.</p>
 </body>
 </html>
   `.trim();

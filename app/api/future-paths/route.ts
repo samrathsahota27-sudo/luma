@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { depthModeInstructions, readDepthModeFromBody } from "@/lib/depthMode";
+import {
+  depthModeInstructions,
+  futurePathsDepthSuffix,
+  readDepthModeFromBody,
+} from "@/lib/depthMode";
 
 const SYSTEM = `You are Luma, a relationship pattern observer.
 
@@ -58,7 +62,7 @@ export async function POST(req: Request) {
     const conflict = clamp0to100((scores as any).conflict, 50);
     const distance = clamp0to100((scores as any).distance, 50);
 
-    const systemPrompt = `${SYSTEM}${depthModeInstructions(depthMode)}
+    const systemPrompt = `${SYSTEM}${depthModeInstructions(depthMode)}${futurePathsDepthSuffix(depthMode)}
 
 DATA:
 
@@ -93,7 +97,7 @@ Generate two paths:
         { role: "system", content: systemPrompt },
         { role: "user", content: "Generate future paths" },
       ],
-      max_tokens: 650,
+      max_tokens: depthMode === "steel" ? 420 : 780,
     });
 
     const raw = response.choices?.[0]?.message?.content?.trim?.() ?? "";

@@ -1,12 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { TimelineBar, COUPLE_MAIN_PADDING_TOP } from "@/components/TimelineBar";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Brain, CalendarHeart, ChevronRight, MessageSquareText, Sparkles, Waves } from "lucide-react";
 import { DailyQuestionCard } from "@/components/DailyQuestionCard";
+import { RelationshipMapHero } from "@/components/RelationshipMapHero";
+import { FutureProjectionPanel } from "@/components/FutureProjectionPanel";
+import { CoupleHubOverlay } from "@/components/CoupleHubOverlay";
+import { CalendarOfUsTimeline } from "@/components/CalendarOfUsTimeline";
+import { useLumaMemory } from "@/hooks/useLumaMemory";
+import { CoupleHubNudges } from "@/components/CoupleHubNudges";
 import {
   JOURNEY_PROGRESS_STORAGE_KEY,
   clampJourneyStep,
@@ -24,59 +30,54 @@ const QUOTES = [
 type HubFeature = {
   title: string;
   subtitle: string;
-  description: string;
   cta: string;
   href?: string;
+  kind?: "translator" | "chat" | "date" | "mind";
+  Icon?: any;
 };
 
 const FEATURES: HubFeature[] = [
   {
-    title: "Your Weekly Reflection",
-    subtitle: "Relationship Weather",
-    description: "Emotional forecast — what’s moving, what’s stuck, and what to do next",
-    cta: "View Weekly Report",
-    href: "/report",
+    title: "Emotional Translator",
+    subtitle: "Decode",
+    cta: "Open",
+    kind: "translator",
+    Icon: MessageSquareText,
   },
   {
-    title: "See Where This Is Heading",
-    subtitle: "Future Paths",
-    description: "Two realistic directions from here — if nothing changes vs if you intervene",
-    cta: "View Future Paths",
-    href: "/future-paths",
+    title: "AI Chat",
+    subtitle: "Resolve",
+    cta: "Open",
+    kind: "chat",
+    Icon: Waves,
   },
   {
-    title: "Decode What They Really Meant",
-    subtitle: "Emotional Translator",
-    description: "Turn confusion into clarity",
-    cta: "Translate Message",
-    href: "/translator",
+    title: "Date AI",
+    subtitle: "Fix",
+    cta: "Open",
+    kind: "date",
+    Icon: CalendarHeart,
   },
   {
-    title: "See What They’re Not Saying",
-    subtitle: "What's On Their Mind",
-    description: "Uncover hidden emotional patterns",
-    cta: "Reveal Insight",
-    href: "/mind",
+    title: "Their Mind",
+    subtitle: "Theory",
+    cta: "Open",
+    kind: "mind",
+    Icon: Brain,
   },
   {
-    title: "Fix The Connection",
-    subtitle: "Date Night AI",
-    description: "Get a date designed for your current state",
-    cta: "Get Plan",
-    href: "/date",
-  },
-  {
-    title: "Talk Without Escalation",
-    subtitle: "AI Chat (Neutral Space)",
-    description: "A neutral space to process things",
-    cta: "Start Conversation",
-    href: "/chat",
+    title: "Silent Signal",
+    subtitle: "Send",
+    cta: "Soon",
+    Icon: Sparkles,
   },
 ];
 
 export default function CoupleHubPage() {
   const [quote, setQuote] = useState<string | null>(null);
   const [journeyStep, setJourneyStep] = useState(0);
+  const memory = useLumaMemory();
+  const [overlay, setOverlay] = useState<null | "translator" | "chat" | "date" | "mind">(null);
 
   useEffect(() => {
     setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
@@ -91,174 +92,247 @@ export default function CoupleHubPage() {
   const week = getWeekFromStep(journeyStep);
   const progressPercent = getProgressPercentFromStep(journeyStep);
   const nextStep = getNextStepLabel(journeyStep);
-  const nextHref =
-    journeyStep <= 0
-      ? "/translator"
-      : journeyStep === 1
-        ? "/date"
-        : journeyStep === 2
-          ? "/report"
-          : journeyStep === 3
-            ? "/map"
-            : undefined;
 
-  return (
-    <div className="min-h-screen flex flex-col bg-[#0a090c] text-[#e8e4df]">
-      <Navigation />
-      <TimelineBar />
+  const scores = useMemo(() => memory?.scores ?? { connection: 55, conflict: 40, distance: 45 }, [memory]);
+  const connection = scores?.connection ?? 55;
+  const conflict = scores?.conflict ?? 40;
+  const distance = scores?.distance ?? 45;
+  const resolvedCount = useMemo(() => {
+    const n = Array.isArray(memory?.conflicts) ? memory?.conflicts.length : 0;
+    return Math.max(0, Math.min(10, Math.floor(n / 2)));
+  }, [memory]);
 
-      <main className={`flex-1 ${COUPLE_MAIN_PADDING_TOP} pb-28 px-6 relative overflow-hidden`}>
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-30%,rgba(90,60,120,0.22),transparent)]"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_100%_80%,rgba(120,70,50,0.12),transparent)]"
-          aria-hidden
-        />
-        <div
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_0%_50%,rgba(60,50,90,0.1),transparent)]"
-          aria-hidden
-        />
+  const hubFeatureCardClasses =
+    "group relative w-full overflow-hidden rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-5 text-left shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_20px_70px_rgba(0,0,0,0.45)] backdrop-blur-xl transition-[transform,background-color,box-shadow] duration-300 min-h-[5.75rem] motion-safe:active:scale-[0.99] md:min-h-[6.25rem] md:rounded-3xl md:px-6 md:py-6";
 
-        <div className="relative mx-auto max-w-[720px] w-full">
-          <header className="text-center space-y-6 mb-20 md:mb-28">
-            <p className="text-[10px] uppercase tracking-[0.2em] text-[#7a7288] font-medium">
-              Couples
-            </p>
-            <h1 className="font-serif text-[2rem] md:text-[2.5rem] lg:text-[2.75rem] leading-[1.12] text-[#f5f1ec] [font-family:var(--font-serif-display)] font-normal tracking-tight">
-              Understand Your Dynamic
-            </h1>
-            <p className="text-[#9a9288] text-base md:text-lg max-w-xl mx-auto leading-relaxed font-light">
-              This is not about you. It&apos;s about what exists between you.
-            </p>
-            <div className="mx-auto mt-2 w-full max-w-[560px] rounded-2xl border border-[#322d3a]/90 bg-[#120f16]/75 px-4 py-4 md:px-5">
-              <p className="text-sm text-[#d8d1c8]">
-                You are on Week {week} of your relationship reset
-              </p>
-              <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/[0.1]" aria-hidden>
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-[#c8b9ff] to-[#f0e6d8] transition-[width] duration-700"
-                  style={{ width: `${progressPercent}%` }}
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-                <span className="text-[#9a9288]">{progressPercent}% complete</span>
-                <span className="text-[#bfb6cc]">Next: {nextStep}</span>
-              </div>
-              <p className="mt-2 text-xs text-[#8d849c]">You&apos;ve come further than most couples do.</p>
-            </div>
-            <blockquote className="pt-4 border-t border-[#2a2633]/80 mt-8 min-h-[4.5rem] flex items-center justify-center">
-              <p
-                className={`text-[#b5a99c] text-sm md:text-base italic font-light leading-relaxed max-w-md mx-auto text-center transition-opacity duration-500 ${
-                  quote ? "opacity-100" : "opacity-0"
-                }`}
-                key={quote ?? "pending"}
-              >
-                {quote ? `“${quote}”` : "\u00a0"}
-              </p>
-            </blockquote>
+  const ControlPanel = (
+    <main className={`flex-1 ${COUPLE_MAIN_PADDING_TOP} pb-32 px-4 sm:px-6 lg:px-8 relative overflow-hidden`}>
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_90%_60%_at_50%_-30%,rgba(90,60,120,0.26),transparent)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_50%_at_100%_80%,rgba(120,70,50,0.14),transparent)]"
+        aria-hidden
+      />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_50%_40%_at_0%_50%,rgba(60,50,90,0.1),transparent)]"
+        aria-hidden
+      />
 
-            <DailyQuestionCard />
-          </header>
+      <div className="relative mx-auto w-full max-w-2xl md:max-w-3xl lg:max-w-5xl">
+        {/* Top: title + journey (timeline is fixed above) */}
+        <header className="pt-1 pb-8 text-center md:pb-10">
+          <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/50">Couples</p>
+          <h1 className="mt-2 font-serif text-[30px] leading-[1.08] text-white [font-family:var(--font-serif-display)] tracking-tight md:mt-3 md:text-[40px]">
+            Control Panel
+          </h1>
+          <p className="mx-auto mt-3 max-w-md text-[15px] leading-relaxed text-white/60 md:text-base">
+            <span className="font-medium text-white/75">
+              {connection >= 60 ? "Aligned." : distance >= 60 ? "Drifting." : "Unsteady."}
+            </span>{" "}
+            {quote ? `“${quote}”` : ""}
+          </p>
 
-          <div className="flex flex-col gap-6 md:gap-8">
-            {FEATURES.map((f, index) => (
-              <article
-                key={f.subtitle}
-                className="group relative rounded-2xl border border-[#2e2a35]/90 bg-[#141218]/75 backdrop-blur-xl p-7 md:p-8 shadow-[0_20px_50px_rgba(0,0,0,0.45)] overflow-hidden transition-all duration-500 ease-out hover:border-[#3f3a4a] hover:shadow-[0_28px_64px_rgba(35,25,55,0.35)] hover:-translate-y-0.5"
-                style={{ animationDelay: `${index * 80}ms` }}
-              >
-                <div
-                  className="pointer-events-none absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-[#4a3f6b]/[0.07] via-transparent to-transparent"
-                  aria-hidden
-                />
-                {nextHref && f.href === nextHref && (
-                  <span className="absolute right-4 top-4 rounded-full border border-[#5b4f73] bg-[#241d31]/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#d0c1ec]">
-                    Next Step
-                  </span>
-                )}
-                <p className="text-[10px] uppercase tracking-[0.16em] text-[#6d6578] font-medium mb-3">
-                  {f.subtitle}
-                </p>
-                <h2 className="font-serif text-xl md:text-[1.35rem] text-[#eee9e2] [font-family:var(--font-serif-display)] leading-snug">
-                  {f.title}
-                </h2>
-                <p className="mt-3 text-[#928a7e] text-[15px] leading-relaxed font-light">
-                  {f.description}
-                </p>
-                {f.href ? (
-                  <Link
-                    href={f.href}
-                    className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#3d3848] bg-[#1c191f]/90 px-5 py-3 text-sm font-medium text-[#ddd8d0] transition-all duration-300 hover:border-[#524a60] hover:bg-[#25222b] hover:scale-[1.02] active:scale-[0.99]"
-                  >
-                    {f.cta}
-                    <ArrowRight className="w-4 h-4 opacity-70" />
-                  </Link>
-                ) : (
-                  <button
-                    type="button"
-                    className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[#3d3848] bg-[#1c191f]/90 px-5 py-3 text-sm font-medium text-[#ddd8d0] transition-all duration-300 hover:border-[#524a60] hover:bg-[#25222b] hover:scale-[1.02] active:scale-[0.99]"
-                  >
-                    {f.cta}
-                    <ArrowRight className="w-4 h-4 opacity-70" />
-                  </button>
-                )}
-              </article>
-            ))}
-
-            <article className="relative rounded-2xl border border-[#4a3f5c]/50 bg-[#16131d]/80 backdrop-blur-xl p-7 md:p-8 shadow-[0_0_60px_-12px_rgba(100,80,140,0.35),0_24px_56px_rgba(0,0,0,0.5)] overflow-hidden transition-all duration-500 hover:shadow-[0_0_70px_-8px_rgba(120,90,160,0.4),0_28px_64px_rgba(0,0,0,0.55)] hover:-translate-y-0.5">
-              <div
-                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0a0810]/90 via-[#14101a]/50 to-transparent"
-                aria-hidden
-              />
-              <div
-                className="pointer-events-none absolute -right-8 -top-8 h-40 w-40 rounded-full bg-[#5c4d8c]/20 blur-3xl"
-                aria-hidden
-              />
-
-              <div className="relative flex items-start justify-between gap-4">
-                <span className="inline-flex rounded-full border border-[#5c4f7c]/55 bg-[#221a32]/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#c9b8e8]">
-                  Pro
-                </span>
-                <Lock className="w-4 h-4 text-[#7a7088]" strokeWidth={1.75} aria-hidden />
-              </div>
-
-              <div className="relative mt-5 rounded-xl border border-[#2a2535]/80 bg-[#0f0d12]/60 p-5 md:p-6 backdrop-blur-md">
-                <div className="pointer-events-none select-none blur-[1.5px] opacity-[0.65]">
-                  <p className="text-[10px] uppercase tracking-[0.16em] text-[#5c5468] font-medium mb-2">
-                    Relationship Map
-                  </p>
-                  <h2 className="font-serif text-xl md:text-[1.35rem] text-[#e8e3dc] [font-family:var(--font-serif-display)]">
-                    Your Relationship Map
-                  </h2>
-                  <p className="mt-2 text-[#7a7268] text-[15px] leading-relaxed font-light">
-                    Track how your connection is evolving
-                  </p>
-                </div>
-                <div
-                  className="pointer-events-none absolute inset-0 rounded-xl bg-[#0a090c]/25 backdrop-blur-[2px]"
-                  aria-hidden
-                />
-              </div>
-
-              <div className="relative mt-6">
-                <Link
-                  href="/map"
-                  className="inline-flex items-center gap-2 rounded-xl border border-[#3a3448]/80 bg-[#1a161f]/80 px-5 py-3 text-sm font-medium text-[#ddd8d0] transition-all duration-300 hover:border-[#524a60] hover:bg-[#25222b] hover:scale-[1.02]"
-                >
-                  View Map
-                  <Lock className="w-3.5 h-3.5 opacity-70" aria-hidden />
-                </Link>
-              </div>
-            </article>
+          <div className="mx-auto mt-6 flex w-full max-w-md flex-wrap items-center justify-center gap-x-3 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3.5 text-center text-[12px] text-white/60 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_12px_48px_rgba(0,0,0,0.45),0_0_40px_rgba(140,110,200,0.08)] backdrop-blur-md md:text-[13px]">
+            <span className="tabular-nums font-medium text-white/85">{progressPercent}%</span>
+            <span className="hidden h-1 w-1 rounded-full bg-white/30 sm:inline" aria-hidden />
+            <span>Week {week}</span>
+            <span className="hidden h-1 w-1 rounded-full bg-white/30 sm:inline" aria-hidden />
+            <span className="text-white/55">Next: {nextStep}</span>
           </div>
 
-          <p className="mt-16 text-center text-xs text-[#5c564c] font-light leading-relaxed max-w-sm mx-auto">
-            These tools are for two people willing to look at the space between them — honestly.
-          </p>
-        </div>
-      </main>
+          <CoupleHubNudges />
+        </header>
+
+        {/* Middle: relationship map — primary focal */}
+        <section
+          aria-labelledby="hub-map-heading"
+          className="flex min-h-[min(82svh,720px)] flex-col justify-center pb-16 md:min-h-[min(78svh,800px)] md:pb-20"
+        >
+          <h2 id="hub-map-heading" className="sr-only">
+            Relationship map
+          </h2>
+          <div className="relative mx-auto w-full">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute -inset-6 rounded-[36px] bg-[radial-gradient(ellipse_70%_55%_at_50%_45%,rgba(140,110,200,0.28),transparent_72%)] opacity-80 blur-3xl motion-safe:animate-[pulse_5s_ease-in-out_infinite] md:-inset-10"
+            />
+            <div className="relative rounded-[28px] animate-luma-map-hub-glow">
+              <div className="animate-in fade-in slide-in-from-bottom-2 duration-700">
+                <RelationshipMapHero
+                  size="lg"
+                  className="rounded-[28px] border-white/10 shadow-none"
+                  connection={connection}
+                  distance={distance}
+                  conflict={conflict}
+                  resolvedCount={resolvedCount}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 py-16 md:py-24">
+          <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-4 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:px-8 md:py-10">
+            <CalendarOfUsTimeline variant="dark" fetchLimit={90} />
+          </div>
+        </section>
+
+        {/* Daily check-in */}
+        <section className="border-t border-white/10 py-16 md:py-24" aria-labelledby="hub-daily-heading">
+          <div className="text-center">
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/50">Daily</p>
+            <h2
+              id="hub-daily-heading"
+              className="mt-3 font-serif text-[26px] text-white [font-family:var(--font-serif-display)] tracking-tight md:text-[34px]"
+            >
+              One tap.
+            </h2>
+            <p className="mt-3 text-sm text-white/55 md:text-base">
+              One prompt per day—yes/no or a short choice—so you stay in touch without another full test.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-12 w-full max-w-full animate-in fade-in slide-in-from-bottom-2 duration-700 md:mt-14">
+            <DailyQuestionCard />
+          </div>
+        </section>
+
+        {/* Tools — full-width stacked cards */}
+        <section className="border-t border-white/10 py-16 md:py-24" aria-labelledby="hub-tools-heading">
+          <div className="text-center">
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/50">Tools</p>
+            <h2
+              id="hub-tools-heading"
+              className="mt-3 font-serif text-[26px] text-white [font-family:var(--font-serif-display)] tracking-tight md:text-[34px]"
+            >
+              Click the tension.
+            </h2>
+            <p className="mt-3 text-sm text-white/55 md:text-base">Get the underneath.</p>
+          </div>
+
+          <ul className="mx-auto mt-12 flex w-full max-w-full flex-col gap-4 md:mt-14 md:gap-5">
+            {FEATURES.map((f) => {
+              const Icon = f.Icon;
+              const clickable = Boolean(f.kind) || Boolean(f.href);
+              const isSoon = f.cta.toLowerCase() === "soon";
+
+              const inner = (
+                <>
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,rgba(180,150,255,0.14),transparent),radial-gradient(ellipse_50%_40%_at_100%_100%,rgba(255,210,160,0.08),transparent)]"
+                  />
+                  <div className="relative flex w-full items-center gap-4">
+                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06] shadow-[0_0_32px_rgba(140,110,220,0.12)] motion-safe:transition-shadow motion-safe:duration-500 group-hover:shadow-[0_0_40px_rgba(140,110,220,0.2)] md:h-16 md:w-16">
+                      {Icon ? <Icon className="h-7 w-7 text-white/90 md:h-8 md:w-8" strokeWidth={1.5} /> : null}
+                    </div>
+                    <div className="min-w-0 flex-1 text-left">
+                      <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/45">{f.subtitle}</p>
+                      <p className="mt-1 text-[17px] font-medium leading-snug text-white md:text-lg">{f.title}</p>
+                      <p className="mt-1 text-sm text-white/55">
+                        {isSoon ? "On the roadmap" : f.kind ? "Tap to open" : f.href ? "Unlock" : f.cta}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] p-2.5 md:p-3">
+                      {isSoon ? (
+                        <span className="px-1 text-[11px] font-medium uppercase tracking-wider text-white/40">Soon</span>
+                      ) : (
+                        <ChevronRight
+                          className="h-5 w-5 text-white/50 motion-safe:transition-transform motion-safe:duration-300 group-hover:translate-x-0.5 group-hover:text-white/80 md:h-6 md:w-6"
+                          aria-hidden
+                        />
+                      )}
+                    </div>
+                  </div>
+                </>
+              );
+
+              if (f.kind) {
+                return (
+                  <li key={f.title} className="flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => setOverlay(f.kind!)}
+                      className={`${hubFeatureCardClasses} hover:border-white/15 hover:bg-white/[0.07] hover:shadow-[0_0_48px_rgba(140,110,200,0.12)]`}
+                    >
+                      {inner}
+                    </button>
+                  </li>
+                );
+              }
+
+              if (f.href) {
+                return (
+                  <li key={f.title} className="flex justify-center">
+                    <Link
+                      href={f.href}
+                      className={`${hubFeatureCardClasses} hover:border-white/15 hover:bg-white/[0.07] hover:shadow-[0_0_48px_rgba(140,110,200,0.12)]`}
+                    >
+                      {inner}
+                    </Link>
+                  </li>
+                );
+              }
+
+              return (
+                <li key={f.title} className="flex justify-center">
+                  <div className={`${hubFeatureCardClasses} cursor-default opacity-60`}>{inner}</div>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
+        {/* Direction + reflection CTA */}
+        <section className="border-t border-white/10 py-16 md:py-24" aria-labelledby="hub-future-heading">
+          <div className="text-center">
+            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/50">Direction</p>
+            <h2
+              id="hub-future-heading"
+              className="mt-3 font-serif text-[26px] text-white [font-family:var(--font-serif-display)] tracking-tight md:text-[34px]"
+            >
+              Where this goes.
+            </h2>
+            <p className="mt-3 text-sm text-white/55 md:text-base">Two paths. One choice.</p>
+          </div>
+
+          <div className="mx-auto mt-12 w-full animate-in fade-in slide-in-from-bottom-2 duration-700 md:mt-14">
+            <FutureProjectionPanel
+              className="w-full rounded-[28px] border-white/10 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_26px_120px_rgba(0,0,0,0.7)]"
+              connection={connection}
+              distance={distance}
+              conflict={conflict}
+            />
+          </div>
+
+          <p className="mt-10 text-center text-xs text-white/40 md:mt-12">Less reading. More seeing.</p>
+
+          <div className="mx-auto mt-8 flex max-w-md justify-center md:mt-10">
+            <Link
+              href="/couple"
+              className="group relative inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-8 py-4 text-base font-semibold text-[#0b0a0d] shadow-[0_0_0_1px_rgba(255,255,255,0.18),0_20px_90px_rgba(255,255,255,0.1)] transition hover:opacity-95 min-h-[3.25rem] motion-safe:active:scale-[0.99]"
+            >
+              <span
+                aria-hidden
+                className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_70%_55%_at_50%_-10%,rgba(180,150,255,0.22),transparent),radial-gradient(ellipse_60%_45%_at_90%_120%,rgba(255,210,160,0.14),transparent)] opacity-70"
+              />
+              <span className="relative">Start couple reflection</span>
+              <ArrowRight className="relative h-5 w-5 opacity-70 motion-safe:transition-transform motion-safe:duration-300 group-hover:translate-x-0.5" />
+            </Link>
+          </div>
+        </section>
+      </div>
+    </main>
+  );
+
+  return (
+    <div className="min-h-screen flex flex-col bg-[#050508] text-[#e8e4df]">
+      <Navigation />
+      <TimelineBar />
+      <CoupleHubOverlay open={overlay != null} kind={(overlay ?? "translator") as any} onClose={() => setOverlay(null)} />
+      {ControlPanel}
 
       <Footer />
     </div>

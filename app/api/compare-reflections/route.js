@@ -36,7 +36,7 @@ ${previousContent}
 CURRENT REFLECTION:
 ${currentContent}
 
-Write 2–4 short sentences that describe how their inner landscape may have shifted between then and now. Use a calm, poetic, reflective tone. Speak directly to the user ("you"). Do not analyze clinically or use jargon. Do not repeat the reflections verbatim. Focus on the emotional quality and subtle movement—what might be beginning to change, what feels different. Example tone: "Last time your reflection suggested a quiet observational state. This time your choices feel slightly more open and curious. Something in your inner landscape may be beginning to move."
+Write 2–4 short sentences that describe how their inner landscape may have shifted between then and now. Use a calm, poetic, reflective tone. Speak directly to the user ("you"). Where it fits, use identity-based habit language ("You seemed to…", "You often…", "You tend to…", "Now you seem to…") tied to concrete differences between the two reflections—not generic personality ("You've grown so much"). Do not analyze clinically or use jargon. Do not repeat the reflections verbatim. Focus on the emotional quality and subtle movement—what might be beginning to change, what feels different. Example tone: "Last time your reflection suggested a quiet observational state. This time your choices feel slightly more open and curious. Something in your inner landscape may be beginning to move."
 
 Output only the comparison text, no heading or label.`;
 

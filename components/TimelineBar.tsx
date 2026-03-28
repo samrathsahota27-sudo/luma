@@ -91,12 +91,12 @@ export function TimelineBar({
                       className={[
                         "relative z-[1] h-2.5 w-2.5 shrink-0 rounded-full border transition-all duration-500",
                         isActive
-                          ? "scale-125 border-white/80 bg-white shadow-[0_0_14px_rgba(255,255,255,0.55)]"
+                          ? "scale-125 border-white/80 bg-white shadow-[0_0_14px_rgba(255,255,255,0.55)] animate-pulse"
                           : isPast
                             ? "border-white/45 bg-white/35"
                             : "border-white/20 bg-[#1a181d]",
                         finalLocked ? "opacity-50" : "",
-                        isFuture ? "opacity-35" : "",
+                        isFuture ? "opacity-35 blur-[0.5px]" : "",
                       ]
                         .filter(Boolean)
                         .join(" ")}
@@ -108,7 +108,7 @@ export function TimelineBar({
                       "mt-1.5 max-w-[4.5rem] text-[9px] font-medium uppercase leading-tight tracking-wide text-white/45 md:max-w-none md:text-[10px]",
                       isActive ? "text-white/95" : "",
                       isPast && !isActive ? "text-white/65" : "",
-                      isFuture ? "text-white/30" : "",
+                      isFuture ? "text-white/30 blur-[0.6px]" : "",
                       finalLocked ? "text-white/35" : "",
                     ]
                       .filter(Boolean)

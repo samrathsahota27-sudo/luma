@@ -14,7 +14,7 @@ export default function CouplesPage() {
         <section className="max-w-5xl mx-auto px-6 py-24 md:py-32">
           <div className="max-w-2xl">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
-              Premium Experience
+              Open access
             </span>
             <h1 className="font-serif text-4xl md:text-5xl leading-tight text-foreground mt-4 text-balance">
               The Space Between Us
@@ -152,7 +152,7 @@ export default function CouplesPage() {
 
         <ConflictPreview enableToggle />
 
-        {/* Pricing */}
+        {/* Access */}
         <section className="border-t border-border">
           <div className="max-w-5xl mx-auto px-6 py-24">
             <div className="max-w-md mx-auto text-center">
@@ -164,10 +164,8 @@ export default function CouplesPage() {
               </p>
               
               <div className="mt-10 p-8 bg-card border border-border rounded-sm">
-                <div className="text-3xl font-serif text-foreground">$29</div>
-                <p className="text-sm text-muted-foreground mt-2">
-                  One-time payment for both partners
-                </p>
+                <div className="text-3xl font-serif text-foreground">Unlocked</div>
+                <p className="text-sm text-muted-foreground mt-2">Couple mode is open access for now.</p>
                 
                 <ul className="mt-6 space-y-3 text-sm text-left">
                   {[
@@ -187,17 +185,15 @@ export default function CouplesPage() {
                 </ul>
                 
                 <Link
-                  href="/couples/checkout"
+                  href="/couple-hub"
                   className="mt-8 w-full inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground text-sm font-medium rounded-sm hover:bg-primary/90 transition-colors"
                 >
-                  Start Couple Reflection
+                  Go to Control Panel
                   <ArrowRight className="w-4 h-4" />
                 </Link>
               </div>
               
-              <p className="mt-6 text-xs text-muted-foreground">
-                Payment processing via Stripe. Your data is never stored.
-              </p>
+              <p className="mt-6 text-xs text-muted-foreground">No payments. No checkout. Just begin.</p>
             </div>
           </div>
         </section>

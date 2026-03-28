@@ -19,7 +19,7 @@ export const ResponseInput = forwardRef(function ResponseInput(
   return (
     <textarea
       ref={ref}
-      className={`w-full min-h-[140px] rounded-[16px] bg-white px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[#2F2F2F]/20 focus:border-[#E8E3D9] border border-[#E8E3D9] resize-y shadow-[0_8px_30px_rgba(0,0,0,0.04)] ${className}`}
+      className={`w-full min-h-[140px] rounded-[16px] border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm transition-[box-shadow,border-color] focus:border-white/15 focus:ring-2 focus:ring-ring/35 resize-y shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_12px_40px_rgba(0,0,0,0.25)] placeholder:text-muted-foreground ${className}`}
       placeholder={placeholder}
       value={value}
       onChange={(e) => onChange(e.target.value)}

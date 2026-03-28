@@ -101,24 +101,24 @@ export function HomeInnerJourneyCalendar() {
   }, [mini.days]);
 
   return (
-    <section className="border-t border-[#E8E3D9] px-6 py-20 md:py-24">
+    <section className="border-t border-white/10 px-6 py-20 md:py-24">
       <div className="max-w-[960px] mx-auto">
         <div className="text-center">
-          <h2 className="font-serif text-[26px] md:text-[30px] text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+          <h2 className="font-serif text-[26px] md:text-[30px] text-foreground [font-family:var(--font-serif-display)]">
             Your Inner Journey
           </h2>
-          <p className="mt-4 text-[#5a5a5a] max-w-lg mx-auto leading-relaxed text-base">
+          <p className="mt-4 text-muted-foreground max-w-lg mx-auto leading-relaxed text-base">
             Track how your inner world changes over time.
           </p>
         </div>
 
         {!hasAny ? (
           <div className="mt-12 max-w-[720px] mx-auto">
-            <div className="rounded-[22px] bg-white/65 border border-[#E8E3D9]/70 shadow-[0_12px_44px_rgba(31,26,23,0.06)] p-6 md:p-8">
+            <div className="rounded-[22px] bg-white/[0.06] border border-white/10 shadow-[0_12px_44px_rgba(31,26,23,0.06)] p-6 md:p-8">
               <Link
                 href="/timeline"
                 className={cn(
-                  "block rounded-[18px] border border-[#E8E3D9]/70 bg-[#F7F6F3]",
+                  "block rounded-[18px] border border-white/10 bg-background",
                   "p-4 md:p-5 transition-all duration-200 ease-out",
                   "hover:shadow-[0_12px_36px_rgba(31,26,23,0.08)] hover:scale-[1.01]"
                 )}
@@ -132,11 +132,11 @@ export function HomeInnerJourneyCalendar() {
                       <div
                         key={key}
                         className={cn(
-                          "relative aspect-square rounded-[10px] border border-[#E8E3D9]/70",
-                          completed ? "bg-[#E8E3D9]/45" : "bg-white/40"
+                          "relative aspect-square rounded-[10px] border border-white/10",
+                          completed ? "bg-violet-400/15" : "bg-white/[0.04]"
                         )}
                       >
-                        <span className="absolute top-1 left-1 text-[10px] text-[#5a5a5a] opacity-70">
+                        <span className="absolute top-1 left-1 text-[10px] text-muted-foreground opacity-70">
                           {day}
                         </span>
                         {(completed || showPlaceholder) && (
@@ -144,7 +144,7 @@ export function HomeInnerJourneyCalendar() {
                             aria-hidden
                             className={cn(
                               "absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-full",
-                              completed ? "bg-[#2F2F2F]/70" : "bg-[#2F2F2F]/25"
+                              completed ? "bg-violet-400/50" : "bg-violet-400/20"
                             )}
                           />
                         )}
@@ -155,7 +155,7 @@ export function HomeInnerJourneyCalendar() {
               </Link>
 
               <div className="mt-6 text-center">
-                <p className="text-xs text-[#5a5a5a]">
+                <p className="text-xs text-muted-foreground">
                   Start your first reflection — your journey will appear here
                 </p>
               </div>
@@ -164,12 +164,12 @@ export function HomeInnerJourneyCalendar() {
         ) : (
           <div className="mt-12">
             <div className="flex items-center justify-between max-w-[760px] mx-auto px-1">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#5a5a5a]">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 {monthLabel(range.end)}
               </p>
-              <p className="text-xs text-[#5a5a5a]">
+              <p className="text-xs text-muted-foreground">
                 <span className="inline-flex items-center gap-2">
-                  <span className="h-2 w-2 rounded-full bg-[#2F2F2F]/70" aria-hidden />
+                  <span className="h-2 w-2 rounded-full bg-violet-400/50" aria-hidden />
                   Completed
                 </span>
               </p>
@@ -180,7 +180,7 @@ export function HomeInnerJourneyCalendar() {
                 {/* Weekday labels */}
                 <div className="grid grid-cols-7 gap-2 px-1">
                   {WEEKDAYS.map((d) => (
-                    <div key={d} className="text-[11px] text-[#5a5a5a] text-center uppercase tracking-[0.16em]">
+                    <div key={d} className="text-[11px] text-muted-foreground text-center uppercase tracking-[0.16em]">
                       {d}
                     </div>
                   ))}
@@ -201,24 +201,24 @@ export function HomeInnerJourneyCalendar() {
                         onClick={() => setSelectedKey(selected ? null : key)}
                         className={cn(
                           "relative aspect-square rounded-[12px] transition-all duration-200 ease-out",
-                          "border border-[#E8E3D9]/70",
-                          completed ? "bg-[#E8E3D9]/45 hover:bg-[#E8E3D9]/55" : "bg-[#F7F6F3] opacity-70 hover:opacity-90",
+                          "border border-white/10",
+                          completed ? "bg-violet-400/15 hover:bg-violet-400/20" : "bg-background opacity-70 hover:opacity-90",
                           "hover:shadow-[0_8px_24px_rgba(31,26,23,0.06)] hover:scale-[1.02]",
-                          selected && "ring-2 ring-[#2F2F2F]/25 shadow-[0_10px_30px_rgba(31,26,23,0.10)]",
-                          isToday && !selected && "ring-1 ring-[#2F2F2F]/15"
+                          selected && "ring-2 ring-ring/30 shadow-[0_10px_30px_rgba(31,26,23,0.10)]",
+                          isToday && !selected && "ring-1 ring-ring/25"
                         )}
                         aria-pressed={selected}
                         aria-label={`${
                           completed ? "Reflection saved" : "No reflection"
                         } on ${key}`}
                       >
-                        <span className="absolute top-1.5 left-1.5 text-[11px] text-[#5a5a5a]">
+                        <span className="absolute top-1.5 left-1.5 text-[11px] text-muted-foreground">
                           {date.getDate()}
                         </span>
                         {completed && (
                           <span
                             aria-hidden
-                            className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-[#2F2F2F]/70"
+                            className="absolute bottom-1.5 right-1.5 h-2.5 w-2.5 rounded-full bg-violet-400/50"
                           />
                         )}
                       </button>
@@ -232,17 +232,17 @@ export function HomeInnerJourneyCalendar() {
             {selectedKey && (
               <div className="mt-8 max-w-[760px] mx-auto">
                 {selected ? (
-                  <div className="rounded-[20px] bg-white/70 border border-[#E8E3D9]/70 shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-7">
+                  <div className="rounded-[20px] bg-white/[0.05] border border-white/10 shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-7">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="text-xs uppercase tracking-[0.18em] text-[#5a5a5a]">
+                        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                           Reflection from this day
                         </p>
-                        <p className="mt-3 text-[#2F2F2F] text-sm md:text-[15px] leading-relaxed">
+                        <p className="mt-3 text-foreground text-sm md:text-[15px] leading-relaxed">
                           {excerpt(selected.content, 180) || "—"}
                         </p>
                       </div>
-                      <span className="text-xs px-3 py-1 rounded-full bg-[#F7F6F3] border border-[#E8E3D9] text-[#5a5a5a] whitespace-nowrap">
+                      <span className="text-xs px-3 py-1 rounded-full bg-background border border-white/10 text-muted-foreground whitespace-nowrap">
                         {selected.mode === "couple" ? "Couple" : "Individual"}
                       </span>
                     </div>
@@ -250,19 +250,19 @@ export function HomeInnerJourneyCalendar() {
                     <div className="mt-5 flex flex-wrap items-center gap-3">
                       <Link
                         href={`/dashboard/reflection/${selected.id}`}
-                        className="inline-flex items-center justify-center rounded-full px-5 py-3 bg-[#2F2F2F] text-white text-sm font-medium transition-opacity hover:opacity-90"
+                        className="inline-flex items-center justify-center rounded-full px-5 py-3 bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-opacity hover:opacity-90"
                       >
                         View Full Result
                       </Link>
                       {selectedEntries.length > 1 && (
-                        <span className="text-xs text-[#5a5a5a]">
+                        <span className="text-xs text-muted-foreground">
                           {selectedEntries.length} reflections saved that day
                         </span>
                       )}
                     </div>
                   </div>
                 ) : (
-                  <div className="rounded-[20px] bg-[#F7F6F3] border border-[#E8E3D9]/70 p-6 text-center text-sm text-[#5a5a5a]">
+                  <div className="rounded-[20px] bg-background border border-white/10 p-6 text-center text-sm text-muted-foreground">
                     No reflection saved on this day.
                   </div>
                 )}

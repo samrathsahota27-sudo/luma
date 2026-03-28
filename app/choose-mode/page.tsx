@@ -4,14 +4,14 @@ import { Footer } from "@/components/footer"
 
 export default function ChooseModePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
 
       <main className="flex-1 pt-20 px-6">
         <div className="max-w-[960px] mx-auto min-h-[calc(100vh-80px)] flex items-center justify-center py-16 md:py-20">
           <div className="w-full">
             <div className="text-center max-w-[640px] mx-auto">
-              <p className="text-xs uppercase tracking-[0.18em] text-[#5a5a5a]">
+              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 Choose your path
               </p>
               <h1 className="mt-4 font-serif text-[30px] md:text-[40px] leading-tight text-balance [font-family:var(--font-serif-display)]">
@@ -23,7 +23,7 @@ export default function ChooseModePage() {
             {/* Individual */}
             <Link
               href="/test"
-              className="group relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)] border border-[#E8E3D9] p-8 md:p-10 transition-transform duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F2F2F]/15"
+              className="group relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)] border border-white/10 p-8 md:p-10 transition-transform duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               {/* 1) Image layer */}
               <div
@@ -54,7 +54,7 @@ export default function ChooseModePage() {
             {/* Couple */}
             <Link
               href="/couple-intro"
-              className="group relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)] border border-[#2F2F2F]/10 p-8 md:p-10 transition-transform duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2F2F2F]/15"
+              className="group relative rounded-[24px] overflow-hidden shadow-[0_10px_30px_rgba(0,0,0,0.06)] border border-white/10 p-8 md:p-10 transition-transform duration-300 hover:scale-[1.02] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring/30"
             >
               {/* 1) Image layer */}
               <div

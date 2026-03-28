@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { depthModeInstructions, readDepthModeFromBody } from "@/lib/depthMode";
+import {
+  depthModeInstructions,
+  mindDepthSuffix,
+  readDepthModeFromBody,
+} from "@/lib/depthMode";
 
 const SYSTEM = `You generate emotional theories, not truths.
 
@@ -17,7 +21,7 @@ Structure:
 Clear restatement of what the user described (surface only).
 
 2. Possible Interpretations
-2–3 distinct emotional possibilities. Each should start on its own line or be clearly separated with line breaks. Use hedging: might, could, seems like, one possibility is. Never present one reading as the only truth.
+2–3 distinct emotional possibilities. Each should start on its own line or be clearly separated with line breaks. Never present one reading as the only truth. How much hedging language (might, could, seems like) to use follows the Mind tool rules in the Depth tone section—Steel uses less; Satin may use more.
 
 3. What They Might Need
 Grounded ideas for how the user could respond emotionally — no blame, no accusing the partner.
@@ -99,7 +103,7 @@ Output ONLY the JSON object with keys behavior, interpretations, need, confirm.`
       }
     })();
 
-    const input = `${SYSTEM}${depthModeInstructions(depthMode)}
+    const input = `${SYSTEM}${depthModeInstructions(depthMode)}${mindDepthSuffix(depthMode)}
 
 ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret behavior. Do not guess blindly.\nMind-reading safety: never state assumptions as facts; frame as possibilities and suggest verification questions.\n\n` : ""}${userBlock}`;
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { DepthMode } from "@/lib/depthMode";
+import { preTestLead } from "@/lib/depthUiMicrocopy";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 
 export default function PreTestScreen({
@@ -45,14 +46,14 @@ export default function PreTestScreen({
       {/* CONTENT (CENTERED) */}
       <div className="relative z-20 min-h-screen flex items-center justify-center h-full px-6 text-white">
         <div className="backdrop-blur-md bg-white/10 border border-white/20 rounded-2xl px-6 py-8 max-w-md w-full text-center shadow-lg">
-          <div className="w-2 h-2 rounded-full bg-white/70 mb-6 mx-auto" />
+          <div className="w-2 h-2 rounded-full bg-white/[0.05] mb-6 mx-auto" />
 
           <h1 className="text-3xl font-medium text-white mb-4">
             Take a moment.
           </h1>
 
           <p className="text-sm text-white/90 mb-6 leading-relaxed">
-            This experience works best when you follow what quietly draws your attention.
+            {depthMode != null ? preTestLead(depthMode) : "This experience works best when you follow what quietly draws your attention."}
           </p>
 
           {depthMode != null && onDepthModeChange && (
@@ -61,7 +62,7 @@ export default function PreTestScreen({
                 value={depthMode}
                 onChange={onDepthModeChange}
                 variant="dark"
-                className="[&_span]:!text-white/70"
+                className="[&_span]:!text-white/70 [&_p]:!text-white/80"
               />
             </div>
           )}

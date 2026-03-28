@@ -4,13 +4,15 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { TestRound } from "@/components/TestRound";
-import { reflectionLines, questions, rounds, roundTags } from "@/lib/coupleTestData";
+import { coupleReflectionRounds, reflectionLines, questions, rounds, roundTags } from "@/lib/coupleTestData";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
+import { getRound5SelectionMeta } from "@/lib/reflection/round5Images";
 
 const PARTNER_A_STORAGE_KEY = "luma_couple_partner_a";
 
 export default function CoupleStartPage() {
   const router = useRouter();
+  const [remoteSessionId, setRemoteSessionId] = useState(null);
   const [partnerAName, setPartnerAName] = useState("");
   const [currentRound, setCurrentRound] = useState(1);
   const [answers, setAnswers] = useState({});
@@ -21,6 +23,16 @@ export default function CoupleStartPage() {
   const [noneText, setNoneText] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
+  const [isSubmittingSession, setIsSubmittingSession] = useState(false);
+
+  useEffect(() => {
+    try {
+      const id = new URLSearchParams(window.location.search).get("session");
+      setRemoteSessionId(id && id.trim() ? id.trim() : null);
+    } catch {
+      setRemoteSessionId(null);
+    }
+  }, []);
 
   useEffect(() => {
     setIsTransitioning(true);
@@ -50,6 +62,7 @@ export default function CoupleStartPage() {
     setSelectedOption("image");
     setNoneText("");
     const tag = getRoundTag(currentRound, index);
+    const r5 = currentRound === 5 ? getRound5SelectionMeta(index) : null;
     setAnswers((prev) => ({
       ...prev,
       [currentRound]: {
@@ -60,6 +73,7 @@ export default function CoupleStartPage() {
         tags: selectedTags[currentRound] ?? [],
         userExplanation: "",
         text: textValue,
+        ...(r5?.id ? { imageId: r5.id, psychologicalTags: r5.psychologicalTags } : {}),
       },
     }));
   };
@@ -94,59 +108,94 @@ export default function CoupleStartPage() {
   const inputText = selectedOption === "none" ? noneText : textValue;
   const canProceed = inputText.trim().length > 0;
 
-  const handleNext = () => {
-    if (!canProceed) return;
+  const handleNext = async () => {
+    if (!canProceed || isSubmittingSession) return;
 
     if (currentRound < 5) {
       setCurrentRound((prev) => prev + 1);
-    } else {
-      const finalAnswers = {
-        ...answers,
-        [currentRound]:
-          selectedOption === "none"
-            ? {
-                selectedType: "none",
-                selectedImage: "none",
-                image: null,
-                selectedImageId: null,
-                tag: undefined,
-                tags: [],
-                userExplanation: noneText,
-                noneText,
-                text: noneText,
-              }
-            : {
-                selectedType: "image",
+      return;
+    }
+
+    const finalAnswers = {
+      ...answers,
+      [currentRound]:
+        selectedOption === "none"
+          ? {
+              selectedType: "none",
+              selectedImage: "none",
+              image: null,
+              selectedImageId: null,
+              tag: undefined,
+              tags: [],
+              userExplanation: noneText,
+              noneText,
+              text: noneText,
+            }
+          : {
+              selectedType: "image",
               image: selectedImage,
               selectedImageId: selectedImage,
               tag: typeof selectedImage === "number" ? getRoundTag(currentRound, selectedImage) ?? undefined : undefined,
-                tags: selectedTags[currentRound] ?? [],
-                userExplanation: "",
-                text: textValue,
-              },
-      };
+              tags: selectedTags[currentRound] ?? [],
+              userExplanation: "",
+              text: textValue,
+              ...(currentRound === 5 && typeof selectedImage === "number"
+                ? (() => {
+                    const m = getRound5SelectionMeta(selectedImage);
+                    return m.id
+                      ? { imageId: m.id, psychologicalTags: m.psychologicalTags }
+                      : {};
+                  })()
+                : {}),
+            },
+    };
+
+    if (remoteSessionId) {
+      setIsSubmittingSession(true);
       try {
-        sessionStorage.setItem(
-          PARTNER_A_STORAGE_KEY,
-          JSON.stringify({
+        const res = await fetch(`/api/couple-sessions/${encodeURIComponent(remoteSessionId)}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            role: "a",
             answers: finalAnswers,
-            nameA: partnerAName.trim() || undefined,
-          })
-        );
+            name: partnerAName.trim() || null,
+          }),
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          console.error("Couple session submit (A) failed", err);
+        }
       } catch (e) {
-        console.error("Failed to store Partner A answers", e);
+        console.error(e);
+      } finally {
+        setIsSubmittingSession(false);
       }
-      router.push("/couple/partner-b");
+      router.push(`/couple/waiting?session=${encodeURIComponent(remoteSessionId)}`);
+      return;
     }
+
+    try {
+      sessionStorage.setItem(
+        PARTNER_A_STORAGE_KEY,
+        JSON.stringify({
+          answers: finalAnswers,
+          nameA: partnerAName.trim() || undefined,
+        })
+      );
+    } catch (e) {
+      console.error("Failed to store Partner A answers", e);
+    }
+    router.push("/couple/partner-b");
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       <main className="pt-20 pb-12 max-w-[720px] mx-auto">
         <div className="px-6 pb-6">
           <div className="mb-4">
-            <label htmlFor="partner-a-name" className="block text-sm text-[#5a5a5a] mb-1">
+            <label htmlFor="partner-a-name" className="block text-sm text-muted-foreground mb-1">
               Your name (for your story card)
             </label>
             <input
@@ -155,7 +204,7 @@ export default function CoupleStartPage() {
               value={partnerAName}
               onChange={(e) => setPartnerAName(e.target.value)}
               placeholder="Partner A name"
-              className="w-full max-w-[280px] rounded-[12px] border border-[#E8E3D9] bg-white px-4 py-2.5 text-[#2F2F2F] placeholder:text-[#5a5a5a] focus:outline-none focus:ring-2 focus:ring-[#2F2F2F]/20"
+              className="w-full max-w-[280px] rounded-[12px] border border-white/10 bg-white/[0.04] px-4 py-2.5 backdrop-blur-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40"
               aria-label="Your name"
             />
           </div>
@@ -163,7 +212,7 @@ export default function CoupleStartPage() {
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
               Partner A
             </span>
-            <h2 className="font-serif text-[22px] mt-2 text-[#2F2F2F]">
+            <h2 className="font-serif text-[22px] mt-2 text-foreground">
               Partner A Reflection
             </h2>
           </div>
@@ -193,10 +242,13 @@ export default function CoupleStartPage() {
             onNoneTextChange={setNoneText}
             textValue={textValue}
             onTextChange={setTextValue}
-            canProceed={canProceed}
+            canProceed={canProceed && !isSubmittingSession}
             onNext={handleNext}
             showNone={showNone}
             totalRounds={5}
+            spaceBetweenRound={
+              !!coupleReflectionRounds.find((r) => r.roundNumber === currentRound)?.spaceBetweenRound
+            }
           />
         </div>
       </main>

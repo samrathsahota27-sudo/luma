@@ -37,7 +37,9 @@ Requirements:
 - Write 4–6 short lines only.
 - Tone: calm, poetic, reflective, emotionally intelligent.
 - Speak to the user in second person ("you").
+- Use identity-based phrasing tied to their reflection: e.g. "You tend to…", "You often…", "You reach for…", "You hold back when…" — vary openings; each line should echo a specific texture from the reflection text, not generic personality ("You are wise / deep / strong").
 - Do not use analytical or clinical language.
+- Do not use hollow trait labels or horoscope-style generality.
 - Example tone: "You often move toward quiet landscapes. There may be a part of you that prefers to observe before stepping forward. Something in your inner world may be preparing for movement."
 - Output only the letter text, no heading or quotation marks. Use line breaks between phrases for readability.`;
 

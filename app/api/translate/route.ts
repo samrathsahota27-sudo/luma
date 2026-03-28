@@ -1,6 +1,10 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
-import { depthModeInstructions, readDepthModeFromBody } from "@/lib/depthMode";
+import {
+  depthModeInstructions,
+  readDepthModeFromBody,
+  translatorDepthSuffix,
+} from "@/lib/depthMode";
 
 const SYSTEM = `You decode emotional subtext with high precision.
 
@@ -10,7 +14,7 @@ Rules:
 - Avoid generic statements; tie every insight to actual wording, punctuation, or tone in the message
 - Be specific to wording — quote or paraphrase the words that carry the charge
 - Identify emotional intent behind tone (withdrawal, pressure, reassurance-seeking, etc.)
-- No long paragraphs. Use short, sharp sentences. Slight emotional tension, but safe.
+- Keep each JSON field purposeful and scannable; the Depth tone section below sets whether lines stay surgically tight or allow a more interpretive rhythm (especially in "meant").
 - Never sound robotic.
 
 Structure:
@@ -136,7 +140,7 @@ Output ONLY the JSON object with keys said, meant, trap, do.`;
 
     const input = `${SYSTEM}
 
-${translatorMemoryBlock ? `You are Luma, an emotional intelligence system.\n\nUse past relationship data to interpret messages.\n\nPAST CONFLICT PATTERNS:\n${JSON.stringify(memorySlices.pastConflicts)}\n\nEMOTIONAL PATTERNS:\n${JSON.stringify(memorySlices.patterns)}\n\nRECENT STATE:\n${JSON.stringify(memorySlices.recentReflections)}\n\nIMPORTANT:\n- Do NOT assume facts.\n- Frame insights as possibilities, not certainty.\n- Do NOT take sides.\n- Be sharp but grounded.\n\n` : ""}${depthModeInstructions(depthMode)}
+${translatorMemoryBlock ? `You are Luma, an emotional intelligence system.\n\nUse past relationship data to interpret messages.\n\nPAST CONFLICT PATTERNS:\n${JSON.stringify(memorySlices.pastConflicts)}\n\nEMOTIONAL PATTERNS:\n${JSON.stringify(memorySlices.patterns)}\n\nRECENT STATE:\n${JSON.stringify(memorySlices.recentReflections)}\n\nIMPORTANT:\n- Do NOT assume facts.\n- Frame insights as possibilities, not certainty.\n- Do NOT take sides.\n- Be sharp but grounded.\n\n` : ""}${depthModeInstructions(depthMode)}${translatorDepthSuffix(depthMode)}
 
 ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret behavior. Do not guess blindly.\n\n` : ""}${userBlock}`;
 

@@ -1,7 +1,11 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import type { ChatCompletionMessageParam } from "openai/resources/chat/completions";
-import { depthModeInstructions, readDepthModeFromBody } from "@/lib/depthMode";
+import {
+  chatDepthSuffix,
+  depthModeInstructions,
+  readDepthModeFromBody,
+} from "@/lib/depthMode";
 
 const SYSTEM = `You are a neutral emotional support system for relationships.
 
@@ -17,11 +21,9 @@ Rules:
 - Reframe conflict into emotional understanding
 - Keep responses calm, human, slightly insightful
 
-Tone:
-- grounded
-- emotionally aware
-- not robotic
-- not overly long
+Tone (baseline):
+- grounded, emotionally aware, not robotic
+- Length and warmth vs. directness follow the Depth tone sections below
 
 If user is angry:
 → slow them down
@@ -105,6 +107,7 @@ export async function POST(req: Request) {
         content:
           SYSTEM +
           depthModeInstructions(depthMode) +
+          chatDepthSuffix(depthMode) +
           (contextJson
             ? `\n\nRelationship Context:\n${contextJson}\n\nInstructions:\nUse this context to interpret. If context is missing/unknown, say so rather than guessing.`
             : ""),
@@ -115,7 +118,7 @@ export async function POST(req: Request) {
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       messages,
-      max_tokens: 900,
+      max_tokens: depthMode === "steel" ? 720 : 900,
     });
 
     const reply = completion.choices[0]?.message?.content?.trim() ?? "";

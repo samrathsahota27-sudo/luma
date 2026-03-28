@@ -4,15 +4,19 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
+import { DepthModeSelector } from "@/components/DepthModeSelector";
+import { useDepthMode } from "@/hooks/useDepthMode";
 import { TimelineBar, COUPLE_MAIN_PADDING_TOP } from "@/components/TimelineBar";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { setMemory } from "@/lib/memory";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
+import { futurePathsBlurb, futurePathsLoading } from "@/lib/depthUiMicrocopy";
 
 type Result = { pathA: string; pathB: string };
 
 export default function FuturePathsPage() {
+  const { depthMode, setDepthMode } = useDepthMode();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<Result | null>(null);
@@ -45,7 +49,10 @@ export default function FuturePathsPage() {
         const res = await fetch("/api/future-paths", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ context: buildRelationshipContext("futurePaths") }),
+          body: JSON.stringify({
+            depthMode,
+            context: buildRelationshipContext("futurePaths"),
+          }),
         });
 
         const data = await res.json().catch(() => ({}));
@@ -63,7 +70,7 @@ export default function FuturePathsPage() {
     };
 
     run();
-  }, []);
+  }, [depthMode]);
 
   const cta = useMemo(
     () => [
@@ -105,15 +112,21 @@ export default function FuturePathsPage() {
               Two directions from here
             </h1>
             <p className="mt-3 text-[#9a9288] text-sm md:text-base font-light leading-relaxed max-w-xl mx-auto">
-              Not predictions. A direction, based on the pattern you’ve been living.
+              {futurePathsBlurb(depthMode)}
             </p>
+            <DepthModeSelector
+              value={depthMode}
+              onChange={setDepthMode}
+              disabled={loading}
+              className="mt-8 items-center"
+            />
           </header>
 
           {loading && (
             <div className="flex justify-center py-16">
               <div className="flex flex-col items-center gap-4 text-[#6d6578]">
                 <Loader2 className="h-8 w-8 animate-spin opacity-60" />
-                <p className="text-sm font-light">Tracing the direction…</p>
+                <p className="text-sm font-light">{futurePathsLoading(depthMode)}</p>
               </div>
             </div>
           )}

@@ -10,6 +10,8 @@ import {
   type ReflectionEntry,
 } from "@/lib/reflectionStorage";
 import { ArrowRight, Lock } from "lucide-react";
+import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
+import { CalendarOfUsTimeline } from "@/components/CalendarOfUsTimeline";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -160,6 +162,14 @@ export default function DashboardPage() {
                 </div>
               </div>
             </div>
+          </section>
+
+          <section className="rounded-2xl border border-[#2a282e] bg-[#161419]/70 p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+            <PatternOverTimeSection variant="dark" />
+          </section>
+
+          <section className="rounded-2xl border border-[#2a282e] bg-[#161419]/70 p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+            <CalendarOfUsTimeline variant="dark" fetchLimit={90} />
           </section>
 
           <section className="space-y-5">

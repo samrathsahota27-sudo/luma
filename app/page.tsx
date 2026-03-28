@@ -7,10 +7,11 @@ import { HomeHowItWorks } from "@/components/home-how-it-works"
 import { HomeReturnToReflection } from "@/components/home-return-to-reflection"
 import { HomeBeginPopup } from "@/components/home-begin-popup"
 import { HomeInnerJourneyCalendar } from "@/components/home-inner-journey-calendar"
+import { HomeThreeClickTeaser } from "@/components/home-three-click-teaser"
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F7F6F3] text-[#2F2F2F]">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
       <HomeBeginPopup />
 
@@ -50,19 +51,21 @@ export default function HomePage() {
           </div>
         </section>
 
+        <HomeThreeClickTeaser />
+
         {/* SECTION 2 — How Luma Helps You */}
-        <section className="border-t border-[#E8E3D9] bg-[linear-gradient(180deg,rgba(232,227,217,0.30),rgba(247,246,243,0.90))] px-6 py-20 md:py-24">
+        <section className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(80,60,120,0.12),rgba(5,5,8,0.96))] px-6 py-20 md:py-24">
           <div className="max-w-[960px] mx-auto">
             <div className="text-center max-w-[720px] mx-auto">
-              <h2 className="font-serif text-[26px] md:text-[34px] text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+              <h2 className="font-serif text-[26px] md:text-[34px] text-foreground [font-family:var(--font-serif-display)]">
                 How Luma Helps You
               </h2>
             </div>
 
             <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
               {/* Individual */}
-              <div className="rounded-[22px] bg-white/65 border border-[#E8E3D9]/70 shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-8">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#5a5a5a] text-center">
+              <div className="rounded-[22px] bg-white/[0.06] border border-white/10 shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-8">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/55 text-center">
                   Individual
                 </p>
                 <div className="grid grid-cols-2 gap-6 mt-6">
@@ -74,10 +77,10 @@ export default function HomePage() {
                   ].map(({ Icon, text }) => (
                     <div
                       key={text}
-                      className="flex flex-col items-center text-center gap-2 rounded-[16px] bg-white/40 border border-[#E8E3D9]/60 px-4 py-5 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_10px_30px_rgba(31,26,23,0.07)]"
+                      className="flex flex-col items-center text-center gap-2 rounded-[16px] bg-white/[0.04] border border-white/10 px-4 py-5 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_10px_30px_rgba(31,26,23,0.07)]"
                     >
-                      <Icon className="h-5 w-5 text-[#2F2F2F]/80" />
-                      <p className="text-sm text-gray-700 leading-snug">
+                      <Icon className="h-5 w-5 text-white/70" />
+                      <p className="text-sm text-white/75 leading-snug">
                         {text}
                       </p>
                     </div>
@@ -86,8 +89,8 @@ export default function HomePage() {
               </div>
 
               {/* Couple */}
-              <div className="rounded-[22px] bg-white/65 border border-[#E8E3D9]/70 shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-8">
-                <p className="text-xs uppercase tracking-[0.18em] text-[#5a5a5a] text-center">
+              <div className="rounded-[22px] bg-white/[0.06] border border-white/10 shadow-[0_10px_35px_rgba(31,26,23,0.06)] p-6 md:p-8">
+                <p className="text-xs uppercase tracking-[0.18em] text-white/55 text-center">
                   Couple
                 </p>
                 <div className="grid grid-cols-2 gap-6 mt-6">
@@ -99,10 +102,10 @@ export default function HomePage() {
                   ].map(({ Icon, text }) => (
                     <div
                       key={text}
-                      className="flex flex-col items-center text-center gap-2 rounded-[16px] bg-white/40 border border-[#E8E3D9]/60 px-4 py-5 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_10px_30px_rgba(31,26,23,0.07)]"
+                      className="flex flex-col items-center text-center gap-2 rounded-[16px] bg-white/[0.04] border border-white/10 px-4 py-5 transition-all duration-200 hover:scale-[1.02] hover:shadow-[0_10px_30px_rgba(31,26,23,0.07)]"
                     >
-                      <Icon className="h-5 w-5 text-[#2F2F2F]/80" />
-                      <p className="text-sm text-gray-700 leading-snug">
+                      <Icon className="h-5 w-5 text-white/70" />
+                      <p className="text-sm text-white/75 leading-snug">
                         {text}
                       </p>
                     </div>
@@ -120,9 +123,9 @@ export default function HomePage() {
         <HomeReturnToReflection />
 
         {/* SECTION 5 — Science Preview */}
-        <section className="border-t border-[#E8E3D9] px-6 py-20 md:py-24">
+        <section className="border-t border-white/10 px-6 py-20 md:py-24">
           <div className="max-w-[960px] mx-auto">
-            <div className="relative overflow-hidden rounded-3xl border border-[#E8E3D9]/70 shadow-[0_16px_60px_rgba(31,26,23,0.14)]">
+            <div className="relative overflow-hidden rounded-3xl border border-white/10 shadow-[0_16px_60px_rgba(31,26,23,0.14)]">
               {/* Background image */}
               <div aria-hidden className="absolute inset-0">
                 <img
@@ -166,9 +169,9 @@ export default function HomePage() {
         </section>
 
         {/* SECTION 6 — Couple Reflection */}
-        <section className="border-t border-[#E8E3D9] bg-[#E8E3D9]/20 px-6 py-20 md:py-24">
+        <section className="border-t border-white/10 bg-white/[0.03] px-6 py-20 md:py-24">
           <div className="max-w-[960px] mx-auto">
-            <h2 className="font-serif text-[26px] md:text-[30px] text-center text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+            <h2 className="font-serif text-[26px] md:text-[30px] text-center text-foreground [font-family:var(--font-serif-display)]">
               Two Inner Worlds
             </h2>
             <div className="mt-12 grid grid-cols-3 gap-4 md:gap-6 max-w-[720px] mx-auto">
@@ -178,7 +181,7 @@ export default function HomePage() {
                 { src: "/sbu.jpg", label: "The Space Between" },
               ].map(({ src, label }) => (
                 <div key={label} className="flex flex-col">
-                  <div className="relative aspect-[3/4] rounded-[16px] overflow-hidden bg-[#E8E3D9]/50 shadow-[0_8px_30px_rgba(0,0,0,0.06)]">
+                  <div className="relative aspect-[3/4] rounded-[16px] overflow-hidden bg-white/[0.06] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_8px_30px_rgba(0,0,0,0.35)]">
                     <Image
                       src={src}
                       alt=""
@@ -187,19 +190,19 @@ export default function HomePage() {
                       sizes="(max-width: 768px) 33vw, 220px"
                     />
                   </div>
-                  <p className="text-xs text-[#5a5a5a] mt-3 text-center font-medium tracking-wide">
+                  <p className="text-xs text-white/60 mt-3 text-center font-medium tracking-wide">
                     {label}
                   </p>
                 </div>
               ))}
             </div>
-            <p className="mt-8 text-center text-[#5a5a5a] max-w-md mx-auto leading-relaxed text-base">
+            <p className="mt-8 text-center text-white/60 max-w-md mx-auto leading-relaxed text-base">
               Explore the emotional landscape that emerges between two people.
             </p>
             <div className="mt-10 text-center">
               <Link
                 href="/couple-hub"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90 shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-[12px] bg-white text-[#0b0a0d] text-base font-medium transition-opacity hover:opacity-90 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_12px_40px_rgba(120,90,180,0.2)]"
               >
                 Start Together
                 <ArrowRight className="w-4 h-4" />
@@ -212,12 +215,12 @@ export default function HomePage() {
         <HomeInnerJourneyCalendar />
 
         {/* SECTION 7 — Share Preview */}
-        <section className="border-t border-[#E8E3D9] bg-[#E8E3D9]/20 px-6 py-20 md:py-24">
+        <section className="border-t border-white/10 bg-white/[0.03] px-6 py-20 md:py-24">
           <div className="max-w-[420px] mx-auto">
-            <h2 className="font-serif text-[26px] md:text-[30px] text-center text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+            <h2 className="font-serif text-[26px] md:text-[30px] text-center text-foreground [font-family:var(--font-serif-display)]">
               Share Your Inner Landscape
             </h2>
-            <div className="mt-10 mx-auto w-full max-w-[280px] aspect-[9/16] rounded-[24px] overflow-hidden bg-[#2F2F2F] shadow-[0_12px_40px_rgba(0,0,0,0.2)] border border-[#E8E3D9]/50">
+            <div className="mt-10 mx-auto w-full max-w-[280px] aspect-[9/16] rounded-[24px] overflow-hidden bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(0,0,0,0.45),0_0_60px_rgba(120,90,180,0.12)] backdrop-blur-md">
               <div className="relative w-full h-full">
                 <Image
                   src="/r2_a.jpg"
@@ -233,23 +236,23 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-            <p className="mt-6 text-center text-[#5a5a5a] text-base italic">
+            <p className="mt-6 text-center text-white/60 text-base italic">
               Some reflections are worth sharing.
             </p>
           </div>
         </section>
 
         {/* SECTION 8 — Final CTA */}
-        <section className="border-t border-[#E8E3D9] px-6 py-24 md:py-32 text-center">
+        <section className="border-t border-white/10 px-6 py-24 md:py-32 text-center">
           <div className="max-w-[600px] mx-auto">
-            <p className="font-serif text-[22px] md:text-[26px] leading-relaxed text-[#2F2F2F] [font-family:var(--font-serif-display)]">
+            <p className="font-serif text-[22px] md:text-[26px] leading-relaxed text-foreground [font-family:var(--font-serif-display)]">
               Your inner world may already be speaking.
               <br />
               Luma simply helps you notice it.
             </p>
             <Link
               href="/test"
-              className="inline-flex items-center justify-center gap-2 mt-10 px-6 py-3.5 rounded-[12px] bg-[#2F2F2F] text-white text-base font-medium transition-opacity hover:opacity-90 shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
+              className="inline-flex items-center justify-center gap-2 mt-10 px-6 py-3.5 rounded-[12px] bg-white text-[#0b0a0d] text-base font-medium transition-opacity hover:opacity-90 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_12px_40px_rgba(120,90,180,0.2)]"
             >
               Begin Reflection
               <ArrowRight className="w-4 h-4" />
