@@ -20,14 +20,19 @@ import {
   shareOrDownloadStoryCard,
   getStoryCardTitle,
 } from "@/lib/storyCard";
-import { StoryCardFrame } from "@/components/StoryCardFrame";
+import { StoryCard } from "@/components/StoryCard";
 import { StoryShareButtons } from "@/components/StoryShareButtons";
-import { StructuredResultSections } from "@/components/structured-result-sections";
-import { HowToReadThisVisual } from "@/components/HowToReadThisVisual";
-import { InSimpleWordsSection } from "@/components/InSimpleWordsSection";
-import { DangerousQuestionBlock } from "@/components/DangerousQuestionBlock";
-import { BrutalTruthHeadline } from "@/components/BrutalTruthHeadline";
-import { RoundFiveInsightCard, type Round5SpaceBetweenPayload } from "@/components/RoundFiveInsightCard";
+import { IndividualResultCard, type IndividualStructuredResult } from "@/components/IndividualResultCard";
+import { buildWhyThisIsYou } from "@/lib/whyThisIsYou";
+import { buildCostAndBrutalTruth } from "@/lib/costBrutalTruth";
+import { extractTagSignalsFromSelections } from "@/lib/patternScoring";
+import Image from "next/image";
+import { normalizePublicImageSrc } from "@/lib/publicImage";
+import { buildTension } from "@/lib/tensionEngine";
+import { TensionCard } from "@/components/TensionCard";
+import { buildActionTrigger } from "@/lib/actionTrigger";
+import { ActionTriggerCard } from "@/components/ActionTriggerCard";
+import { shareStoryFromElement } from "@/lib/storyCardCapture";
 import { Loader2 } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
@@ -78,6 +83,7 @@ export default function ReflectPage() {
   const [noneText, setNoneText] = useState("");
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
+  const [structuredResult, setStructuredResult] = useState<IndividualStructuredResult | null>(null);
   const [reflection, setReflection] = useState<string | null>(null);
   const [brutalTruth, setBrutalTruth] = useState<string | null>(null);
   const [inSimpleWords, setInSimpleWords] = useState<string[] | null>(null);
@@ -263,8 +269,46 @@ export default function ReflectPage() {
     }, 100);
   };
 
-  const inputText = selectedOption === "none" ? noneText : textValue;
-  const canProceed = inputText.trim().length > 0;
+  const progressive = (answers as any)?.[currentRound]?.answers ?? {};
+  const personalNote = (answers as any)?.[currentRound]?.personalNote ?? "";
+  const canProceed =
+    selectedOption === "none"
+      ? noneText.trim().length > 0
+      : selectedOption === "image" &&
+        typeof selectedImage === "number" &&
+        progressive?.q1 &&
+        progressive?.q2 &&
+        progressive?.q3;
+
+  const setProgressiveAnswer = (qKey: "q1" | "q2" | "q3", value: string) => {
+    setAnswers((prev) => {
+      const current = (prev as any)?.[currentRound] ?? {};
+      const nextAnswers = { ...(current.answers ?? {}), [qKey]: value };
+      const tags = [nextAnswers.q1, nextAnswers.q2, nextAnswers.q3].filter(Boolean);
+      return {
+        ...(prev as any),
+        [currentRound]: {
+          ...current,
+          answers: nextAnswers,
+          tags,
+        },
+      };
+    });
+  };
+
+  const setPersonalNote = (value: string) => {
+    setAnswers((prev) => {
+      const current = (prev as any)?.[currentRound] ?? {};
+      return {
+        ...(prev as any),
+        [currentRound]: {
+          ...current,
+          personalNote: value,
+          text: value,
+        },
+      };
+    });
+  };
 
   const handleNext = async () => {
     if (!canProceed) return;
@@ -396,6 +440,7 @@ export default function ReflectPage() {
 
       const data = await response.json();
       setReflection(data.result);
+      setStructuredResult(data.structured ?? null);
       setRound5SpaceBetween(parseRound5SpaceBetweenFromApi(data));
       setBrutalTruth(typeof data.brutalTruth === "string" ? data.brutalTruth.trim() || null : null);
       const simpleLines = parseInSimpleWordsFromApi(data);
@@ -514,6 +559,7 @@ export default function ReflectPage() {
     setTextValue("");
     setSelectedIndex(null);
     setReflection(null);
+    setStructuredResult(null);
     setRound5SpaceBetween(null);
     setBrutalTruth(null);
     setInSimpleWords(null);
@@ -534,9 +580,117 @@ export default function ReflectPage() {
   const showRounds = phase === "rounds" && !reflection && !error;
   const showReview = phase === "review" && !reflection;
   const roundData = reflectionRounds.find((r) => r.roundNumber === currentRound);
+  const mode = "individual" as const;
+
+  const evidence = (() => {
+    // 2–4 selected image thumbnails from rounds 1–4.
+    const selectedThumbs: Array<{ src: string; alt: string }> = [];
+    for (const r of [1, 2, 3, 4]) {
+      const a: any = (answers as any)?.[r];
+      const idxRaw = a?.selectedImageId ?? a?.image;
+      const idx = typeof idxRaw === "number" && Number.isFinite(idxRaw) ? idxRaw : null;
+      if (idx == null) continue;
+      const roundCfg = reflectionRounds.find((x) => x.roundNumber === r);
+      const img = Array.isArray(roundCfg?.images) ? roundCfg.images[idx] : null;
+      if (typeof img === "string" && img.trim()) {
+        selectedThumbs.push({ src: img.trim(), alt: `Round ${r} selection` });
+      }
+    }
+    const thumbs = selectedThumbs.slice(0, 4);
+
+    // Top tags (short, proofy).
+    const localTagsForWhy = extractTagSignalsFromSelections(answers);
+    const tagCandidates = (localTagsForWhy ?? [])
+      .map((t) => String(t).trim().toLowerCase())
+      .filter((t) => t && t.length <= 18 && !t.includes(".") && !t.includes(",") && t.split(/\s+/).length <= 2);
+    const uniqueTags: string[] = [];
+    for (const t of tagCandidates) {
+      if (uniqueTags.includes(t)) continue;
+      uniqueTags.push(t);
+      if (uniqueTags.length >= 6) break;
+    }
+
+    // Optional user words (Round 5 relationship reflection if present).
+    const r5: any = (answers as any)?.[5];
+    const relationshipTags = Array.isArray(r5?.relationshipTags)
+      ? r5.relationshipTags.filter((x: any) => typeof x === "string" && x.trim()).slice(0, 4)
+      : [];
+    const relationshipSummary =
+      typeof r5?.relationshipSummary === "string" ? r5.relationshipSummary.trim() : "";
+
+    const label =
+      uniqueTags.includes("calm") || uniqueTags.includes("quiet") || uniqueTags.includes("avoidance")
+        ? "You leaned toward quieter, low‑intensity scenes"
+        : uniqueTags.includes("tension") || uniqueTags.includes("instability")
+          ? "You leaned toward strain and instability"
+          : "Your choices kept returning to the same emotional flavor";
+
+    const explanation =
+      uniqueTags.includes("avoidance") || uniqueTags.includes("distance") || uniqueTags.includes("disconnection")
+        ? "Your choices consistently avoided intensity and leaned toward emotional safety."
+        : uniqueTags.includes("overthinking") || uniqueTags.includes("internal_conflict")
+          ? "Your choices clustered around internal noise and tension."
+          : "Your choices clustered around safety, distance, and control.";
+
+    return { thumbs, uniqueTags, relationshipTags, relationshipSummary, label, explanation };
+  })();
+
+  const selectedImagesForWhy = (() => {
+    const out: string[] = [];
+    for (const k of Object.keys(answers)) {
+      const round = Number(k);
+      const v: any = (answers as any)[k];
+      if (!Number.isFinite(round) || !v || typeof v !== "object") continue;
+      const idxRaw = v.selectedImageId ?? v.image;
+      const idx = typeof idxRaw === "number" && Number.isFinite(idxRaw) ? idxRaw : null;
+      if (idx != null) out.push(`r${round}${idx + 1}`);
+      const imageId = typeof v.imageId === "string" ? v.imageId.trim() : "";
+      if (imageId) out.push(imageId);
+    }
+    return out;
+  })();
+
+  const tagsForWhy = extractTagSignalsFromSelections(answers);
+  const why = structuredResult
+    ? buildWhyThisIsYou({
+        selectedImages: selectedImagesForWhy,
+        tags: tagsForWhy,
+        primaryPattern: structuredResult.pattern,
+      })
+    : null;
+  const costTruth =
+    structuredResult && why
+      ? buildCostAndBrutalTruth({
+          primaryPattern: structuredResult.pattern,
+          tags: tagsForWhy,
+          interpretation: why.interpretation,
+        })
+      : null;
+
+  const tension =
+    structuredResult
+      ? buildTension({
+          pattern: structuredResult.pattern,
+          themeTitle: structuredResult.theme?.title,
+          toneTitle: structuredResult.tone?.title,
+          relationshipTags: (answers as any)?.[5]?.relationshipTags,
+          relationshipSummary: (answers as any)?.[5]?.relationshipSummary,
+        })
+      : null;
+
+  const actionTrigger =
+    structuredResult
+      ? buildActionTrigger({
+          pattern: structuredResult.pattern,
+          toneTitle: structuredResult.tone?.title,
+          emotionalTags: tagsForWhy,
+          userText: String((answers as any)?.[5]?.relationshipSummary ?? ""),
+          shiftSeed: structuredResult.shift,
+        })
+      : null;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-b from-black via-zinc-900 to-black">
       <Navigation />
 
       <main className="pt-20 pb-12">
@@ -616,6 +770,10 @@ export default function ReflectPage() {
                 tags={roundData.tags ?? []}
                 selectedTags={selectedTags[currentRound] ?? []}
                 onToggleTag={toggleTag}
+                progressiveAnswers={progressive}
+                onSetProgressiveAnswer={setProgressiveAnswer}
+                personalNote={personalNote}
+                onPersonalNoteChange={setPersonalNote}
                 selectedOption={selectedOption}
                 onSelectNone={handleNoneClick}
                 noneText={noneText}
@@ -663,38 +821,157 @@ export default function ReflectPage() {
         {/* Complete Phase — premium reading experience */}
         {phase === "complete" && reflection && (
           <div className="max-w-[680px] mx-auto px-6 py-16 md:py-20">
-            <div className="animate-luma-fade-in-slow space-y-8 md:space-y-10">
-              {typeof resolveHowToReadTagsFromSelections === "function" ? (
-                <HowToReadThisVisual
-                  tags={resolveHowToReadTagsFromSelections(answers)}
-                  round5SupplementLines={(() => {
-                    const lines = resolveRound5PsychologicalSupplementLines(answers);
-                    return lines.length ? lines : null;
-                  })()}
-                  className="mx-auto w-full max-w-[680px]"
-                />
+            <div className="animate-luma-fade-in space-y-4 md:space-y-5" style={{ animationDelay: "120ms" }}>
+              {mode === "individual" && structuredResult ? (
+                <>
+                  {/* 1) Pattern */}
+                  <IndividualResultCard badge="YOUR REFLECTION" data={structuredResult} variant="minimal" />
+
+                  {/* Evidence layer */}
+                  <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">
+                    <p className="text-sm text-white/70">What shaped this</p>
+
+                    {evidence.thumbs.length > 0 ? (
+                      <>
+                        <div className="mt-3 grid grid-cols-4 gap-2">
+                          {evidence.thumbs.map((t) => (
+                            <div
+                              key={t.alt}
+                              className="relative aspect-square overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]"
+                            >
+                              <Image
+                                src={normalizePublicImageSrc(t.src)}
+                                alt={t.alt}
+                                fill
+                                className="object-cover"
+                                sizes="(max-width: 420px) 25vw, 110px"
+                              />
+                              <div aria-hidden className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                            </div>
+                          ))}
+                        </div>
+                        <p className="mt-3 text-xs text-white/60">{evidence.label}</p>
+                      </>
+                    ) : null}
+
+                    {evidence.uniqueTags.length > 0 ? (
+                      <div className="mt-3">
+                        <p className="text-xs text-white/60">You chose:</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {evidence.uniqueTags.map((t) => (
+                            <span
+                              key={t}
+                              className="px-3 py-1 rounded-full text-xs border border-white/10 bg-white/[0.04] text-white/70"
+                            >
+                              {t}
+                            </span>
+                          ))}
+                          {evidence.relationshipTags.map((t) => (
+                            <span
+                              key={`rt-${t}`}
+                              className="px-3 py-1 rounded-full text-xs border border-white/20 bg-white/[0.07] text-white/80"
+                            >
+                              {String(t).toLowerCase()}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <p className="mt-3 text-sm text-white/70 leading-relaxed line-clamp-2">
+                      {evidence.explanation}
+                    </p>
+
+                    {evidence.relationshipSummary ? (
+                      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+                        <p className="text-xs text-white/60">You described it as:</p>
+                        <p className="mt-1 text-sm text-white/80 leading-relaxed line-clamp-2">
+                          “{evidence.relationshipSummary}”
+                        </p>
+                      </div>
+                    ) : null}
+                  </section>
+
+                  {/* The tension */}
+                  {tension ? <TensionCard tension={tension} /> : null}
+
+                  {/* 2) Why this fits you */}
+                  {why ? (
+                    <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">
+                      <h3 className="text-white text-base font-medium">Why this fits you</h3>
+                      <p className="mt-3 text-sm text-white/70 leading-relaxed">{why.observation}</p>
+                      <p className="mt-3 text-sm text-white/70 leading-relaxed">{why.interpretation}</p>
+                      <p className="mt-3 text-sm text-white/70 leading-relaxed">{why.conclusion}</p>
+                    </section>
+                  ) : null}
+
+                  {/* 3) What this is costing you */}
+                  {costTruth?.cost ? (
+                    <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">
+                      <h3 className="text-white text-base font-medium">What this is costing you</h3>
+                      <p className="mt-3 text-sm text-white/70 leading-relaxed line-clamp-2">{costTruth.cost}</p>
+                    </section>
+                  ) : null}
+
+                  {/* 4) The truth you avoid */}
+                  {costTruth?.brutal_truth ? (
+                    <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">
+                      <h3 className="text-white text-base font-medium">The truth you avoid</h3>
+                      <p className="mt-3 text-sm text-white/70 leading-relaxed line-clamp-2">{costTruth.brutal_truth}</p>
+                    </section>
+                  ) : null}
+
+                  {/* 5) Action trigger */}
+                  {actionTrigger ? <ActionTriggerCard text={actionTrigger} /> : null}
+
+                  {/* Share trigger */}
+                  <div className="mx-auto w-full max-w-[420px] pt-1 text-center">
+                    <p className="text-sm text-white/60">This felt accurate?</p>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const el = storyCardRef.current;
+                        if (!el || storyLoading) return;
+                        setStoryLoading(true);
+                        try {
+                          await shareStoryFromElement(el, {
+                            filename: "luma-story.png",
+                            title: "My Luma pattern",
+                            text: "This felt accurate.",
+                          });
+                        } finally {
+                          setStoryLoading(false);
+                        }
+                      }}
+                      className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-medium text-white/80 transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06] disabled:opacity-60"
+                      disabled={storyLoading}
+                    >
+                      {storyLoading ? "Preparing…" : "Share your pattern"}
+                    </button>
+                  </div>
+
+                  {/* Retention messaging */}
+                  <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.02)] text-center">
+                    <p className="text-sm text-white/80">Your pattern changes over time.</p>
+                    <p className="mt-2 text-sm text-white/60">Come back in a few days and see what shifts.</p>
+                  </section>
+
+                  {/* Conversion hook: individual → couple */}
+                  <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.03)] transition-all duration-300 hover:border-white/20 text-center">
+                    <p className="text-sm text-white/80">
+                      This is your pattern alone.
+                      <span className="block h-2" aria-hidden />
+                      But what happens between you and them is different.
+                    </p>
+                    <Link
+                      href="/couple-hub"
+                      className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity hover:opacity-90"
+                    >
+                      See your dynamic together
+                    </Link>
+                  </section>
+                </>
               ) : null}
-              {inSimpleWords && inSimpleWords.length > 0 ? (
-                <InSimpleWordsSection lines={inSimpleWords} className="mx-auto w-full max-w-[680px]" />
-              ) : null}
-              <BrutalTruthHeadline text={brutalTruth} />
-            </div>
-
-            <div className="animate-luma-fade-in-slow" style={{ animationDelay: "40ms" }}>
-              <RoundFiveInsightCard payload={round5SpaceBetween} className="mt-8" />
-            </div>
-
-            <div className="text-center animate-luma-fade-in-slow" style={{ animationDelay: "80ms" }}>
-              <h1
-                className="text-foreground text-3xl md:text-4xl tracking-wide [font-family:var(--font-serif-display)]"
-                style={{ letterSpacing: "0.02em" }}
-              >
-                Your Reflection
-              </h1>
-            </div>
-
-            <div className="animate-luma-fade-in" style={{ animationDelay: "200ms" }}>
-              <StructuredResultSections result={reflection} shadowInsight={shadowInsight} />
             </div>
 
             {/* Your Inner Shift — only when user has a previous reflection */}
@@ -838,23 +1115,16 @@ export default function ReflectPage() {
               <PatternOverTimeSection variant="light" />
             </div>
 
-            <DangerousQuestionBlock
-              text={dangerousQuestion}
-              brutalTruth={brutalTruth}
-              emotionalTag={emotionalTag}
-              resultPreview={reflection}
-              mode="individual"
-            />
-
             {/* Share / Download Story — DOM card + html-to-image */}
             <div className="mx-auto mt-10 w-full min-w-0 max-w-[680px]">
               <p className="mb-3 text-center text-xs text-muted-foreground">Your shareable story card</p>
-              <StoryCardFrame
+              <StoryCard
                 ref={storyCardRef}
-                title={getStoryCardTitle({
-                  mode: "individual",
-                  userName: getCurrentUserName(),
-                })}
+                pattern={structuredResult?.pattern || "Your inner pattern"}
+                description={structuredResult?.description || "When things get close, you go quiet — then blame yourself for it."}
+                theme={structuredResult?.theme || { title: "Safety", subtitle: "protecting yourself" }}
+                tone={structuredResult?.tone || { title: "Soft", subtitle: "not dramatic" }}
+                coreLine={structuredResult?.core_line || costTruth?.brutal_truth || "You call it ‘peace’ when it’s actually avoidance."}
               />
               <StoryShareButtons
                 targetRef={storyCardRef}
@@ -866,6 +1136,7 @@ export default function ReflectPage() {
                   userName: getCurrentUserName(),
                 }}
                 className="mt-5"
+                downloadLabel="Save Story"
               />
             </div>
 

@@ -30,6 +30,11 @@ export default function CouplePartnerBPage() {
   const [showNone, setShowNone] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
+  const [relationshipTags, setRelationshipTags] = useState([]);
+  const [relationshipSummary, setRelationshipSummary] = useState("");
+  const [lovePart, setLovePart] = useState("");
+  const [missingPart, setMissingPart] = useState("");
+  const [changePart, setChangePart] = useState("");
 
   useEffect(() => {
     try {
@@ -49,6 +54,11 @@ export default function CouplePartnerBPage() {
     setNoneText("");
     setSelectedTags((prev) => ({ ...prev, [currentRound]: [] }));
     setError(null);
+    setRelationshipTags([]);
+    setRelationshipSummary("");
+    setLovePart("");
+    setMissingPart("");
+    setChangePart("");
 
     const transitionTimer = setTimeout(() => {
       setIsTransitioning(false);
@@ -70,6 +80,7 @@ export default function CouplePartnerBPage() {
     setNoneText("");
     const tag = getRoundTag(currentRound, index);
     const r5 = currentRound === 5 ? getRound5SelectionMeta(index) : null;
+    const existing = answers?.[currentRound] ?? {};
     setAnswers((prev) => ({
       ...prev,
       [currentRound]: {
@@ -77,9 +88,9 @@ export default function CouplePartnerBPage() {
         image: index,
         selectedImageId: index,
         tag: tag ?? undefined,
-        tags: selectedTags[currentRound] ?? [],
+        tags: existing.tags ?? [],
         userExplanation: "",
-        text: textValue,
+        text: existing.text ?? "",
         ...(r5?.id ? { imageId: r5.id, psychologicalTags: r5.psychologicalTags } : {}),
       },
     }));
@@ -112,8 +123,66 @@ export default function CouplePartnerBPage() {
     }, 100);
   };
 
-  const inputText = selectedOption === "none" ? noneText : textValue;
-  const canProceed = inputText.trim().length > 0;
+  const progressive = answers?.[currentRound]?.answers ?? {};
+  const personalNote = answers?.[currentRound]?.personalNote ?? "";
+  const canProceed =
+    currentRound === 5
+      ? selectedOption === "image" &&
+        typeof selectedImage === "number" &&
+        Array.isArray(progressive?.q1) &&
+        progressive.q1.length > 0 &&
+        Array.isArray(progressive?.q2) &&
+        progressive.q2.length > 0 &&
+        typeof progressive?.q3 === "string" &&
+        progressive.q3.trim().length > 0 &&
+        Array.isArray(progressive?.q4) &&
+        progressive.q4.length > 0
+      : selectedOption === "none"
+        ? noneText.trim().length > 0
+        : selectedOption === "image" &&
+          typeof selectedImage === "number" &&
+          progressive?.q1 &&
+          progressive?.q2 &&
+          progressive?.q3;
+
+  const setProgressiveAnswer = (qKey, value) => {
+    setAnswers((prev) => {
+      const current = prev?.[currentRound] ?? {};
+      const nextAnswers = { ...(current.answers ?? {}), [qKey]: value };
+      const tags = [
+        ...(Array.isArray(nextAnswers.q1) ? nextAnswers.q1 : nextAnswers.q1 ? [nextAnswers.q1] : []),
+        ...(Array.isArray(nextAnswers.q2) ? nextAnswers.q2 : nextAnswers.q2 ? [nextAnswers.q2] : []),
+        ...(Array.isArray(nextAnswers.q3) ? nextAnswers.q3 : nextAnswers.q3 ? [nextAnswers.q3] : []),
+        ...(Array.isArray(nextAnswers.q4) ? nextAnswers.q4 : nextAnswers.q4 ? [nextAnswers.q4] : []),
+      ].filter(Boolean);
+      return {
+        ...prev,
+        [currentRound]: {
+          ...current,
+          answers: nextAnswers,
+          tags,
+        },
+      };
+    });
+  };
+
+  const setPersonalNote = (value) => {
+    setAnswers((prev) => {
+      const current = prev?.[currentRound] ?? {};
+      return {
+        ...prev,
+        [currentRound]: {
+          ...current,
+          personalNote: value,
+          text: value,
+        },
+      };
+    });
+  };
+
+  const toggleRelationshipTag = (t) => {
+    setRelationshipTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  };
 
   const handleNext = async () => {
     if (!canProceed) return;
@@ -141,9 +210,9 @@ export default function CouplePartnerBPage() {
                 image: selectedImage,
                 selectedImageId: selectedImage,
                 tag: typeof selectedImage === "number" ? getRoundTag(currentRound, selectedImage) ?? undefined : undefined,
-                tags: selectedTags[currentRound] ?? [],
+                tags: answers?.[currentRound]?.tags ?? [],
                 userExplanation: "",
-                text: textValue,
+                text: answers?.[currentRound]?.text ?? "",
                 ...(currentRound === 5 && typeof selectedImage === "number"
                   ? (() => {
                       const m = getRound5SelectionMeta(selectedImage);
@@ -151,6 +220,15 @@ export default function CouplePartnerBPage() {
                         ? { imageId: m.id, psychologicalTags: m.psychologicalTags }
                         : {};
                     })()
+                  : {}),
+                ...(currentRound === 5
+                  ? {
+                      relationshipTags,
+                      relationshipSummary,
+                      lovePart,
+                      missingPart,
+                      changePart,
+                    }
                   : {}),
               },
       };
@@ -338,12 +416,26 @@ export default function CouplePartnerBPage() {
             tags={roundTags[currentRound] ?? []}
             selectedTags={selectedTags[currentRound] ?? []}
             onToggleTag={toggleTag}
+            progressiveAnswers={progressive}
+            onSetProgressiveAnswer={setProgressiveAnswer}
+            personalNote={personalNote}
+            onPersonalNoteChange={setPersonalNote}
             selectedOption={selectedOption}
             onSelectNone={handleNoneClick}
             noneText={noneText}
             onNoneTextChange={setNoneText}
               textValue={textValue}
               onTextChange={setTextValue}
+              relationshipTags={relationshipTags}
+              onToggleRelationshipTag={toggleRelationshipTag}
+              relationshipSummary={relationshipSummary}
+              onRelationshipSummaryChange={setRelationshipSummary}
+              lovePart={lovePart}
+              onLovePartChange={setLovePart}
+              missingPart={missingPart}
+              onMissingPartChange={setMissingPart}
+              changePart={changePart}
+              onChangePartChange={setChangePart}
               canProceed={canProceed}
               onNext={handleNext}
               showNone={showNone}

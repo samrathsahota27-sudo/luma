@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useMemo, useRef } from "react";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ImageGrid } from "@/components/reflection/ImageGrid";
 import { RoundFiveImageGrid } from "@/components/reflection/RoundFiveImageGrid";
 import { ResponseInput } from "@/components/reflection/ResponseInput";
+import { questionTagConfig } from "@/lib/questionTagConfig";
 
 const EMOTIONAL_TAGS = [
   "Calm", "Curious", "Uneasy", "Warm", "Distant", "Safe",
@@ -64,6 +65,20 @@ export function TestRound({
   tags = [],
   selectedTags = [],
   onToggleTag,
+  progressiveAnswers,
+  onSetProgressiveAnswer,
+  personalNote = "",
+  onPersonalNoteChange,
+  relationshipTags = [],
+  onToggleRelationshipTag,
+  relationshipSummary = "",
+  onRelationshipSummaryChange,
+  lovePart = "",
+  onLovePartChange,
+  missingPart = "",
+  onMissingPartChange,
+  changePart = "",
+  onChangePartChange,
   selectedOption,
   noneText = "",
   onNoneTextChange,
@@ -81,6 +96,7 @@ export function TestRound({
   onBack,
 }) {
   const reflectionRef = useRef(null);
+  const questionRef = useRef(null);
   const noneSectionRef = useRef(null);
 
   const effectiveSelectedOption =
@@ -88,6 +104,8 @@ export function TestRound({
   const showNoneSection = effectiveSelectedOption === "none";
   const showReflectionUI =
     !spaceBetweenRound && effectiveSelectedOption === "image" && selectedIndex != null;
+  const showSpaceBetweenReflectionUI =
+    spaceBetweenRound && effectiveSelectedOption === "image" && selectedIndex != null;
 
   const trimmed = String(textValue || "").trim();
   const isEmpty = !trimmed;
@@ -98,6 +116,7 @@ export function TestRound({
   const [legacySelectedTags, setLegacySelectedTags] = useState([]);
   const [pressedTag, setPressedTag] = useState(null);
   const [reflectionRevealed, setReflectionRevealed] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
   const [showIntuition, setShowIntuition] = useState(false);
   const textareaRef = useRef(null);
   const moveCursorToEndRef = useRef(false);
@@ -109,6 +128,7 @@ export function TestRound({
   useEffect(() => {
     setReflectionRevealed(false);
     setShowIntuition(false);
+    setCurrentStep(0);
   }, [round]);
 
   useEffect(() => {
@@ -139,11 +159,8 @@ export function TestRound({
 
   const scrollToReflection = useCallback(() => {
     if (typeof window === "undefined") return;
-    const node = reflectionRef.current;
+    const node = questionRef.current || reflectionRef.current;
     if (!node) return;
-    const rect = node.getBoundingClientRect();
-    const fullyVisible = rect.top >= 0 && rect.bottom <= window.innerHeight;
-    if (fullyVisible) return;
     node.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
 
@@ -152,7 +169,8 @@ export function TestRound({
       onSelectImage(index);
       setReflectionRevealed(true);
       if (typeof window === "undefined") return;
-      window.setTimeout(scrollToReflection, 180);
+      setCurrentStep(1);
+      window.setTimeout(scrollToReflection, 100);
     },
     [onSelectImage, scrollToReflection]
   );
@@ -160,9 +178,12 @@ export function TestRound({
   const handleSpaceBetweenSelect = useCallback(
     (index) => {
       onSelectImage(index);
-      setReflectionRevealed(false);
+      setReflectionRevealed(true);
+      setCurrentStep(1);
+      if (typeof window === "undefined") return;
+      window.setTimeout(scrollToReflection, 100);
     },
-    [onSelectImage]
+    [onSelectImage, scrollToReflection]
   );
 
   const handleSelectNoneWithScroll = useCallback(() => {
@@ -180,8 +201,63 @@ export function TestRound({
 
   const roundQuestion = ROUND_QUESTIONS[Math.max(0, (round ?? 1) - 1)] ?? ROUND_QUESTIONS[0];
   const topQuestion = question || roundQuestion;
+  const headQuestion = spaceBetweenRound
+    ? "What best describes your relationship right now?"
+    : topQuestion;
 
   const showBack = typeof onBack === "function" && round > 1;
+
+  const questions = useMemo(() => {
+    const key = `round${Number(round)}`; // "round1".."round5"
+    const roundData = questionTagConfig?.[key];
+    const fallbackQs = (reflectionLines ?? []).slice(0, 3);
+
+    const q1 = roundData?.q1 ?? (fallbackQs[0] ? { text: fallbackQs[0], tags: [] } : null);
+    const q2 = roundData?.q2 ?? (fallbackQs[1] ? { text: fallbackQs[1], tags: [] } : null);
+    const q3 = roundData?.q3 ?? (fallbackQs[2] ? { text: fallbackQs[2], tags: [] } : null);
+    const q4 = roundData?.q4 ?? null; // only present for round 5
+
+    return [
+      q1 ? { id: "q1", text: q1.text, tags: q1.tags } : null,
+      q2 ? { id: "q2", text: q2.text, tags: q2.tags } : null,
+      q3 ? { id: "q3", text: q3.text, tags: q3.tags } : null,
+      q4 ? { id: "q4", text: q4.text, tags: q4.tags } : null,
+    ].filter(Boolean);
+  }, [round, reflectionLines]);
+
+  useEffect(() => {
+    const a1 = progressiveAnswers?.q1;
+    const a2 = progressiveAnswers?.q2;
+    const a3 = progressiveAnswers?.q3;
+    const a4 = progressiveAnswers?.q4;
+    const hasA1 = Array.isArray(a1) ? a1.length > 0 : !!a1;
+    const hasA2 = Array.isArray(a2) ? a2.length > 0 : !!a2;
+    const hasA3 = Array.isArray(a3) ? a3.length > 0 : !!a3;
+    const hasA4 = Array.isArray(a4) ? a4.length > 0 : !!a4;
+    const derived = hasA1 ? (hasA2 ? (hasA3 ? (hasA4 ? 5 : 4) : 3) : 2) : 0;
+    setCurrentStep((prev) => Math.max(prev, derived));
+  }, [progressiveAnswers?.q1, progressiveAnswers?.q2, progressiveAnswers?.q3, progressiveAnswers?.q4]);
+
+  const handleAnswer = useCallback(
+    (questionKey, value) => {
+      onSetProgressiveAnswer?.(questionKey, value);
+      setCurrentStep((prev) => prev + 1);
+    },
+    [onSetProgressiveAnswer]
+  );
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production") return;
+    // Debug checks (dev only)
+    // eslint-disable-next-line no-console
+    console.log("Selected Image:", selectedIndex);
+    // eslint-disable-next-line no-console
+    console.log("Current Step:", currentStep);
+    // eslint-disable-next-line no-console
+    console.log("Answers:", progressiveAnswers);
+    // eslint-disable-next-line no-console
+    console.log("Using tags:", questionTagConfig?.[`round${Number(round)}`]);
+  }, [round, selectedIndex, currentStep, progressiveAnswers]);
 
   return (
     <>
@@ -230,7 +306,7 @@ export function TestRound({
         {/* 2. Image selection section */}
         <section className="mb-10">
           <h2 className="mb-4 text-center text-lg font-medium text-foreground">
-            {topQuestion}
+            {headQuestion}
           </h2>
           <div
             className={cn(
@@ -262,6 +338,160 @@ export function TestRound({
           )}
         </section>
 
+        {/* Round 5 relationship reflection (optional, saved) */}
+        {showSpaceBetweenReflectionUI && (
+          <section className="mt-2">
+            <div ref={questionRef} className="space-y-6">
+              {questions?.[0] && currentStep >= 1 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[0].text}</p>
+                  <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[0].tags?.slice(0, 5).map((tag) => {
+                      const current = Array.isArray(progressiveAnswers?.q1) ? progressiveAnswers.q1 : [];
+                      const active = current.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            const next = active ? current.filter((t) => t !== tag) : [...current, tag].slice(0, 2);
+                            onSetProgressiveAnswer?.("q1", next);
+                            if (next.length > 0) setCurrentStep((s) => Math.max(s, 2));
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {questions?.[1] && currentStep >= 2 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[1].text}</p>
+                  <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[1].tags?.slice(0, 5).map((tag) => {
+                      const current = Array.isArray(progressiveAnswers?.q2) ? progressiveAnswers.q2 : [];
+                      const active = current.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            const next = active ? current.filter((t) => t !== tag) : [...current, tag].slice(0, 2);
+                            onSetProgressiveAnswer?.("q2", next);
+                            if (next.length > 0) setCurrentStep((s) => Math.max(s, 3));
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {questions?.[2] && currentStep >= 3 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[2].text}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[2].tags?.slice(0, 5).map((tag) => {
+                      const active = progressiveAnswers?.q3 === tag;
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            handleAnswer("q3", tag);
+                            setCurrentStep((s) => Math.max(s, 4));
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {questions?.[3] && currentStep >= 4 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[3].text}</p>
+                  <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[3].tags?.slice(0, 5).map((tag) => {
+                      const current = Array.isArray(progressiveAnswers?.q4) ? progressiveAnswers.q4 : [];
+                      const active = current.includes(tag);
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => {
+                            const next = active ? current.filter((t) => t !== tag) : [...current, tag].slice(0, 2);
+                            onSetProgressiveAnswer?.("q4", next);
+                            if (next.length > 0) setCurrentStep((s) => Math.max(s, 5));
+                          }}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {currentStep >= 5 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <label className="block text-sm font-medium text-foreground">
+                    Anything in your own words?
+                  </label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Personalized answers create a deeper reflection.
+                  </p>
+                  <textarea
+                    value={personalNote}
+                    onChange={(e) => onPersonalNoteChange?.(e.target.value)}
+                    placeholder="(optional)"
+                    className="mt-3 w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-white/10"
+                    rows={4}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </section>
+        )}
+
         {/* None-of-these deeper reflection */}
         {showNoneSection && (
           <div id="none-section" ref={noneSectionRef} className="mt-6">
@@ -287,64 +517,120 @@ export function TestRound({
               reflectionRevealed ? "opacity-100 translate-y-0" : "opacity-100 translate-y-0"
             )}
           >
-            <h2 className="font-serif text-[18px] md:text-[20px] text-foreground mb-4 [font-family:var(--font-serif-display)]">
-              {((tags ?? []).length ?? 0) > 0 ? "Choose a few words (optional)" : "Write what feels true"}
-            </h2>
-            {((tags ?? []).length ?? 0) > 0 && (
-              <>
-                <div className="flex flex-wrap gap-2">
-                  {(tags ?? []).map((tag) => {
-                    const active = (selectedTags ?? []).includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => onToggleTag?.(tag)}
-                        className={cn(
-                          "px-4 py-2 rounded-full text-sm font-medium transition-all duration-[200ms] ease-out",
-                          active
-                            ? "bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)]"
-                            : "bg-white/[0.06] text-muted-foreground hover:bg-white/[0.1] border border-white/10"
-                        )}
-                        aria-pressed={active}
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
+            <div ref={questionRef} className="space-y-6">
+              {questions?.[0] && currentStep >= 1 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[0].text}</p>
+                  {true && (
+                    <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[0].tags?.slice(0, 5).map((tag) => {
+                      const active = progressiveAnswers?.q1 === tag;
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleAnswer("q1", tag)}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-                <p className="mt-3 text-sm text-muted-foreground">
-                  Or simply write what feels true.
-                </p>
-              </>
-            )}
+              ) : null}
 
-            <div className="mt-4 space-y-2 text-sm text-muted-foreground">
-              {(reflectionLines ?? ["What's happening here?", "How does it feel?", "Fast or slow?"]).slice(0, 3).map((q) => (
-                <p key={q}>• {q}</p>
-              ))}
-            </div>
+              {questions?.[1] && currentStep >= 2 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[1].text}</p>
+                  {true && (
+                    <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[1].tags?.slice(0, 5).map((tag) => {
+                      const active = progressiveAnswers?.q2 === tag;
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleAnswer("q2", tag)}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
 
-            <div className="mt-3">
-              <ResponseInput
-                ref={textareaRef}
-                value={textValue}
-                onChange={onTextChange}
-                placeholder="Write what feels true…"
-                minRows={6}
-                className="min-h-[180px] rounded-[12px] py-4 text-[15px] leading-relaxed placeholder:text-muted-foreground/70"
-              />
-              {showIntuition && (
-                <p className="text-xs text-white/45 mt-3 italic">
-                  I&apos;m not sure why this feels right
-                </p>
-              )}
+              {questions?.[2] && currentStep >= 3 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <p className="text-sm text-muted-foreground">{questions[2].text}</p>
+                  {true && (
+                    <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
+                  )}
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {questions[2].tags?.slice(0, 5).map((tag) => {
+                      const active = progressiveAnswers?.q3 === tag;
+                      return (
+                        <button
+                          key={tag}
+                          type="button"
+                          onClick={() => handleAnswer("q3", tag)}
+                          className={cn(
+                            "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
+                            active
+                              ? "bg-white/10 border-white/20 text-foreground"
+                              : "bg-white/[0.04] border-white/10 text-muted-foreground hover:bg-white/[0.07]"
+                          )}
+                          aria-pressed={active}
+                        >
+                          {tag}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+
+              {currentStep >= 4 ? (
+                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                  <label className="block text-sm font-medium text-foreground">
+                    Anything in your own words?
+                  </label>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Personalized answers create a deeper reflection.
+                  </p>
+                  <textarea
+                    value={personalNote}
+                    onChange={(e) => onPersonalNoteChange?.(e.target.value)}
+                    placeholder="(optional)"
+                    className="mt-3 w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-white/10"
+                    rows={4}
+                  />
+                </div>
+              ) : null}
             </div>
           </div>
         )}
 
         {/* Continue button — appears only when canProceed */}
-        {canProceed && !spaceBetweenRound && (
+        {canProceed && (
           <div className="mt-8 flex justify-end">
             <button
               type="button"

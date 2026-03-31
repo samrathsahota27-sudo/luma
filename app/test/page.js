@@ -8,11 +8,7 @@ import { TestRound } from "@/components/TestRound";
 import PreTestScreen from "@/components/PreTestScreen";
 import { reflectionLines, questions, rounds, roundTags } from "@/lib/testData";
 import { INDIVIDUAL_TOTAL_ROUNDS } from "@/lib/reflection/reflectionRounds";
-import {
-  resolveHowToReadTagsFromSelections,
-  resolveRound5PsychologicalSupplementLines,
-  parseInSimpleWordsFromApi,
-} from "@/lib/resultHelpers";
+import { parseInSimpleWordsFromApi } from "@/lib/resultHelpers";
 import { parseRound5SpaceBetweenFromApi } from "@/lib/reflection/round5OutputGenerator";
 import { saveIndividualReflectionWithEmail, getLastIndividualReflection, getIndividualReflectionCount, getCurrentUserName } from "@/lib/reflectionStorage";
 import { nameToSlug } from "@/lib/referralSlug";
@@ -24,7 +20,7 @@ import {
   shareOrDownloadStoryCard,
   getStoryCardTitle,
 } from "@/lib/storyCard";
-import { StoryCardFrame } from "@/components/StoryCardFrame";
+import { IndividualStoryCard } from "@/components/IndividualStoryCard";
 import { StoryShareButtons } from "@/components/StoryShareButtons";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
 import { deriveUiFromSavedRound, persistCurrentRoundIntoAnswers } from "@/lib/reflection/roundFlowState";
@@ -33,20 +29,24 @@ import { updateMemory } from "@/lib/memory";
 import { getMemory } from "@/lib/memory";
 import { saveMemoryForCurrentUser, signInWithPassword, signUpWithPassword } from "@/lib/memoryCloud";
 import { supabase } from "@/lib/supabase";
-import { BrutalTruthHeadline } from "@/components/BrutalTruthHeadline";
-import { HowToReadThisVisual } from "@/components/HowToReadThisVisual";
-import { InSimpleWordsSection } from "@/components/InSimpleWordsSection";
-import { RoundFiveInsightCard } from "@/components/RoundFiveInsightCard";
+import { IndividualResultCard } from "@/components/IndividualResultCard";
 import { ReviewAnswersScreen } from "@/components/ReviewAnswersScreen";
-import { DangerousQuestionBlock } from "@/components/DangerousQuestionBlock";
-import { ShadowInsightBlock } from "@/components/ShadowInsightBlock";
 import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
+import { DangerousQuestionBlock } from "@/components/DangerousQuestionBlock";
 import {
   buildEmotionSessionSignature,
   tryRecordEmotionTrackerSession,
 } from "@/lib/emotionalTracker";
 import { insertEmotionTrackerRowOncePerSession } from "@/lib/emotionalTrackerSupabase";
 import { resolveCalendarMood } from "@/lib/calendarOfUs";
+import { buildWhyThisIsYou } from "@/lib/whyThisIsYou";
+import { buildCostAndBrutalTruth } from "@/lib/costBrutalTruth";
+import { extractTagSignalsFromSelections } from "@/lib/patternScoring";
+import { buildTension } from "@/lib/tensionEngine";
+import { TensionCard } from "@/components/TensionCard";
+import { buildActionTrigger } from "@/lib/actionTrigger";
+import { ActionTriggerCard } from "@/components/ActionTriggerCard";
+import { shareStoryFromElement } from "@/lib/storyCardCapture";
 
 const ROUND_TRANSITION_MS = 500;
 const GENERATING_PHASE_2_MS = 3500;
@@ -73,6 +73,7 @@ export default function TestPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState(0);
   const [result, setResult] = useState(null);
+  const [structuredResult, setStructuredResult] = useState(null);
   const [brutalTruth, setBrutalTruth] = useState(null);
   const [inSimpleWords, setInSimpleWords] = useState(null);
   const [dangerousQuestion, setDangerousQuestion] = useState(null);
@@ -375,8 +376,46 @@ export default function TestPage() {
     }, 100);
   };
 
-  const inputText = selectedOption === "none" ? noneText : textValue;
-  const canProceed = inputText.trim().length > 0;
+  const progressive = answers?.[currentRound]?.answers ?? {};
+  const personalNote = answers?.[currentRound]?.personalNote ?? "";
+  const canProceed =
+    selectedOption === "none"
+      ? noneText.trim().length > 0
+      : selectedOption === "image" &&
+        typeof selectedImage === "number" &&
+        progressive?.q1 &&
+        progressive?.q2 &&
+        progressive?.q3;
+
+  const setProgressiveAnswer = (qKey, value) => {
+    setAnswers((prev) => {
+      const current = prev?.[currentRound] ?? {};
+      const nextAnswers = { ...(current.answers ?? {}), [qKey]: value };
+      const tags = [nextAnswers.q1, nextAnswers.q2, nextAnswers.q3].filter(Boolean);
+      return {
+        ...prev,
+        [currentRound]: {
+          ...current,
+          answers: nextAnswers,
+          tags,
+        },
+      };
+    });
+  };
+
+  const setPersonalNote = (value) => {
+    setAnswers((prev) => {
+      const current = prev?.[currentRound] ?? {};
+      return {
+        ...prev,
+        [currentRound]: {
+          ...current,
+          personalNote: value,
+          text: value,
+        },
+      };
+    });
+  };
 
   const handleNext = async () => {
     if (!canProceed) return;
@@ -539,6 +578,7 @@ export default function TestPage() {
         });
       } catch {}
       setResult(data.result);
+      setStructuredResult(data.structured ?? null);
       setRound5SpaceBetween(parseRound5SpaceBetweenFromApi(data));
       setBrutalTruth(typeof data.brutalTruth === "string" ? data.brutalTruth.trim() || null : null);
       const simpleLines = parseInSimpleWordsFromApi(data);
@@ -640,6 +680,10 @@ export default function TestPage() {
               tags={roundTags[currentRound] ?? []}
               selectedTags={selectedTags[currentRound] ?? []}
               onToggleTag={toggleTag}
+                progressiveAnswers={progressive}
+                onSetProgressiveAnswer={setProgressiveAnswer}
+                personalNote={personalNote}
+                onPersonalNoteChange={setPersonalNote}
               selectedOption={selectedOption}
               onSelectNone={handleNoneClick}
               noneText={noneText}
@@ -684,163 +728,125 @@ export default function TestPage() {
         {/* Result — structured sections, premium reading experience */}
         {result && (
           <div className="px-6 py-20 md:py-28 max-w-[720px] mx-auto">
-            {typeof resolveHowToReadTagsFromSelections === "function" ? (
-              <HowToReadThisVisual
-                tags={resolveHowToReadTagsFromSelections(answers)}
-                round5SupplementLines={(() => {
-                  const lines = resolveRound5PsychologicalSupplementLines(answers);
-                  return lines.length ? lines : null;
-                })()}
-                className="mb-8 md:mb-10"
-              />
-            ) : null}
-            {inSimpleWords?.length > 0 ? (
-              <InSimpleWordsSection lines={inSimpleWords} className="mb-8 md:mb-10" />
-            ) : null}
-            <BrutalTruthHeadline text={brutalTruth} />
-            <RoundFiveInsightCard payload={round5SpaceBetween} className="mt-8" />
-            <h1 className="text-center text-foreground text-3xl md:text-4xl tracking-wide [font-family:var(--font-serif-display)] mb-14">
-              Your Reflection
-            </h1>
+            <div className="space-y-4">
+              <IndividualResultCard badge="YOUR REFLECTION" data={structuredResult} variant="minimal" />
+              {(() => {
+                const selectedImagesForWhy = Object.keys(answers || {}).flatMap((k) => {
+                  const round = Number(k);
+                  const v = answers?.[round];
+                  if (!Number.isFinite(round) || !v) return [];
+                  const idx =
+                    typeof v.selectedImageId === "number"
+                      ? v.selectedImageId
+                      : typeof v.image === "number"
+                        ? v.image
+                        : null;
+                  const out = [];
+                  if (idx != null) out.push(`r${round}${idx + 1}`);
+                  if (typeof v.imageId === "string" && v.imageId.trim()) out.push(v.imageId.trim());
+                  return out;
+                });
+                const tagsForWhy = extractTagSignalsFromSelections(answers);
+                const why = buildWhyThisIsYou({
+                  selectedImages: selectedImagesForWhy,
+                  tags: tagsForWhy,
+                  primaryPattern: structuredResult.pattern,
+                });
+                const costTruth = buildCostAndBrutalTruth({
+                  primaryPattern: structuredResult.pattern,
+                  tags: tagsForWhy,
+                  interpretation: why.interpretation,
+                });
+                const tension = buildTension({
+                  pattern: structuredResult.pattern,
+                  themeTitle: structuredResult.theme?.title,
+                  toneTitle: structuredResult.tone?.title,
+                  relationshipTags: answers?.[5]?.relationshipTags,
+                  relationshipSummary: answers?.[5]?.relationshipSummary,
+                });
+                const actionTrigger = buildActionTrigger({
+                  pattern: structuredResult.pattern,
+                  toneTitle: structuredResult.tone?.title,
+                  emotionalTags: tagsForWhy,
+                  userText: String(answers?.[5]?.relationshipSummary ?? ""),
+                  shiftSeed: structuredResult.shift,
+                });
+                return (
+                  <>
+                    <TensionCard tension={tension} className="mb-2" />
+                    <div className="luma-glass border border-white/10 p-6">
+                      <h3 className="text-foreground font-serif text-xl [font-family:var(--font-serif-display)]">
+                        Why this fits you
+                      </h3>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{why.observation}</p>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{why.interpretation}</p>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{why.conclusion}</p>
+                    </div>
+                    <div className="luma-glass border border-white/10 p-6">
+                      <h3 className="text-foreground font-serif text-xl [font-family:var(--font-serif-display)]">
+                        What this is costing you
+                      </h3>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{costTruth.cost}</p>
+                    </div>
+                    <div className="luma-glass border border-white/10 p-6">
+                      <h3 className="text-foreground font-serif text-xl [font-family:var(--font-serif-display)]">
+                        The truth you avoid
+                      </h3>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{costTruth.brutal_truth}</p>
+                    </div>
+                    <div className="luma-glass border border-white/10 p-6">
+                      <h3 className="text-foreground font-serif text-xl [font-family:var(--font-serif-display)]">
+                        What shifts this
+                      </h3>
+                      <p className="mt-3 text-muted-foreground leading-relaxed">{actionTrigger}</p>
+                    </div>
 
-            {/* Section 1: Main insight (full clarity) */}
-            <div
-              className={`transition-all duration-700 ease-out ${resultReveal.section1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-            >
-              <div className="luma-glass border border-white/10 p-8 mb-8">
-                <h2 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)] mb-4">
-                  Main insight
-                </h2>
-                {firstParagraph && (
-                  <div
-                    className="text-muted-foreground text-base md:text-lg leading-[1.8] [&>br]:block [&>br]:mb-4"
-                    style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                    dangerouslySetInnerHTML={{
-                      __html: firstParagraph.replace(/\n/g, "<br>"),
-                    }}
-                  />
-                )}
-              </div>
-              <div className="px-0">
-                <ShadowInsightBlock text={shadowInsight} />
-              </div>
-            </div>
+                    <div className="max-w-[680px] mx-auto pt-1 text-center">
+                      <p className="text-sm text-muted-foreground">This felt accurate?</p>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const el = storyCardRef.current;
+                          if (!el || storyLoading) return;
+                          setStoryLoading(true);
+                          try {
+                            await shareStoryFromElement(el, {
+                              filename: "luma-story.png",
+                              title: "My Luma pattern",
+                              text: "This felt accurate.",
+                            });
+                          } finally {
+                            setStoryLoading(false);
+                          }
+                        }}
+                        className="mt-3 inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-5 py-3 text-sm font-medium text-foreground transition-all duration-300 hover:border-white/20 hover:bg-white/[0.06] disabled:opacity-60"
+                        disabled={storyLoading}
+                      >
+                        {storyLoading ? "Preparing…" : "Share your pattern"}
+                      </button>
+                    </div>
 
-            {/* Section 2: Gated depth — blur deeper read + pattern breakdown */}
-            <div
-              className={`transition-all duration-700 ease-out ${resultReveal.section2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-            >
-              <div className="luma-glass border border-white/10 p-8 mb-8 overflow-hidden">
-                <div className="relative max-h-[min(340px,52vh)] overflow-hidden rounded-[12px]">
-                  <div className="pointer-events-none select-none pr-1">
-                    {restParagraphs.length > 0 ? (
-                      <>
-                        <h3 className="font-serif text-lg text-foreground/90 [font-family:var(--font-serif-display)] mb-3">
-                          Deep explanation
-                        </h3>
-                        <div
-                          className="blur-[7px] opacity-[0.88] text-muted-foreground text-base md:text-lg leading-[1.85] [&>br]:block [&>br]:mb-4"
-                          style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                          dangerouslySetInnerHTML={{
-                            __html:
-                              (deepExplanationParas.length > 0
-                                ? deepExplanationParas.join("<br><br>")
-                                : ""
-                              ).replace(/\n/g, "<br>"),
-                          }}
-                        />
-                        {(patternBreakdownParas.length > 0 || restParagraphs.length > 1) && (
-                          <>
-                            <h3 className="font-serif text-lg text-foreground/90 [font-family:var(--font-serif-display)] mt-8 mb-3">
-                              Emotional pattern breakdown
-                            </h3>
-                            <div
-                              className="blur-[7px] opacity-[0.88] text-muted-foreground text-base md:text-lg leading-[1.85] [&>br]:block [&>br]:mb-4"
-                              style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}
-                              dangerouslySetInnerHTML={{
-                                __html:
-                                  (patternBreakdownParas.length > 0
-                                    ? patternBreakdownParas.join("<br><br>")
-                                    : deepExplanationParas[0] ?? ""
-                                  ).replace(/\n/g, "<br>"),
-                              }}
-                            />
-                          </>
-                        )}
-                      </>
-                    ) : (
-                      <div className="space-y-4 blur-[6px] opacity-70" aria-hidden>
-                        <div className="h-3 rounded-full bg-white/10 w-full" />
-                        <div className="h-3 w-[92%] rounded-full bg-white/[0.08]" />
-                        <div className="h-3 rounded-full bg-white/[0.06] w-[88%]" />
-                        <div className="mt-8 h-3 w-[95%] rounded-full bg-white/[0.12]" />
-                        <div className="h-3 w-[85%] rounded-full bg-white/[0.08]" />
-                      </div>
-                    )}
-                  </div>
-                  <div
-                    className="pointer-events-none absolute inset-0 bg-gradient-to-b from-transparent via-background/80 to-background"
-                    aria-hidden
-                  />
-                </div>
-                <p className="mt-5 px-2 text-center font-sans text-sm italic leading-relaxed text-muted-foreground md:text-[15px]">
-                  There&apos;s more beneath this — how the pattern holds, where it tightens, and what
-                  usually triggers it next.
-                </p>
-              </div>
+                    <div className="max-w-[680px] mx-auto rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
+                      <p className="text-sm text-foreground/90">Your pattern changes over time.</p>
+                      <p className="mt-2 text-sm text-muted-foreground">Come back in a few days and see what shifts.</p>
+                    </div>
 
-              <div className="mb-8 rounded-[16px] border border-dashed border-white/15 bg-white/[0.03] p-8 text-center shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_16px_48px_rgba(0,0,0,0.35)] backdrop-blur-md md:p-10">
-                <p className="font-serif text-[1.15rem] md:text-xl text-foreground [font-family:var(--font-serif-display)] leading-snug max-w-md mx-auto">
-                  See the full pattern in your relationships
-                </p>
-                <p className="mt-3 text-sm text-muted-foreground max-w-md mx-auto leading-relaxed">
-                  The free read stops at the surface. The rest is for when you&apos;re ready to see the
-                  whole map.
-                </p>
-                <Link
-                  href="/couple-hub"
-                  className="mt-6 inline-flex items-center justify-center rounded-[12px] bg-primary px-6 py-3.5 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] transition-opacity hover:opacity-90"
-                >
-                  Go to Couple Mode
-                </Link>
-              </div>
-            </div>
-
-            {/* Section 3: Explore the Space Between */}
-            <div
-              className={`transition-all duration-700 ease-out ${resultReveal.section3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"}`}
-            >
-              <div className="luma-glass border border-white/10 p-8 mb-8">
-                <h2 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)] mb-4">
-                  Explore the Space Between
-                </h2>
-                <p className="text-muted-foreground text-base leading-[1.85] mb-6" style={{ fontFamily: "var(--font-sans), Inter, system-ui, sans-serif" }}>
-                  Some patterns only reveal themselves between two inner worlds.
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      try {
-                        if (result) sessionStorage.setItem(INVITER_REFLECTION_KEY, result);
-                        router.push("/connect");
-                      } catch (e) {
-                        console.warn("SessionStorage failed", e);
-                        router.push("/connect");
-                      }
-                    }}
-                    className="inline-flex px-5 py-3 rounded-[12px] border border-white/10 text-foreground text-sm font-medium hover:bg-background transition-colors"
-                  >
-                    Connect Inner Worlds
-                  </button>
-                  <Link
-                    href="/couple-hub"
-                    className="inline-flex px-5 py-3 rounded-[12px] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium hover:opacity-90 transition-opacity"
-                  >
-                    Explore Couple Mode
-                  </Link>
-                </div>
-              </div>
+                    <div className="max-w-[680px] mx-auto rounded-2xl border border-white/10 bg-white/[0.03] p-6 text-center">
+                      <p className="text-sm text-muted-foreground">
+                        This is your pattern alone.
+                        <br />
+                        But what happens between you and them is different.
+                      </p>
+                      <Link
+                        href="/couple-hub"
+                        className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity hover:opacity-90"
+                      >
+                        See your dynamic together
+                      </Link>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
 
             <div
@@ -972,12 +978,17 @@ export default function TestPage() {
               <p className="mb-3 text-center text-xs text-muted-foreground">
                 Your shareable story card
               </p>
-              <StoryCardFrame
+              <IndividualStoryCard
                 ref={storyCardRef}
-                title={getStoryCardTitle({
-                  mode: "individual",
-                  userName: getCurrentUserName(),
-                })}
+                patternName={(emotionalTag && emotionalTag.trim()) || "Your inner pattern"}
+                subtext={(inSimpleWords?.[0] && inSimpleWords[0].trim()) || "When things get close, you pull back."}
+                innerWorldImage={null}
+                brutalLine={(brutalTruth && brutalTruth.trim()) || "You call it peace. It’s actually avoidance."}
+                themeLabel="Theme"
+                themeValue="Safety"
+                toneLabel="Tone"
+                toneValue={(depthMode === "steel" && "Steel") || "Soft"}
+                shiftInsight={(trackerInsight && trackerInsight.trim()) || "Say something small before you disappear."}
               />
               <StoryShareButtons
                 targetRef={storyCardRef}
@@ -1189,6 +1200,7 @@ export default function TestPage() {
                 type="button"
                 onClick={() => {
                   setResult(null);
+                  setStructuredResult(null);
                   setRound5SpaceBetween(null);
                   setBrutalTruth(null);
                   setInSimpleWords(null);

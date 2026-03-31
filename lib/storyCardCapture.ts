@@ -3,7 +3,7 @@ import { toPng } from "html-to-image";
 const CAPTURE_OPTIONS = {
   cacheBust: true,
   pixelRatio: 2,
-  backgroundColor: "#E6E8F0",
+  backgroundColor: "#050508",
 } as const;
 
 export async function captureElementToPngDataUrl(el: HTMLElement): Promise<string> {
