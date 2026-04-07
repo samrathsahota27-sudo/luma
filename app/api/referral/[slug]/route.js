@@ -6,7 +6,7 @@ import { getStore } from "@/lib/referralStore";
  */
 export async function GET(req, { params }) {
   try {
-    const slug = await params.slug;
+    const { slug } = await params;
     if (!slug) {
       return NextResponse.json({ error: "slug required" }, { status: 400 });
     }

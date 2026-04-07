@@ -8,6 +8,9 @@ import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
 import { chatPageSubtitle } from "@/lib/depthUiMicrocopy";
+import { FEATURE_ONBOARDING_COPY, FEATURE_SEEN_STORAGE_KEYS } from "@/lib/featureOnboarding";
+import { SpeechMicButton } from "@/components/SpeechMicButton";
+import { appendTranscriptValue, useSpeechToText } from "@/hooks/useSpeechToText";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -36,12 +39,24 @@ function TypingIndicator() {
 
 export default function ChatPage() {
   const { depthMode, setDepthMode } = useDepthMode();
+  const [seenIntro, setSeenIntro] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const featureCopy = FEATURE_ONBOARDING_COPY.ai_chat;
+  const mic = useSpeechToText((transcript) => setInput((prev) => appendTranscriptValue(prev, transcript)));
+
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem(FEATURE_SEEN_STORAGE_KEYS.ai_chat) === "true";
+      setSeenIntro(seen);
+    } catch {
+      setSeenIntro(false);
+    }
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -101,6 +116,39 @@ export default function ChatPage() {
     }
   }
 
+  if (!seenIntro) {
+    return (
+      <div className="fixed inset-0 z-40 flex flex-col bg-[#0b0a0d] text-[#e8e4df]">
+        <TimelineBar topOffsetClass="top-0" className="z-[52]" />
+        <main className="relative flex min-h-[100svh] items-center px-5 pb-8 pt-[calc(3.5rem+max(0.6rem,env(safe-area-inset-top)))]">
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,rgba(135,110,190,0.18),transparent)]"
+            aria-hidden
+          />
+          <div className="relative mx-auto w-full max-w-[560px] rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl md:p-8">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Feature intro</p>
+            <h1 className="mt-3 font-serif text-[28px] leading-tight text-white [font-family:var(--font-serif-display)]">
+              {featureCopy.title}
+            </h1>
+            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-white/70">{featureCopy.intro}</p>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  localStorage.setItem(FEATURE_SEEN_STORAGE_KEYS.ai_chat, "true");
+                } catch {}
+                setSeenIntro(true);
+              }}
+              className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0b0a0d] shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_16px_48px_rgba(255,255,255,0.08)] transition-opacity hover:opacity-95"
+            >
+              Start
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-[#0b0a0d] text-[#e8e4df]">
       <TimelineBar topOffsetClass="top-0" className="z-[52]" />
@@ -117,6 +165,9 @@ export default function ChatPage() {
             <h1 className="font-serif text-lg md:text-xl text-[#f5f1ec] [font-family:var(--font-serif-display)] tracking-tight">
               Talk Without Escalation
             </h1>
+            <p className="mt-1 whitespace-pre-line text-xs md:text-sm text-[#7a7268] font-light leading-relaxed">
+              {featureCopy.short}
+            </p>
             <p className="mt-0.5 text-xs md:text-sm text-[#7a7268] font-light">
               {chatPageSubtitle(depthMode)}
             </p>
@@ -177,16 +228,25 @@ export default function ChatPage() {
             </p>
           )}
           <div className="flex gap-3 items-end rounded-2xl border border-[#2e2a35] bg-[#141218]/90 p-2 pl-4 shadow-[0_-8px_40px_rgba(0,0,0,0.25)]">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder="Type a message…"
-              rows={1}
-              disabled={loading}
-              className="min-h-[44px] max-h-32 flex-1 resize-none bg-transparent py-3 text-[15px] text-[#e8e4df] placeholder:text-[#5c564c] outline-none disabled:opacity-50"
-            />
+            <div className="relative flex-1">
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                placeholder="Type a message…"
+                rows={1}
+                disabled={loading}
+                className="min-h-[44px] max-h-32 w-full resize-none bg-transparent py-3 pr-24 text-[15px] text-[#e8e4df] placeholder:text-[#5c564c] outline-none disabled:opacity-50"
+              />
+              <SpeechMicButton
+                isListening={mic.isListening}
+                isSupported={mic.isSupported}
+                disabled={loading}
+                onToggle={mic.toggle}
+                className="absolute right-1 top-1/2 -translate-y-1/2"
+              />
+            </div>
             <button
               type="button"
               onClick={handleSend}
@@ -197,6 +257,7 @@ export default function ChatPage() {
               <Send className="h-4 w-4" />
             </button>
           </div>
+          {mic.error ? <p className="mt-2 text-center text-xs text-[#c49a8c]">{mic.error}</p> : null}
         </div>
       </footer>
     </div>

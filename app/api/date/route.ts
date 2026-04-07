@@ -5,6 +5,7 @@ import {
   depthModeInstructions,
   readDepthModeFromBody,
 } from "@/lib/depthMode";
+import { firstResponsesOutputText } from "@/lib/openaiFirstOutputText";
 
 const SYSTEM = `You are a relationship strategist.
 
@@ -122,11 +123,7 @@ ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse thi
       input,
     });
 
-    const textPiece = response.output?.[0]?.content?.[0];
-    const raw =
-      textPiece && "text" in textPiece && typeof textPiece.text === "string"
-        ? textPiece.text
-        : "";
+    const raw = firstResponsesOutputText(response);
 
     if (!raw) {
       throw new Error("Empty model output");

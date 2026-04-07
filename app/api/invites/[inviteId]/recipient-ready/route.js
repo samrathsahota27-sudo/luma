@@ -7,7 +7,7 @@ import { getInviteStore } from "@/lib/inviteStore";
  */
 export async function POST(_req, { params }) {
   try {
-    const inviteId = await params.inviteId;
+    const { inviteId } = await params;
     if (!inviteId) {
       return NextResponse.json({ error: "Invite ID required" }, { status: 400 });
     }

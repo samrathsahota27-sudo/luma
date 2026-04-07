@@ -3,10 +3,10 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Navigation } from "@/components/navigation";
 import { TestRound } from "@/components/TestRound";
-import PreTestScreen from "@/components/PreTestScreen";
-import { reflectionLines, questions, rounds, roundTags } from "@/lib/testData";
+import { reflectionLines, rounds, roundTags } from "@/lib/testData";
 import { INDIVIDUAL_TOTAL_ROUNDS } from "@/lib/reflection/reflectionRounds";
 import { parseInSimpleWordsFromApi } from "@/lib/resultHelpers";
 import { parseRound5SpaceBetweenFromApi } from "@/lib/reflection/round5OutputGenerator";
@@ -47,6 +47,7 @@ import { TensionCard } from "@/components/TensionCard";
 import { buildActionTrigger } from "@/lib/actionTrigger";
 import { ActionTriggerCard } from "@/components/ActionTriggerCard";
 import { shareStoryFromElement } from "@/lib/storyCardCapture";
+import { QUESTIONS } from "@/lib/testConfig";
 
 const ROUND_TRANSITION_MS = 500;
 const GENERATING_PHASE_2_MS = 3500;
@@ -55,6 +56,120 @@ const RESULT_REVEAL_DELAY_S2 = 500;
 const RESULT_REVEAL_DELAY_S3 = 900;
 
 const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
+
+const introStagger = {
+  hidden: {},
+  show: {
+    transition: {
+      staggerChildren: 0.16,
+      delayChildren: 0.2,
+    },
+  },
+};
+
+const introFade = {
+  hidden: { opacity: 0, y: 10 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 1.0, ease: "easeOut" },
+  },
+};
+
+function IntroHero() {
+  return (
+    <motion.section className="text-center" variants={introFade}>
+      <p className="font-serif text-[40px] leading-[1.06] text-white/90 [font-family:var(--font-serif-display)]">
+        A quiet pull.
+      </p>
+      <p className="mt-3 font-serif text-[29px] leading-tight text-white/75 [font-family:var(--font-serif-display)]">
+        Notice what stays with you.
+      </p>
+      <p className="mx-auto mt-7 max-w-[300px] text-sm leading-relaxed text-white/45">No need to explain it.</p>
+    </motion.section>
+  );
+}
+
+function ToneSelector({ depthMode, onChange }) {
+  return (
+    <motion.section variants={introFade}>
+      <p className="mb-4 text-center text-[11px] uppercase tracking-[0.16em] text-white/40">
+        How should this be revealed?
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.995 }}
+          onClick={() => onChange("satin")}
+          className={`rounded-2xl border bg-white/[0.03] p-4 text-left backdrop-blur-xl transition-all duration-500 ${
+            depthMode === "satin"
+              ? "scale-[1.01] border-white/22 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_0_28px_rgba(140,120,185,0.14)]"
+              : "border-white/8"
+          }`}
+        >
+          <p className="text-sm font-medium text-white/92">Satin</p>
+          <p className="mt-1 text-xs leading-relaxed text-white/55">Same truth. Softer edges.</p>
+        </motion.button>
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.995 }}
+          onClick={() => onChange("steel")}
+          className={`rounded-2xl border bg-white/[0.03] p-4 text-left backdrop-blur-xl transition-all duration-500 ${
+            depthMode === "steel"
+              ? "scale-[1.01] border-white/22 shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_0_28px_rgba(120,145,185,0.14)]"
+              : "border-white/8"
+          }`}
+        >
+          <p className="text-sm font-medium text-white/92">Steel</p>
+          <p className="mt-1 text-xs leading-relaxed text-white/55">Clear. Direct. Unfiltered.</p>
+        </motion.button>
+      </div>
+    </motion.section>
+  );
+}
+
+function IntroTransitionText() {
+  return (
+    <motion.section variants={introFade} className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-5 py-5 backdrop-blur-sm">
+      <p className="text-center text-sm leading-relaxed text-white/60">
+        This isn&apos;t about choosing correctly.
+        <br />
+        It&apos;s about noticing what pulls you.
+      </p>
+    </motion.section>
+  );
+}
+
+function IntroFlowText() {
+  const lines = ["You’ll move quickly.", "You can speak — or not.", "Something will take shape."];
+  return (
+    <motion.section variants={introFade}>
+      <div className="space-y-2.5 text-center">
+        {lines.map((line) => (
+          <div key={line} className="rounded-xl border border-white/[0.06] bg-white/[0.015] px-4 py-3 backdrop-blur-sm">
+            <p className="text-sm text-white/62">{line}</p>
+          </div>
+        ))}
+      </div>
+    </motion.section>
+  );
+}
+
+function IntroCta({ onStart }) {
+  return (
+    <motion.section variants={introFade}>
+      <motion.button
+        type="button"
+        whileTap={{ scale: 0.985 }}
+        onClick={onStart}
+        className="w-full rounded-full border border-white/10 bg-[linear-gradient(180deg,rgba(130,120,170,0.24),rgba(80,74,105,0.22))] px-6 py-4 text-base font-medium text-white/92 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_24px_rgba(0,0,0,0.35)] transition-opacity hover:opacity-95"
+      >
+        Begin
+      </motion.button>
+      <p className="mt-3 text-center text-xs text-white/45">Takes a few minutes.</p>
+    </motion.section>
+  );
+}
 
 export default function TestPage() {
   const router = useRouter();
@@ -74,6 +189,7 @@ export default function TestPage() {
   const [generatingMessage, setGeneratingMessage] = useState(0);
   const [result, setResult] = useState(null);
   const [structuredResult, setStructuredResult] = useState(null);
+  const [guidingReflection, setGuidingReflection] = useState(null);
   const [brutalTruth, setBrutalTruth] = useState(null);
   const [inSimpleWords, setInSimpleWords] = useState(null);
   const [dangerousQuestion, setDangerousQuestion] = useState(null);
@@ -94,6 +210,18 @@ export default function TestPage() {
   const [previousReflection, setPreviousReflection] = useState(null);
   const [innerShiftText, setInnerShiftText] = useState(null);
   const [innerShiftLoading, setInnerShiftLoading] = useState(false);
+  const [tagAnswers, setTagAnswers] = useState({
+    round1: { q1: [], q2: [], q3: [], text: "" },
+    round2: { q1: [], q2: [], q3: [], text: "" },
+    round3: { q1: [], q2: [], q3: [], text: "" },
+    round4: { q1: [], q2: [], q3: [], text: "" },
+    round5: { q1: [], q2: [], q3: [], q4: [], text: "" },
+  });
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [canProceed, setCanProceed] = useState(false);
+  const [hasOpenedDisclaimer, setHasOpenedDisclaimer] = useState(false);
+  const [disclaimerSecondsLeft, setDisclaimerSecondsLeft] = useState(5);
+  const disclaimerBypassRef = useRef(false);
   const [showLetterSection, setShowLetterSection] = useState(false);
   const [letter, setLetter] = useState(null);
   const [letterLoading, setLetterLoading] = useState(false);
@@ -347,7 +475,7 @@ export default function TestPage() {
     }));
   };
 
-  const toggleTag = (tagValue) => {
+  const toggleLegacyTag = (tagValue) => {
     setSelectedTags((prev) => {
       const current = prev[currentRound] || [];
       const next = current.includes(tagValue)
@@ -377,15 +505,44 @@ export default function TestPage() {
   };
 
   const progressive = answers?.[currentRound]?.answers ?? {};
+  const roundKey = `round${currentRound}`;
+  const roundTagState = tagAnswers?.[roundKey] ?? {};
   const personalNote = answers?.[currentRound]?.personalNote ?? "";
-  const canProceed =
+  const canProceedRound =
     selectedOption === "none"
       ? noneText.trim().length > 0
       : selectedOption === "image" &&
         typeof selectedImage === "number" &&
-        progressive?.q1 &&
-        progressive?.q2 &&
-        progressive?.q3;
+        (roundTagState?.q1?.length ?? 0) > 0 &&
+        (roundTagState?.q2?.length ?? 0) > 0 &&
+        (roundTagState?.q3?.length ?? 0) > 0;
+
+  const toggleTag = (rk, qk, tag) => {
+    setTagAnswers((prev) => {
+      const currentTags = prev?.[rk]?.[qk] ?? [];
+      const exists = currentTags.includes(tag);
+      let updatedTags;
+      if (exists) updatedTags = currentTags.filter((t) => t !== tag);
+      else {
+        if (currentTags.length >= 2) return prev;
+        updatedTags = [...currentTags, tag];
+      }
+      return {
+        ...prev,
+        [rk]: {
+          ...prev[rk],
+          [qk]: updatedTags,
+        },
+      };
+    });
+  };
+
+  const setRoundText = (rk, value) => {
+    setTagAnswers((prev) => ({
+      ...prev,
+      [rk]: { ...prev[rk], text: value },
+    }));
+  };
 
   const setProgressiveAnswer = (qKey, value) => {
     setAnswers((prev) => {
@@ -418,7 +575,27 @@ export default function TestPage() {
   };
 
   const handleNext = async () => {
-    if (!canProceed) return;
+    if (!canProceedRound) return;
+
+    if (currentRound === 1 && !hasOpenedDisclaimer && !disclaimerBypassRef.current) {
+      setShowDisclaimer(true);
+      setHasOpenedDisclaimer(true);
+      setCanProceed(false);
+      setDisclaimerSecondsLeft(5);
+      const start = Date.now();
+      const interval = window.setInterval(() => {
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const left = Math.max(0, 5 - elapsed);
+        setDisclaimerSecondsLeft(left);
+      }, 250);
+      window.setTimeout(() => {
+        window.clearInterval(interval);
+        setDisclaimerSecondsLeft(0);
+        setCanProceed(true);
+      }, 5000);
+      return;
+    }
+    disclaimerBypassRef.current = false;
 
     setAnswers((prev) => {
       const next = persistCurrentRoundIntoAnswers({
@@ -579,6 +756,7 @@ export default function TestPage() {
       } catch {}
       setResult(data.result);
       setStructuredResult(data.structured ?? null);
+      setGuidingReflection(Array.isArray(data.guidingReflection) ? data.guidingReflection.filter(Boolean) : null);
       setRound5SpaceBetween(parseRound5SpaceBetweenFromApi(data));
       setBrutalTruth(typeof data.brutalTruth === "string" ? data.brutalTruth.trim() || null : null);
       const simpleLines = parseInSimpleWordsFromApi(data);
@@ -638,24 +816,61 @@ export default function TestPage() {
   const restSplitMid = Math.ceil(restParagraphs.length / 2);
   const deepExplanationParas = restParagraphs.slice(0, restSplitMid);
   const patternBreakdownParas = restParagraphs.slice(restSplitMid);
+  const currentQuestion = QUESTIONS[currentRound - 1] ?? QUESTIONS[0];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />
       {!started ? (
-        <PreTestScreen
-          email={reminderEmail}
-          onEmailChange={(v) => {
-            setReminderEmail(v);
-            registerReminder(v);
-          }}
-          depthMode={depthMode}
-          onDepthModeChange={setDepthMode}
-          onContinue={() => {
-            setStarted(true);
-            setPhase("rounds");
-          }}
-        />
+        <main className="relative min-h-screen overflow-hidden bg-[#0b0b0f] pt-20">
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage:
+                "radial-gradient(ellipse 78% 56% at 18% 10%, rgba(95,75,145,0.12), transparent), radial-gradient(ellipse 70% 52% at 82% 88%, rgba(65,95,145,0.08), transparent)",
+            }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute right-0 top-0 h-72 w-72 rounded-full bg-purple-900/14 blur-3xl"
+            animate={{ opacity: [0.5, 0.75, 0.5] }}
+            transition={{ duration: 16, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute bottom-24 left-0 h-56 w-56 rounded-full bg-blue-900/12 blur-3xl"
+            animate={{ opacity: [0.45, 0.65, 0.45] }}
+            transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <motion.div
+            aria-hidden
+            className="pointer-events-none absolute left-1/2 top-[38%] h-36 w-36 -translate-x-1/2 rounded-full bg-indigo-900/8 blur-2xl"
+            animate={{ opacity: [0.35, 0.55, 0.35] }}
+            transition={{ duration: 14, repeat: Infinity, ease: "easeInOut" }}
+          />
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0 opacity-[0.028] [background-image:radial-gradient(rgba(255,255,255,0.7)_0.5px,transparent_0.5px)] [background-size:3px_3px]"
+          />
+          <motion.section
+            className="relative z-10 mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-[460px] flex-col justify-center gap-9 px-6 pb-12"
+            variants={introStagger}
+            initial="hidden"
+            animate="show"
+          >
+            <IntroHero />
+            <ToneSelector depthMode={depthMode} onChange={setDepthMode} />
+            <IntroTransitionText />
+            <IntroFlowText />
+            <IntroCta
+              onStart={() => {
+                setStarted(true);
+                setPhase("rounds");
+              }}
+            />
+          </motion.section>
+        </main>
       ) : (
         <main className="pt-20 pb-12 max-w-[720px] mx-auto">
         {/* Intro is handled by PreTestScreen (see started state) */}
@@ -672,14 +887,17 @@ export default function TestPage() {
           >
             <TestRound
               round={currentRound}
-              question={questions[currentRound]}
+              question={currentQuestion}
               reflectionLines={reflectionLines[currentRound]}
               images={rounds[currentRound]}
               selectedIndex={typeof selectedImage === "number" ? selectedImage : null}
               onSelectImage={handleImageSelect}
               tags={roundTags[currentRound] ?? []}
               selectedTags={selectedTags[currentRound] ?? []}
-              onToggleTag={toggleTag}
+              onToggleTag={toggleLegacyTag}
+              tagAnswers={tagAnswers}
+              onToggleTagSelection={toggleTag}
+              onTagTextChange={setRoundText}
                 progressiveAnswers={progressive}
                 onSetProgressiveAnswer={setProgressiveAnswer}
                 personalNote={personalNote}
@@ -690,7 +908,7 @@ export default function TestPage() {
               onNoneTextChange={setNoneText}
               textValue={textValue}
               onTextChange={setTextValue}
-              canProceed={canProceed}
+              canProceed={canProceedRound}
               onNext={handleNext}
               showNone={showNone}
               totalRounds={INDIVIDUAL_TOTAL_ROUNDS}
@@ -699,6 +917,35 @@ export default function TestPage() {
             />
           </div>
         )}
+
+        {showDisclaimer ? (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-[420px] luma-glass border border-white/10 p-6 animate-in fade-in zoom-in-95 duration-300">
+              <h2 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+                Before you continue
+              </h2>
+              <p className="mt-3 text-sm text-white/75 leading-relaxed">
+                Answers in your own words help Luma understand you better — and create a sharper, more personal reflection.
+              </p>
+              <p className="mt-2 text-xs text-white/45">
+                You can skip this, but your results may feel more generic.
+              </p>
+              <button
+                type="button"
+                disabled={!canProceed}
+                onClick={() => {
+                  if (!canProceed) return;
+                  setShowDisclaimer(false);
+                  disclaimerBypassRef.current = true;
+                  void handleNext();
+                }}
+                className="mt-6 w-full min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity disabled:opacity-60"
+              >
+                {canProceed ? "Continue" : `Continue (${disclaimerSecondsLeft}s)`}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {showReview && (
           <ReviewAnswersScreen
@@ -761,6 +1008,7 @@ export default function TestPage() {
                   pattern: structuredResult.pattern,
                   themeTitle: structuredResult.theme?.title,
                   toneTitle: structuredResult.tone?.title,
+                  signals: tagsForWhy,
                   relationshipTags: answers?.[5]?.relationshipTags,
                   relationshipSummary: answers?.[5]?.relationshipSummary,
                 });
@@ -800,6 +1048,21 @@ export default function TestPage() {
                       </h3>
                       <p className="mt-3 text-muted-foreground leading-relaxed">{actionTrigger}</p>
                     </div>
+
+                    {Array.isArray(guidingReflection) && guidingReflection.length > 0 ? (
+                      <div className="luma-glass border border-white/10 p-6">
+                        <h3 className="text-foreground font-serif text-xl [font-family:var(--font-serif-display)]">
+                          Sit with this
+                        </h3>
+                        <div className="mt-3 space-y-3">
+                          {guidingReflection.slice(0, 3).map((q) => (
+                            <p key={q} className="text-muted-foreground leading-relaxed">
+                              {q}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
 
                     <div className="max-w-[680px] mx-auto pt-1 text-center">
                       <p className="text-sm text-muted-foreground">This felt accurate?</p>

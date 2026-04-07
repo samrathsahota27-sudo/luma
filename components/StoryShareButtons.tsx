@@ -41,6 +41,7 @@ export function StoryShareButtons({
       const el = targetRef.current;
       if (el) {
         try {
+          await new Promise((resolve) => setTimeout(resolve, 500));
           if (mode === "share") {
             await shareStoryFromElement(el, {
               filename,

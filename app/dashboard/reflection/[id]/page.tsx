@@ -46,7 +46,22 @@ export default function ViewReflectionPage() {
     );
   }
 
-  if (id && entry === null) {
+  if (!id) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navigation />
+        <main className="flex-1 pt-20 px-6 py-16 text-center">
+          <p className="text-muted-foreground">Reflection not found.</p>
+          <Link href="/dashboard" className="inline-block mt-6 text-sm text-foreground underline">
+            Back to Dashboard
+          </Link>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (entry === null) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
@@ -63,6 +78,7 @@ export default function ViewReflectionPage() {
 
   const isCouple = entry.mode === "couple";
   const coupleEntry = isCouple ? (entry as CoupleReflectionEntry) : null;
+  const individualEntry = entry.mode === "individual" ? entry : null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
@@ -113,13 +129,11 @@ export default function ViewReflectionPage() {
             brutalTruth={entry.brutalTruth}
             shadowInsight={entry.shadowInsight}
             howToReadTags={
-              !isCouple && entry.mode === "individual" && entry.howToReadTags
-                ? entry.howToReadTags
-                : null
+              individualEntry?.howToReadTags ? individualEntry.howToReadTags : null
             }
             inSimpleWords={
-              !isCouple && entry.mode === "individual" && Array.isArray(entry.inSimpleWords)
-                ? entry.inSimpleWords
+              individualEntry && Array.isArray(individualEntry.inSimpleWords)
+                ? individualEntry.inSimpleWords
                 : null
             }
           />

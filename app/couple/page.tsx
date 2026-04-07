@@ -26,7 +26,10 @@ export default function CouplePreStartPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not create link");
       setSessionId(data.sessionId);
-      setJoinUrl(data.joinUrl);
+      const joinPath = typeof data.joinPath === "string" ? data.joinPath : "";
+      const absoluteJoinUrl =
+        joinPath && typeof window !== "undefined" ? `${window.location.origin}${joinPath}` : joinPath;
+      setJoinUrl(absoluteJoinUrl || null);
       try {
         localStorage.setItem("luma_couple_remote_session_id", data.sessionId);
       } catch {
@@ -191,7 +194,7 @@ export default function CouplePreStartPage() {
 
                   <button
                     type="button"
-                    onClick={() => router.push(`/couple/start?session=${encodeURIComponent(sessionId)}`)}
+                    onClick={() => router.push(`/couple/start?sessionId=${encodeURIComponent(sessionId)}`)}
                     className="flex w-full min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-primary text-primary-foreground text-base font-semibold shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.28)] transition hover:opacity-95"
                   >
                     Continue as Partner A

@@ -310,8 +310,12 @@ export function buildDailyMicroMemoryUpdate(
 ): (m: Record<string, unknown>) => Record<string, unknown> {
   return (m) => {
     const timeline = Array.isArray(m.timeline) ? [...m.timeline] : [];
-    const emotionalTrends = Array.isArray(m.patterns?.emotionalTrends)
-      ? [...m.patterns.emotionalTrends]
+    const patterns =
+      m.patterns && typeof m.patterns === "object"
+        ? (m.patterns as { emotionalTrends?: unknown[] })
+        : {};
+    const emotionalTrends: Record<string, unknown>[] = Array.isArray(patterns.emotionalTrends)
+      ? ([...patterns.emotionalTrends] as Record<string, unknown>[])
       : [];
     const scores = (m.scores ?? {}) as MemoryScores;
     const baseScores: MemoryScores = {

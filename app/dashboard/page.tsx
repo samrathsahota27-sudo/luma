@@ -4,14 +4,10 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
-import {
-  getReflections,
-  daysUntilNextReflection,
-  type ReflectionEntry,
-} from "@/lib/reflectionStorage";
 import { ArrowRight, Lock } from "lucide-react";
 import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
 import { CalendarOfUsTimeline } from "@/components/CalendarOfUsTimeline";
+import { createClient } from "@/lib/supabase/client";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -31,25 +27,59 @@ const teaserInsight = "You tend to withdraw when overwhelmed.";
 const placeholderLastSummary = "You tend to overthink emotional distance.";
 
 export default function DashboardPage() {
+  const supabase = createClient();
   /** Placeholder until saved progress / resume state is wired */
   const hasStarted = false;
 
-  const [lastReflection, setLastReflection] = useState<ReflectionEntry | null>(null);
-  const [recentCount, setRecentCount] = useState(0);
-  const [daysUntil, setDaysUntil] = useState<number | null>(null);
+  const [patternHistory, setPatternHistory] = useState<any[]>([]);
+  const [coupleSessions, setCoupleSessions] = useState<any[]>([]);
+  const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
 
   useEffect(() => {
-    const all = getReflections();
-    const sorted = [...all].sort((a, b) => (b.date > a.date ? 1 : -1));
-    if (sorted.length > 0) setLastReflection(sorted[0]);
-    setRecentCount(all.length);
-    setDaysUntil(daysUntilNextReflection());
+    const fetchHistory = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("pattern_history, couple_sessions")
+        .eq("id", user.id)
+        .single();
+
+      if (profile) {
+        setPatternHistory(profile.pattern_history || []);
+        setCoupleSessions(profile.couple_sessions || []);
+      }
+    };
+    fetchHistory();
   }, []);
 
-  const canReflect = daysUntil === null;
+  useEffect(() => {
+    const fetchAuth = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setIsSignedIn(Boolean(user));
+    };
+    fetchAuth();
+  }, []);
 
-  const lastSummary = lastReflection
-    ? excerpt(lastReflection.content, 140)
+  const canReflect = true;
+
+  const lastPatternEntry = patternHistory[patternHistory.length - 1] ?? null;
+  const recentCount = patternHistory.length + coupleSessions.length;
+  const lastSummary = lastPatternEntry
+    ? excerpt(
+        String(
+          lastPatternEntry.description ||
+            lastPatternEntry.summary ||
+            lastPatternEntry.core_line ||
+            ""
+        ),
+        140
+      )
     : placeholderLastSummary;
 
   return (
@@ -77,6 +107,16 @@ export default function DashboardPage() {
             <p className="pt-2 text-[#c4b8a8] text-sm md:text-base max-w-md mx-auto leading-relaxed italic font-light opacity-90">
               {teaserInsight}
             </p>
+            {isSignedIn === false ? (
+              <div className="pt-1">
+                <Link
+                  href="/auth"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-[12px] bg-white text-[#0b0a0d] text-base font-medium transition-opacity hover:opacity-90 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_12px_40px_rgba(120,90,180,0.2)]"
+                >
+                  Sign in
+                </Link>
+              </div>
+            ) : null}
           </header>
 
           <section className="flex flex-col items-center">
@@ -90,7 +130,7 @@ export default function DashboardPage() {
               </Link>
             ) : (
               <p className="text-sm text-[#8a847a] text-center max-w-sm leading-relaxed">
-                You can return for another reflection in {daysUntil} day{daysUntil === 1 ? "" : "s"}.
+                You can return for another reflection soon.
               </p>
             )}
           </section>
@@ -117,7 +157,7 @@ export default function DashboardPage() {
                   </Link>
                 ) : (
                   <p className="text-sm text-[#8a847a] leading-relaxed">
-                    You can return for another reflection in {daysUntil} day{daysUntil === 1 ? "" : "s"}.
+                    You can return for another reflection soon.
                   </p>
                 )}
               </div>
@@ -177,17 +217,14 @@ export default function DashboardPage() {
               Your Last Reflection
             </h2>
             <div className="rounded-2xl border border-[#2a282e] bg-[#161419]/70 p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm transition-all duration-300 hover:border-[#35323c]">
-              {lastReflection && (
+              {lastPatternEntry?.date && (
                 <p className="text-xs text-[#6e685f] mb-3 tracking-wide">
-                  {formatDate(lastReflection.date)}
-                  {lastReflection.mode === "couple" ? " · Couple reflection" : ""}
+                  {formatDate(lastPatternEntry.date)}
                 </p>
               )}
               <p className="text-[#b8ae9f] leading-relaxed font-light">{lastSummary}</p>
               <Link
-                href={
-                  lastReflection ? `/dashboard/reflection/${lastReflection.id}` : "/test"
-                }
+                href="/test"
                 className="inline-flex items-center gap-2 mt-5 text-sm font-medium text-[#d4ccc0] transition-all duration-200 hover:opacity-75 hover:translate-x-0.5"
               >
                 View Full Insight

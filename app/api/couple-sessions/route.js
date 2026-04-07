@@ -1,32 +1,52 @@
 import { NextResponse } from "next/server";
-import { randomBytes } from "crypto";
-import { getCoupleSessionStore } from "@/lib/coupleSessionStore";
+import { createClient } from "@supabase/supabase-js";
 
-function publicOrigin(req) {
-  const baseUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.VERCEL_URL ||
-    (req.headers.get("x-forwarded-host") && `https://${req.headers.get("x-forwarded-host")}`) ||
-    "http://localhost:3000";
-  return baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
+
+function buildSessionId() {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `sess_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-export async function POST(req) {
+export async function POST() {
   try {
-    const sessionId = randomBytes(14).toString("hex");
-    const store = getCoupleSessionStore();
-    store.set(sessionId, {
-      createdAt: Date.now(),
-      a: null,
-      b: null,
+    console.log("API HIT");
+    console.log("URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      throw new Error("Missing Supabase env vars");
+    }
+
+    if (!supabase) {
+      throw new Error("Supabase client not initialized");
+    }
+
+    const sessionId = buildSessionId();
+    console.log(sessionId);
+    const row = {
+      id: sessionId,
+      partner_a: null,
+      partner_b: null,
+      status: "awaiting_partner",
+    };
+
+    const { error } = await supabase.from("couple_sessions").insert(row);
+    if (error) {
+      console.log("Supabase error:", error);
+      throw error;
+    }
+
+    return NextResponse.json({
+      ok: true,
+      sessionId,
+      joinPath: `/couple/join?sessionId=${encodeURIComponent(sessionId)}`,
     });
-
-    const origin = publicOrigin(req);
-    const joinUrl = `${origin}/couple/join?session=${sessionId}`;
-
-    return NextResponse.json({ sessionId, joinUrl });
   } catch (e) {
-    console.error("couple-sessions POST:", e);
+    console.error("couple-sessions create crash:", e);
     return NextResponse.json({ error: "Could not create session" }, { status: 500 });
   }
 }

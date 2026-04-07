@@ -1,39 +1,42 @@
 import { NextResponse } from "next/server";
-import { getCoupleSessionStore } from "@/lib/coupleSessionStore";
+import { supabase } from "@/lib/supabase";
 
 export async function GET(_req, { params }) {
   try {
-    const sessionId = await params.sessionId;
+    const { sessionId } = await params;
     if (!sessionId || typeof sessionId !== "string") {
       return NextResponse.json({ error: "Invalid session" }, { status: 400 });
     }
 
-    const store = getCoupleSessionStore();
-    const session = store.get(sessionId);
-    if (!session) {
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    const { data, error } = await supabase
+      .from("couple_sessions")
+      .select("id, partner_a, partner_b, status")
+      .eq("id", sessionId)
+      .maybeSingle();
+
+    if (error) {
+      console.error("couple-sessions get:", error);
+      return NextResponse.json({ error: "Could not load session" }, { status: 500 });
     }
 
-    const partnerAComplete = Boolean(session.a?.answers);
-    const partnerBComplete = Boolean(session.b?.answers);
-    const readyForResult = partnerAComplete && partnerBComplete;
-
-    const body = {
-      partnerAComplete,
-      partnerBComplete,
-      readyForResult,
-    };
-
-    if (readyForResult) {
-      body.partnerA = session.a.answers;
-      body.partnerB = session.b.answers;
-      body.nameA = session.a.name ?? null;
-      body.nameB = session.b.name ?? null;
+    if (!data) {
+      return NextResponse.json({ error: "Invalid session" }, { status: 404 });
     }
 
-    return NextResponse.json(body);
+    const partnerA = data.partner_a ?? null;
+    const partnerB = data.partner_b ?? null;
+
+    return NextResponse.json({
+      id: data.id,
+      status: data.status ?? null,
+      partnerA,
+      partnerB,
+      partnerAComplete: Boolean(partnerA),
+      partnerBComplete: Boolean(partnerB),
+      readyForResult: Boolean(partnerA) && Boolean(partnerB),
+    });
   } catch (e) {
-    console.error("couple-sessions GET:", e);
+    console.error("couple-sessions get crash:", e);
     return NextResponse.json({ error: "Could not load session" }, { status: 500 });
   }
 }

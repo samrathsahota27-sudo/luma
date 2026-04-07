@@ -19,16 +19,16 @@ function readDepthMode(): string {
 
 function CoupleWaitingInner() {
   const searchParams = useSearchParams();
-  const session = searchParams.get("session");
+  const sessionId = searchParams.get("sessionId");
   const [partnerAComplete, setPartnerAComplete] = useState(false);
   const [partnerBComplete, setPartnerBComplete] = useState(false);
   const [ready, setReady] = useState(false);
   const [notFound, setNotFound] = useState(false);
 
   const poll = useCallback(async () => {
-    if (!session?.trim()) return;
+    if (!sessionId?.trim()) return;
     try {
-      const res = await fetch(`/api/couple-sessions/${encodeURIComponent(session.trim())}`);
+      const res = await fetch(`/api/couple-sessions/${encodeURIComponent(sessionId.trim())}`);
       if (res.status === 404) {
         setNotFound(true);
         return;
@@ -40,16 +40,16 @@ function CoupleWaitingInner() {
     } catch {
       /* ignore transient errors */
     }
-  }, [session]);
+  }, [sessionId]);
 
   useEffect(() => {
-    if (!session?.trim()) return;
+    if (!sessionId?.trim()) return;
     void poll();
     const t = window.setInterval(poll, 3500);
     return () => window.clearInterval(t);
-  }, [session, poll]);
+  }, [sessionId, poll]);
 
-  if (!session?.trim()) {
+  if (!sessionId?.trim()) {
     return (
       <div className="max-w-[480px] mx-auto text-center px-4">
         <p className="text-sm text-white/55">No session in this link.</p>
@@ -83,7 +83,7 @@ function CoupleWaitingInner() {
         ? "Partner B is done. We’re waiting on Partner A to finish."
         : "When you’ve both finished all five rounds, your shared result will unlock.";
 
-  const resultHref = `/couple/result?session=${encodeURIComponent(session.trim())}&dm=${encodeURIComponent(readDepthMode())}`;
+  const resultHref = `/couple/result?sessionId=${encodeURIComponent(sessionId.trim())}&dm=${encodeURIComponent(readDepthMode())}`;
 
   return (
     <div className="max-w-[480px] mx-auto px-4 text-center">

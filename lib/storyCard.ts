@@ -129,6 +129,7 @@ export function generateStoryCardBlob(options: StoryCardOptions): Promise<Blob> 
   canvas.height = H;
   const ctx = canvas.getContext("2d");
   if (!ctx) return Promise.reject(new Error("2d context not available"));
+  const drawing = ctx;
 
   const title =
     mode === "individual"
@@ -141,14 +142,14 @@ export function generateStoryCardBlob(options: StoryCardOptions): Promise<Blob> 
     if (imageUrl && mode === "couple") {
       try {
         const img = await loadImage(imageUrl);
-        drawImageCover(ctx, img);
+        drawImageCover(drawing, img);
       } catch {
-        drawPastelBackground(ctx);
+        drawPastelBackground(drawing);
       }
     } else {
-      drawPastelBackground(ctx);
+      drawPastelBackground(drawing);
     }
-    drawTextOverlay(ctx, title, bottomLine, subtitle);
+    drawTextOverlay(drawing, title, bottomLine, subtitle);
   }
 
   return draw().then(() => {

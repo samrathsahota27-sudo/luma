@@ -7,7 +7,10 @@ import { cn } from "@/lib/utils";
 import { ImageGrid } from "@/components/reflection/ImageGrid";
 import { RoundFiveImageGrid } from "@/components/reflection/RoundFiveImageGrid";
 import { ResponseInput } from "@/components/reflection/ResponseInput";
+import { SpeechMicButton } from "@/components/SpeechMicButton";
 import { questionTagConfig } from "@/lib/questionTagConfig";
+import { QUESTIONS } from "@/lib/testConfig";
+import { appendTranscriptValue, useSpeechToText } from "@/hooks/useSpeechToText";
 
 const EMOTIONAL_TAGS = [
   "Calm", "Curious", "Uneasy", "Warm", "Distant", "Safe",
@@ -16,13 +19,6 @@ const EMOTIONAL_TAGS = [
 
 const SENTENCE_STARTER = "This image makes me feel ";
 const SENTENCE_END = " because ";
-
-const ROUND_QUESTIONS = [
-  "Which image feels closest to you right now?",
-  "Which image creates a sense of discomfort or heaviness for you?",
-  "Which image reflects your current state of mind?",
-  "What attracts you the most?",
-];
 
 function buildGuidedSentence(tags) {
   if (tags.length === 0) return "";
@@ -62,6 +58,9 @@ export function TestRound({
   images,
   selectedIndex,
   onSelectImage,
+  tagAnswers,
+  onToggleTagSelection,
+  onTagTextChange,
   tags = [],
   selectedTags = [],
   onToggleTag,
@@ -199,13 +198,32 @@ export function TestRound({
   const total = totalRounds ?? 4;
   const progressPercent = total > 0 ? (Math.min(round, total) / total) * 100 : 0;
 
-  const roundQuestion = ROUND_QUESTIONS[Math.max(0, (round ?? 1) - 1)] ?? ROUND_QUESTIONS[0];
+  const roundQuestion = QUESTIONS[Math.max(0, (round ?? 1) - 1)] ?? QUESTIONS[0];
   const topQuestion = question || roundQuestion;
   const headQuestion = spaceBetweenRound
     ? "What best describes your relationship right now?"
     : topQuestion;
 
   const showBack = typeof onBack === "function" && round > 1;
+
+  const roundKey = `round${Number(round)}`;
+  const roundTagState = tagAnswers?.[roundKey] ?? null;
+  const q1Selected = Array.isArray(roundTagState?.q1) ? roundTagState.q1 : [];
+  const q2Selected = Array.isArray(roundTagState?.q2) ? roundTagState.q2 : [];
+  const q3Selected = Array.isArray(roundTagState?.q3) ? roundTagState.q3 : [];
+  const q4Selected = Array.isArray(roundTagState?.q4) ? roundTagState.q4 : [];
+  const roundText = typeof roundTagState?.text === "string" ? roundTagState.text : "";
+
+  const noteMic = useSpeechToText((transcript) => {
+    if (typeof onToggleTagSelection === "function") {
+      onTagTextChange?.(roundKey, appendTranscriptValue(roundText, transcript));
+      return;
+    }
+    onPersonalNoteChange?.(appendTranscriptValue(personalNote, transcript));
+  });
+  const noneMic = useSpeechToText((transcript) => {
+    onNoneTextChange?.(appendTranscriptValue(noneText, transcript));
+  });
 
   const questions = useMemo(() => {
     const key = `round${Number(round)}`; // "round1".."round5"
@@ -226,24 +244,57 @@ export function TestRound({
   }, [round, reflectionLines]);
 
   useEffect(() => {
-    const a1 = progressiveAnswers?.q1;
-    const a2 = progressiveAnswers?.q2;
-    const a3 = progressiveAnswers?.q3;
-    const a4 = progressiveAnswers?.q4;
-    const hasA1 = Array.isArray(a1) ? a1.length > 0 : !!a1;
-    const hasA2 = Array.isArray(a2) ? a2.length > 0 : !!a2;
-    const hasA3 = Array.isArray(a3) ? a3.length > 0 : !!a3;
-    const hasA4 = Array.isArray(a4) ? a4.length > 0 : !!a4;
-    const derived = hasA1 ? (hasA2 ? (hasA3 ? (hasA4 ? 5 : 4) : 3) : 2) : 0;
+    const useNew = !!roundTagState && typeof onToggleTagSelection === "function";
+    if (!useNew) {
+      const a1 = progressiveAnswers?.q1;
+      const a2 = progressiveAnswers?.q2;
+      const a3 = progressiveAnswers?.q3;
+      const a4 = progressiveAnswers?.q4;
+      const hasA1 = Array.isArray(a1) ? a1.length > 0 : !!a1;
+      const hasA2 = Array.isArray(a2) ? a2.length > 0 : !!a2;
+      const hasA3 = Array.isArray(a3) ? a3.length > 0 : !!a3;
+      const hasA4 = Array.isArray(a4) ? a4.length > 0 : !!a4;
+      const derived = hasA1 ? (hasA2 ? (hasA3 ? (hasA4 ? 5 : 4) : 3) : 2) : 0;
+      setCurrentStep((prev) => Math.max(prev, derived));
+      return;
+    }
+
+    const hasA1 = q1Selected.length > 0;
+    const hasA2 = q2Selected.length > 0;
+    const hasA3 = q3Selected.length > 0;
+    const hasA4 = q4Selected.length > 0;
+    const needsQ4 = !!questions?.[3];
+    const derived = hasA1 ? (hasA2 ? (hasA3 ? (needsQ4 ? (hasA4 ? 5 : 4) : 4) : 3) : 2) : 0;
     setCurrentStep((prev) => Math.max(prev, derived));
-  }, [progressiveAnswers?.q1, progressiveAnswers?.q2, progressiveAnswers?.q3, progressiveAnswers?.q4]);
+  }, [
+    questions?.length,
+    onToggleTagSelection,
+    progressiveAnswers?.q1,
+    progressiveAnswers?.q2,
+    progressiveAnswers?.q3,
+    progressiveAnswers?.q4,
+    q1Selected.length,
+    q2Selected.length,
+    q3Selected.length,
+    q4Selected.length,
+    roundTagState,
+  ]);
 
   const handleAnswer = useCallback(
     (questionKey, value) => {
+      // Back-compat (single select)
       onSetProgressiveAnswer?.(questionKey, value);
       setCurrentStep((prev) => prev + 1);
     },
     [onSetProgressiveAnswer]
+  );
+
+  const toggleTag = useCallback(
+    (questionKey, tag) => {
+      if (typeof onToggleTagSelection !== "function") return;
+      onToggleTagSelection(roundKey, questionKey, tag);
+    },
+    [onToggleTagSelection, roundKey]
   );
 
   useEffect(() => {
@@ -305,7 +356,7 @@ export function TestRound({
 
         {/* 2. Image selection section */}
         <section className="mb-10">
-          <h2 className="mb-4 text-center text-lg font-medium text-foreground">
+          <h2 className="mx-auto mb-4 max-w-[32ch] text-balance text-center text-lg font-medium text-foreground">
             {headQuestion}
           </h2>
           <div
@@ -348,13 +399,24 @@ export function TestRound({
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[0].tags?.slice(0, 5).map((tag) => {
-                      const current = Array.isArray(progressiveAnswers?.q1) ? progressiveAnswers.q1 : [];
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q1Selected
+                          : Array.isArray(progressiveAnswers?.q1)
+                            ? progressiveAnswers.q1
+                            : [];
                       const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
                           onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q1", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 2));
+                              return;
+                            }
                             const next = active ? current.filter((t) => t !== tag) : [...current, tag].slice(0, 2);
                             onSetProgressiveAnswer?.("q1", next);
                             if (next.length > 0) setCurrentStep((s) => Math.max(s, 2));
@@ -381,13 +443,24 @@ export function TestRound({
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[1].tags?.slice(0, 5).map((tag) => {
-                      const current = Array.isArray(progressiveAnswers?.q2) ? progressiveAnswers.q2 : [];
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q2Selected
+                          : Array.isArray(progressiveAnswers?.q2)
+                            ? progressiveAnswers.q2
+                            : [];
                       const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
                           onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q2", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 3));
+                              return;
+                            }
                             const next = active ? current.filter((t) => t !== tag) : [...current, tag].slice(0, 2);
                             onSetProgressiveAnswer?.("q2", next);
                             if (next.length > 0) setCurrentStep((s) => Math.max(s, 3));
@@ -411,14 +484,29 @@ export function TestRound({
               {questions?.[2] && currentStep >= 3 ? (
                 <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
                   <p className="text-sm text-muted-foreground">{questions[2].text}</p>
+                  <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[2].tags?.slice(0, 5).map((tag) => {
-                      const active = progressiveAnswers?.q3 === tag;
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q3Selected
+                          : Array.isArray(progressiveAnswers?.q3)
+                            ? progressiveAnswers.q3
+                            : progressiveAnswers?.q3
+                              ? [progressiveAnswers.q3]
+                              : [];
+                      const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
                           onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q3", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 4));
+                              return;
+                            }
                             handleAnswer("q3", tag);
                             setCurrentStep((s) => Math.max(s, 4));
                           }}
@@ -444,13 +532,24 @@ export function TestRound({
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[3].tags?.slice(0, 5).map((tag) => {
-                      const current = Array.isArray(progressiveAnswers?.q4) ? progressiveAnswers.q4 : [];
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q4Selected
+                          : Array.isArray(progressiveAnswers?.q4)
+                            ? progressiveAnswers.q4
+                            : [];
                       const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
                           onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q4", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 5));
+                              return;
+                            }
                             const next = active ? current.filter((t) => t !== tag) : [...current, tag].slice(0, 2);
                             onSetProgressiveAnswer?.("q4", next);
                             if (next.length > 0) setCurrentStep((s) => Math.max(s, 5));
@@ -471,7 +570,7 @@ export function TestRound({
                 </div>
               ) : null}
 
-              {currentStep >= 5 ? (
+              {currentStep >= (questions?.[3] ? 5 : 4) ? (
                 <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
                   <label className="block text-sm font-medium text-foreground">
                     Anything in your own words?
@@ -479,13 +578,26 @@ export function TestRound({
                   <p className="mt-1 text-xs text-muted-foreground">
                     Personalized answers create a deeper reflection.
                   </p>
-                  <textarea
-                    value={personalNote}
-                    onChange={(e) => onPersonalNoteChange?.(e.target.value)}
-                    placeholder="(optional)"
-                    className="mt-3 w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-white/10"
-                    rows={4}
-                  />
+                  <div className="relative mt-3">
+                    <textarea
+                      value={typeof onToggleTagSelection === "function" ? roundText : personalNote}
+                      onChange={(e) =>
+                        typeof onToggleTagSelection === "function"
+                          ? onTagTextChange?.(roundKey, e.target.value)
+                          : onPersonalNoteChange?.(e.target.value)
+                      }
+                      placeholder="(optional)"
+                      className="w-full rounded-xl bg-white/5 border border-white/10 p-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-white/10"
+                      rows={4}
+                    />
+                    <SpeechMicButton
+                      isListening={noteMic.isListening}
+                      isSupported={noteMic.isSupported}
+                      onToggle={noteMic.toggle}
+                      className="absolute right-3 top-3"
+                    />
+                  </div>
+                  {noteMic.error ? <p className="mt-2 text-xs text-[#c49a8c]">{noteMic.error}</p> : null}
                 </div>
               ) : null}
             </div>
@@ -498,13 +610,22 @@ export function TestRound({
             <p className="text-sm text-muted-foreground mb-2 text-center">
               Why none of these feels right?
             </p>
-            <textarea
-              value={noneText}
-              onChange={(e) => onNoneTextChange?.(e.target.value)}
-              placeholder="Write what feels true…"
-              className="w-full p-3 rounded-lg border border-white/10 text-sm bg-white/[0.04] text-foreground placeholder:text-muted-foreground"
-              rows={4}
-            />
+            <div className="relative">
+              <textarea
+                value={noneText}
+                onChange={(e) => onNoneTextChange?.(e.target.value)}
+                placeholder="Write what feels true…"
+                className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground"
+                rows={4}
+              />
+              <SpeechMicButton
+                isListening={noneMic.isListening}
+                isSupported={noneMic.isSupported}
+                onToggle={noneMic.toggle}
+                className="absolute right-3 top-3"
+              />
+            </div>
+            {noneMic.error ? <p className="mt-2 text-xs text-[#c49a8c]">{noneMic.error}</p> : null}
           </div>
         )}
 
@@ -526,12 +647,28 @@ export function TestRound({
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[0].tags?.slice(0, 5).map((tag) => {
-                      const active = progressiveAnswers?.q1 === tag;
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q1Selected
+                          : Array.isArray(progressiveAnswers?.q1)
+                            ? progressiveAnswers.q1
+                            : progressiveAnswers?.q1
+                              ? [progressiveAnswers.q1]
+                              : [];
+                      const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
-                          onClick={() => handleAnswer("q1", tag)}
+                          onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q1", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 2));
+                              return;
+                            }
+                            handleAnswer("q1", tag);
+                          }}
                           className={cn(
                             "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
                             active
@@ -556,12 +693,28 @@ export function TestRound({
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[1].tags?.slice(0, 5).map((tag) => {
-                      const active = progressiveAnswers?.q2 === tag;
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q2Selected
+                          : Array.isArray(progressiveAnswers?.q2)
+                            ? progressiveAnswers.q2
+                            : progressiveAnswers?.q2
+                              ? [progressiveAnswers.q2]
+                              : [];
+                      const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
-                          onClick={() => handleAnswer("q2", tag)}
+                          onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q2", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 3));
+                              return;
+                            }
+                            handleAnswer("q2", tag);
+                          }}
                           className={cn(
                             "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
                             active
@@ -586,12 +739,28 @@ export function TestRound({
                   )}
                   <div className="mt-3 flex flex-wrap gap-2">
                     {questions[2].tags?.slice(0, 5).map((tag) => {
-                      const active = progressiveAnswers?.q3 === tag;
+                      const current =
+                        typeof onToggleTagSelection === "function"
+                          ? q3Selected
+                          : Array.isArray(progressiveAnswers?.q3)
+                            ? progressiveAnswers.q3
+                            : progressiveAnswers?.q3
+                              ? [progressiveAnswers.q3]
+                              : [];
+                      const active = current.includes(tag);
                       return (
                         <button
                           key={tag}
                           type="button"
-                          onClick={() => handleAnswer("q3", tag)}
+                          onClick={() => {
+                            if (typeof onToggleTagSelection === "function") {
+                              toggleTag("q3", tag);
+                              const nextLen = active ? current.length - 1 : Math.min(2, current.length + 1);
+                              if (nextLen > 0) setCurrentStep((s) => Math.max(s, 4));
+                              return;
+                            }
+                            handleAnswer("q3", tag);
+                          }}
                           className={cn(
                             "px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ease-out border",
                             active
@@ -616,13 +785,26 @@ export function TestRound({
                   <p className="mt-1 text-xs text-muted-foreground">
                     Personalized answers create a deeper reflection.
                   </p>
-                  <textarea
-                    value={personalNote}
-                    onChange={(e) => onPersonalNoteChange?.(e.target.value)}
-                    placeholder="(optional)"
-                    className="mt-3 w-full rounded-xl bg-white/5 border border-white/10 p-3 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-white/10"
-                    rows={4}
-                  />
+                  <div className="relative mt-3">
+                    <textarea
+                      value={typeof onToggleTagSelection === "function" ? roundText : personalNote}
+                      onChange={(e) =>
+                        typeof onToggleTagSelection === "function"
+                          ? onTagTextChange?.(roundKey, e.target.value)
+                          : onPersonalNoteChange?.(e.target.value)
+                      }
+                      placeholder="(optional)"
+                      className="w-full rounded-xl bg-white/5 border border-white/10 p-3 pr-24 text-sm text-foreground placeholder:text-muted-foreground/60 outline-none focus:ring-2 focus:ring-white/10"
+                      rows={4}
+                    />
+                    <SpeechMicButton
+                      isListening={noteMic.isListening}
+                      isSupported={noteMic.isSupported}
+                      onToggle={noteMic.toggle}
+                      className="absolute right-3 top-3"
+                    />
+                  </div>
+                  {noteMic.error ? <p className="mt-2 text-xs text-[#c49a8c]">{noteMic.error}</p> : null}
                 </div>
               ) : null}
             </div>

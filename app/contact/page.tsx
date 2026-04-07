@@ -4,6 +4,8 @@ import { useState } from "react"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 import { Loader2, CheckCircle } from "lucide-react"
+import { SpeechMicButton } from "@/components/SpeechMicButton"
+import { appendTranscriptValue, useSpeechToText } from "@/hooks/useSpeechToText"
 
 export default function ContactPage() {
   const [formState, setFormState] = useState({
@@ -15,6 +17,9 @@ export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSubmitted, setIsSubmitted] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const mic = useSpeechToText((transcript) =>
+    setFormState((prev) => ({ ...prev, message: appendTranscriptValue(prev.message, transcript) }))
+  )
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -148,15 +153,25 @@ export default function ContactPage() {
                   >
                     Message
                   </label>
-                  <textarea
-                    id="message"
-                    name="message"
-                    value={formState.message}
-                    onChange={handleChange}
-                    rows={6}
-                    className="w-full px-4 py-3 border border-border rounded-sm bg-card text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
-                    required
-                  />
+                  <div className="relative">
+                    <textarea
+                      id="message"
+                      name="message"
+                      value={formState.message}
+                      onChange={handleChange}
+                      rows={6}
+                      className="w-full resize-none rounded-sm border border-border bg-card px-4 py-3 pr-24 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-ring"
+                      required
+                    />
+                    <SpeechMicButton
+                      isListening={mic.isListening}
+                      isSupported={mic.isSupported}
+                      disabled={isSubmitting}
+                      onToggle={mic.toggle}
+                      className="absolute right-3 top-3"
+                    />
+                  </div>
+                  {mic.error ? <p className="mt-2 text-xs text-destructive">{mic.error}</p> : null}
                 </div>
 
                 {error && (

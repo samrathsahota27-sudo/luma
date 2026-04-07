@@ -56,6 +56,50 @@ import { ReviewAnswersScreen } from "@/components/ReviewAnswersScreen";
 
 type ReflectionPhase = "intro" | "rounds" | "review" | "generating" | "complete";
 
+type RoundAnswer = {
+  selectedType?: "image" | "none";
+  image?: number | null;
+  selectedImageId?: number | null;
+  selectedImage?: "none";
+  tag?: string;
+  tags?: string[];
+  userExplanation?: string;
+  text?: string;
+  noneText?: string;
+  answers?: Record<string, unknown>;
+  personalNote?: string;
+  relationshipTags?: string[];
+  relationshipSummary?: string;
+  imageId?: string;
+};
+
+type Round5SpaceBetweenPayload = NonNullable<ReturnType<typeof parseRound5SpaceBetweenFromApi>>;
+
+type EmotionTrackedSession = {
+  tag: string;
+  insight: string;
+  calendarState: string | null;
+};
+
+function selectedImagesForSave(
+  answers: Record<number, RoundAnswer>
+): Record<number, { image: number; text: string }> | undefined {
+  const out: Record<number, { image: number; text: string }> = {};
+  for (const [k, v] of Object.entries(answers)) {
+    const round = Number(k);
+    if (!Number.isFinite(round) || !v || typeof v !== "object") continue;
+    const image =
+      typeof v.selectedImageId === "number"
+        ? v.selectedImageId
+        : typeof v.image === "number"
+          ? v.image
+          : null;
+    if (image == null) continue;
+    out[round] = { image, text: typeof v.text === "string" ? v.text : "" };
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 
 export default function ReflectPage() {
@@ -63,18 +107,7 @@ export default function ReflectPage() {
   const { depthMode, setDepthMode } = useDepthMode();
   const [phase, setPhase] = useState<ReflectionPhase>("intro");
   const [currentRound, setCurrentRound] = useState(1);
-  const [answers, setAnswers] = useState<
-    Record<
-      number,
-      {
-        selectedType?: "image" | "none";
-        image?: number | null;
-        selectedImageId?: number | null;
-        userExplanation?: string;
-        text: string;
-      }
-    >
-  >({});
+  const [answers, setAnswers] = useState<Record<number, RoundAnswer>>({});
   const [selectedTags, setSelectedTags] = useState<Record<number, string[]>>({});
   const [textValue, setTextValue] = useState("");
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -84,6 +117,7 @@ export default function ReflectPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
   const [structuredResult, setStructuredResult] = useState<IndividualStructuredResult | null>(null);
+  const [guidingReflection, setGuidingReflection] = useState<string[] | null>(null);
   const [reflection, setReflection] = useState<string | null>(null);
   const [brutalTruth, setBrutalTruth] = useState<string | null>(null);
   const [inSimpleWords, setInSimpleWords] = useState<string[] | null>(null);
@@ -97,6 +131,18 @@ export default function ReflectPage() {
   const [reminderEmail, setReminderEmail] = useState("");
   const [saveName, setSaveName] = useState("");
   const [savePassword, setSavePassword] = useState("");
+  const [tagAnswers, setTagAnswers] = useState({
+    round1: { q1: [] as string[], q2: [] as string[], q3: [] as string[], text: "" },
+    round2: { q1: [] as string[], q2: [] as string[], q3: [] as string[], text: "" },
+    round3: { q1: [] as string[], q2: [] as string[], q3: [] as string[], text: "" },
+    round4: { q1: [] as string[], q2: [] as string[], q3: [] as string[], text: "" },
+    round5: { q1: [] as string[], q2: [] as string[], q3: [] as string[], q4: [] as string[], text: "" },
+  });
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
+  const [canProceed, setCanProceed] = useState(false);
+  const [hasOpenedDisclaimer, setHasOpenedDisclaimer] = useState(false);
+  const [disclaimerSecondsLeft, setDisclaimerSecondsLeft] = useState(5);
+  const disclaimerBypassRef = useRef(false);
   const [savedWithEmail, setSavedWithEmail] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [storyLoading, setStoryLoading] = useState(false);
@@ -113,7 +159,7 @@ export default function ReflectPage() {
   const [referralCopied, setReferralCopied] = useState(false);
   const [round5SpaceBetween, setRound5SpaceBetween] = useState<Round5SpaceBetweenPayload | null>(null);
 
-  const answersRef = useRef(answers);
+  const answersRef = useRef<Record<number, RoundAnswer>>(answers);
 
   useEffect(() => {
     answersRef.current = answers;
@@ -177,8 +223,8 @@ export default function ReflectPage() {
     const ui = deriveUiFromSavedRound(saved);
 
     setSelectedIndex(ui.selectedIndex);
-    setSelectedImage(ui.selectedImage);
-    setSelectedOption(ui.selectedOption);
+    setSelectedImage(ui.selectedImage as number | "none" | null);
+    setSelectedOption(ui.selectedOption as "image" | "none" | null);
     setTextValue(ui.textValue);
     setNoneText(ui.noneText);
     setSelectedTags((prev) => ({
@@ -271,20 +317,81 @@ export default function ReflectPage() {
 
   const progressive = (answers as any)?.[currentRound]?.answers ?? {};
   const personalNote = (answers as any)?.[currentRound]?.personalNote ?? "";
-  const canProceed =
+  const roundKey = `round${currentRound}` as const;
+  const roundTagState: any = (tagAnswers as any)?.[roundKey] ?? {};
+  const canProceedRound =
     selectedOption === "none"
       ? noneText.trim().length > 0
       : selectedOption === "image" &&
         typeof selectedImage === "number" &&
-        progressive?.q1 &&
-        progressive?.q2 &&
-        progressive?.q3;
+        (roundTagState?.q1?.length ?? 0) > 0 &&
+        (roundTagState?.q2?.length ?? 0) > 0 &&
+        (roundTagState?.q3?.length ?? 0) > 0;
 
-  const setProgressiveAnswer = (qKey: "q1" | "q2" | "q3", value: string) => {
+  const toggleTagSelection = (rk: string, qk: string, tag: string) => {
+    setTagAnswers((prev: any) => {
+      const currentTags: string[] = prev?.[rk]?.[qk] ?? [];
+      const exists = currentTags.includes(tag);
+      let updatedTags: string[];
+      if (exists) updatedTags = currentTags.filter((t) => t !== tag);
+      else {
+        if (currentTags.length >= 2) return prev;
+        updatedTags = [...currentTags, tag];
+      }
+      return {
+        ...prev,
+        [rk]: {
+          ...prev[rk],
+          [qk]: updatedTags,
+        },
+      };
+    });
+
+    // Keep existing `answers` payload in sync for API usage.
+    setAnswers((prev) => {
+      const current: any = (prev as any)?.[currentRound] ?? {};
+      const existing: any = current.answers ?? {};
+      const nextForQuestion = (() => {
+        const base: string[] = Array.isArray((tagAnswers as any)?.[rk]?.[qk])
+          ? ((tagAnswers as any)[rk][qk] as string[])
+          : [];
+        // Note: state updates are async; we only use this for best-effort sync and recompute below in effect-free way.
+        return base;
+      })();
+      const merged = { ...existing, [qk]: nextForQuestion };
+      return {
+        ...(prev as any),
+        [currentRound]: {
+          ...current,
+          answers: merged,
+          tags: [
+            ...(Array.isArray(merged.q1) ? merged.q1 : []),
+            ...(Array.isArray(merged.q2) ? merged.q2 : []),
+            ...(Array.isArray(merged.q3) ? merged.q3 : []),
+          ].filter(Boolean),
+        },
+      };
+    });
+  };
+
+  const setRoundText = (rk: string, value: string) => {
+    setTagAnswers((prev: any) => ({
+      ...prev,
+      [rk]: { ...prev[rk], text: value },
+    }));
+    setPersonalNote(value);
+  };
+
+  const setProgressiveAnswer = (qKey: "q1" | "q2" | "q3", value: any) => {
+    // legacy hook remains, but UI now uses tagAnswers via onToggleTagSelection
     setAnswers((prev) => {
       const current = (prev as any)?.[currentRound] ?? {};
       const nextAnswers = { ...(current.answers ?? {}), [qKey]: value };
-      const tags = [nextAnswers.q1, nextAnswers.q2, nextAnswers.q3].filter(Boolean);
+      const tags = [
+        ...(Array.isArray(nextAnswers.q1) ? nextAnswers.q1 : nextAnswers.q1 ? [nextAnswers.q1] : []),
+        ...(Array.isArray(nextAnswers.q2) ? nextAnswers.q2 : nextAnswers.q2 ? [nextAnswers.q2] : []),
+        ...(Array.isArray(nextAnswers.q3) ? nextAnswers.q3 : nextAnswers.q3 ? [nextAnswers.q3] : []),
+      ].filter(Boolean);
       return {
         ...(prev as any),
         [currentRound]: {
@@ -311,7 +418,27 @@ export default function ReflectPage() {
   };
 
   const handleNext = async () => {
-    if (!canProceed) return;
+    if (!canProceedRound) return;
+
+    if (currentRound === 1 && !hasOpenedDisclaimer && !disclaimerBypassRef.current) {
+      setShowDisclaimer(true);
+      setHasOpenedDisclaimer(true);
+      setCanProceed(false);
+      setDisclaimerSecondsLeft(5);
+      const start = Date.now();
+      const interval = window.setInterval(() => {
+        const elapsed = Math.floor((Date.now() - start) / 1000);
+        const left = Math.max(0, 5 - elapsed);
+        setDisclaimerSecondsLeft(left);
+      }, 250);
+      window.setTimeout(() => {
+        window.clearInterval(interval);
+        setDisclaimerSecondsLeft(0);
+        setCanProceed(true);
+      }, 5000);
+      return;
+    }
+    disclaimerBypassRef.current = false;
 
     const nextRound = getNextRound(currentRound, INDIVIDUAL_TOTAL_ROUNDS);
 
@@ -347,37 +474,11 @@ export default function ReflectPage() {
     void generateReflection(answersRef.current);
   };
 
-  const generateReflection = async (
-    selectionsOverride?: Record<
-      number,
-      {
-        selectedType?: "image" | "none";
-        image?: number | null;
-        selectedImageId?: number | null;
-        tag?: string;
-        tags?: string[];
-        userExplanation?: string;
-        text: string;
-        noneText?: string;
-      }
-    > | null
-  ) => {
+  const generateReflection = async (selectionsOverride?: Record<number, RoundAnswer> | null) => {
     setPhase("generating");
     setError(null);
 
-    type AnswerMap = Record<
-      number,
-      {
-        selectedType?: "image" | "none";
-        image?: number | null;
-        selectedImageId?: number | null;
-        tag?: string;
-        tags?: string[];
-        userExplanation?: string;
-        text: string;
-        noneText?: string;
-      }
-    >;
+    type AnswerMap = Record<number, RoundAnswer>;
 
     let finalAnswers: AnswerMap;
 
@@ -385,7 +486,19 @@ export default function ReflectPage() {
       finalAnswers = selectionsOverride;
     } else {
       finalAnswers = buildReflectionSummary(
-        answers,
+        answers as Record<
+          number,
+          {
+            selectedType?: "image" | "none";
+            image?: number | null;
+            selectedImageId?: number | null;
+            tag?: string;
+            tags?: string[];
+            userExplanation?: string;
+            text: string;
+            noneText?: string;
+          }
+        >,
         currentRound,
         selectedIndex,
         textValue,
@@ -441,6 +554,7 @@ export default function ReflectPage() {
       const data = await response.json();
       setReflection(data.result);
       setStructuredResult(data.structured ?? null);
+      setGuidingReflection(Array.isArray(data.guidingReflection) ? data.guidingReflection.filter(Boolean) : null);
       setRound5SpaceBetween(parseRound5SpaceBetweenFromApi(data));
       setBrutalTruth(typeof data.brutalTruth === "string" ? data.brutalTruth.trim() || null : null);
       const simpleLines = parseInSimpleWordsFromApi(data);
@@ -470,7 +584,7 @@ export default function ReflectPage() {
         sessionType: "individual",
         sessionSignature: sig,
         calendarState: typeof data.calendarState === "string" ? data.calendarState : null,
-      });
+      }) as EmotionTrackedSession | null;
       if (tracked) {
         void insertEmotionTrackerRowOncePerSession(sig, {
           emotionalTag: tracked.tag,
@@ -560,6 +674,7 @@ export default function ReflectPage() {
     setSelectedIndex(null);
     setReflection(null);
     setStructuredResult(null);
+    setGuidingReflection(null);
     setRound5SpaceBetween(null);
     setBrutalTruth(null);
     setInSimpleWords(null);
@@ -612,8 +727,10 @@ export default function ReflectPage() {
 
     // Optional user words (Round 5 relationship reflection if present).
     const r5: any = (answers as any)?.[5];
-    const relationshipTags = Array.isArray(r5?.relationshipTags)
-      ? r5.relationshipTags.filter((x: any) => typeof x === "string" && x.trim()).slice(0, 4)
+    const relationshipTags: string[] = Array.isArray(r5?.relationshipTags)
+      ? r5.relationshipTags
+          .filter((x: unknown): x is string => typeof x === "string" && Boolean(x.trim()))
+          .slice(0, 4)
       : [];
     const relationshipSummary =
       typeof r5?.relationshipSummary === "string" ? r5.relationshipSummary.trim() : "";
@@ -673,6 +790,7 @@ export default function ReflectPage() {
           pattern: structuredResult.pattern,
           themeTitle: structuredResult.theme?.title,
           toneTitle: structuredResult.tone?.title,
+          signals: tagsForWhy,
           relationshipTags: (answers as any)?.[5]?.relationshipTags,
           relationshipSummary: (answers as any)?.[5]?.relationshipSummary,
         })
@@ -767,20 +885,23 @@ export default function ReflectPage() {
                 images={roundData.images}
                 selectedIndex={typeof selectedImage === "number" ? selectedImage : null}
                 onSelectImage={handleSelectImage}
-                tags={roundData.tags ?? []}
-                selectedTags={selectedTags[currentRound] ?? []}
+                tags={(roundData.tags ?? []) as string[]}
+                selectedTags={(selectedTags[currentRound] ?? []) as string[]}
                 onToggleTag={toggleTag}
                 progressiveAnswers={progressive}
                 onSetProgressiveAnswer={setProgressiveAnswer}
                 personalNote={personalNote}
                 onPersonalNoteChange={setPersonalNote}
+                tagAnswers={tagAnswers}
+                onToggleTagSelection={toggleTagSelection}
+                onTagTextChange={setRoundText}
                 selectedOption={selectedOption}
                 onSelectNone={handleNoneClick}
                 noneText={noneText}
                 onNoneTextChange={setNoneText}
                 textValue={textValue}
                 onTextChange={setTextValue}
-                canProceed={canProceed}
+                canProceed={canProceedRound}
                 onNext={handleNext}
                 showNone={showNone}
                 totalRounds={INDIVIDUAL_TOTAL_ROUNDS}
@@ -794,6 +915,35 @@ export default function ReflectPage() {
             )}
           </div>
         )}
+
+        {showDisclaimer ? (
+          <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 bg-black/70 backdrop-blur-sm">
+            <div className="w-full max-w-[420px] luma-glass border border-white/10 p-6 animate-in fade-in zoom-in-95 duration-300">
+              <h2 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+                Before you continue
+              </h2>
+              <p className="mt-3 text-sm text-white/75 leading-relaxed">
+                Answers in your own words help Luma understand you better — and create a sharper, more personal reflection.
+              </p>
+              <p className="mt-2 text-xs text-white/45">
+                You can skip this, but your results may feel more generic.
+              </p>
+              <button
+                type="button"
+                disabled={!canProceed}
+                onClick={() => {
+                  if (!canProceed) return;
+                  setShowDisclaimer(false);
+                  disclaimerBypassRef.current = true;
+                  void handleNext();
+                }}
+                className="mt-6 w-full min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity disabled:opacity-60"
+              >
+                {canProceed ? "Continue" : `Continue (${disclaimerSecondsLeft}s)`}
+              </button>
+            </div>
+          </div>
+        ) : null}
 
         {showReview && (
           <ReviewAnswersScreen
@@ -923,6 +1073,20 @@ export default function ReflectPage() {
 
                   {/* 5) Action trigger */}
                   {actionTrigger ? <ActionTriggerCard text={actionTrigger} /> : null}
+
+                  {/* 6) Sit with this (guiding reflection) */}
+                  {Array.isArray(guidingReflection) && guidingReflection.length > 0 ? (
+                    <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">
+                      <h3 className="text-white text-base font-medium">Sit with this</h3>
+                      <div className="mt-3 space-y-3">
+                        {guidingReflection.slice(0, 3).map((q) => (
+                          <p key={q} className="text-sm text-white/70 leading-relaxed">
+                            {q}
+                          </p>
+                        ))}
+                      </div>
+                    </section>
+                  ) : null}
 
                   {/* Share trigger */}
                   <div className="mx-auto w-full max-w-[420px] pt-1 text-center">
@@ -1182,7 +1346,7 @@ export default function ReflectPage() {
                         howToReadTags: resolveHowToReadTagsFromSelections(answers),
                         email,
                         name,
-                        selectedImages: answers,
+                        selectedImages: selectedImagesForSave(answers),
                       });
                       // Supabase auth + cloud memory sync (best effort)
                       const signInRes = await signInWithPassword(email, password);

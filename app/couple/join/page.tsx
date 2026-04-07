@@ -10,12 +10,25 @@ import { ArrowRight, Loader2 } from "lucide-react";
 function CoupleJoinInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const session = searchParams.get("session");
+  const sessionId = searchParams.get("sessionId");
+  const partnerRole = searchParams.get("partnerRole");
   const [checking, setChecking] = useState(true);
   const [valid, setValid] = useState(false);
+  const [readyForResult, setReadyForResult] = useState(false);
 
   useEffect(() => {
-    if (!session?.trim()) {
+    if (!sessionId?.trim()) return;
+    try {
+      const role = partnerRole === "partnerA" ? "partnerA" : "partnerB";
+      sessionStorage.setItem("coupleRole", role);
+      sessionStorage.setItem("coupleSessionId", sessionId.trim());
+    } catch {
+      // ignore
+    }
+  }, [sessionId, partnerRole]);
+
+  useEffect(() => {
+    if (!sessionId?.trim()) {
       setChecking(false);
       setValid(false);
       return;
@@ -23,11 +36,16 @@ function CoupleJoinInner() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch(`/api/couple-sessions/${encodeURIComponent(session.trim())}`);
+        const res = await fetch(`/api/couple-sessions/${encodeURIComponent(sessionId.trim())}`);
+        const data = await res.json().catch(() => ({}));
         if (cancelled) return;
         setValid(res.ok);
+        setReadyForResult(Boolean(data?.readyForResult));
       } catch {
-        if (!cancelled) setValid(false);
+        if (!cancelled) {
+          setValid(false);
+          setReadyForResult(false);
+        }
       } finally {
         if (!cancelled) setChecking(false);
       }
@@ -35,9 +53,9 @@ function CoupleJoinInner() {
     return () => {
       cancelled = true;
     };
-  }, [session]);
+  }, [sessionId]);
 
-  if (!session?.trim()) {
+  if (!sessionId?.trim()) {
     return (
       <div className="max-w-[480px] mx-auto text-center px-4">
         <h1 className="font-serif text-xl text-white [font-family:var(--font-serif-display)]">Missing link</h1>
@@ -61,14 +79,16 @@ function CoupleJoinInner() {
   if (!valid) {
     return (
       <div className="max-w-[480px] mx-auto text-center px-4">
-        <h1 className="font-serif text-xl text-white [font-family:var(--font-serif-display)]">Link expired or invalid</h1>
-        <p className="mt-3 text-sm text-white/55">Ask your partner to send a fresh link from Couple Mode.</p>
+        <h1 className="font-serif text-xl text-white [font-family:var(--font-serif-display)]">Invalid or incomplete session</h1>
+        <p className="mt-3 text-sm text-white/55">Ask your partner to start again and share a fresh link.</p>
         <Link href="/couple" className="mt-8 inline-block text-sm text-violet-300 hover:text-violet-200">
           Go to Couple Mode
         </Link>
       </div>
     );
   }
+
+  const showResult = readyForResult;
 
   return (
     <div className="max-w-[480px] mx-auto px-4 text-center">
@@ -77,14 +97,22 @@ function CoupleJoinInner() {
         You&apos;re invited to reflect
       </h1>
       <p className="mt-4 text-sm text-white/60 leading-relaxed">
-        Your partner started a couple reflection on Luma. Complete your part on this device when you&apos;re ready.
+        {showResult
+          ? "This session is completed. Open the shared result."
+          : "Your partner started a couple reflection on Luma. Complete your part on this device when you're ready."}
       </p>
       <button
         type="button"
-        onClick={() => router.push(`/couple/partner-b?session=${encodeURIComponent(session.trim())}`)}
+        onClick={() =>
+          router.push(
+            showResult
+              ? `/couple/result?sessionId=${encodeURIComponent(sessionId.trim())}`
+              : `/couple/partner-b?sessionId=${encodeURIComponent(sessionId.trim())}&partnerRole=partnerB`
+          )
+        }
         className="mt-10 flex w-full min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-white text-[#0b0a0d] text-base font-semibold shadow-[0_8px_32px_rgba(255,255,255,0.12)] transition hover:opacity-95"
       >
-        Continue
+        {showResult ? "See result" : "Continue"}
         <ArrowRight className="h-5 w-5" />
       </button>
       <p className="mt-6 text-xs text-white/40 leading-relaxed">

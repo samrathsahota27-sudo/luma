@@ -1,7 +1,7 @@
 import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { extractOpenAIResponsesText } from "@/lib/aiReflectionOutput";
-import { parseStrictJsonObject, validateCoupleStructured } from "@/lib/aiStructuredCards";
+import { validateCoupleStructured } from "@/lib/aiStructuredCards";
 import { ARCHETYPE_RULES_FOR_PROMPT } from "@/lib/psychologicalArchetypes";
 import { buildCoupleNarrativeFromPartners } from "@/lib/narrative/coupleNarrativeEngine";
 import {
@@ -21,6 +21,17 @@ import {
   extractTagSignalsFromSelections,
   scoreCouplePatternsTop3,
 } from "@/lib/patternScoring";
+import { createClient } from "@/lib/supabase/server";
+
+function extractJSON(text) {
+  const t = String(text ?? "");
+  const firstBrace = t.indexOf("{");
+  const lastBrace = t.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    throw new Error("No JSON found in AI response");
+  }
+  return t.slice(firstBrace, lastBrace + 1);
+}
 
 function buildCouplePrompt(partnerA, partnerB, relationshipDescription) {
   return `
@@ -55,10 +66,11 @@ If these fields are empty, do not mention them.
 
 CRITICAL — OUTPUT FORMAT:
 Return a single JSON object only. No markdown, no code fences, no text before or after JSON.
+Return ONLY valid JSON. Do not include explanations, text, or formatting outside JSON.
 Use direct psychological language (attachment, avoidance, control, distance, pursuit). No "vibes/energy/spiritual".
 Each string: 1–2 lines max. Short, sharp, honest. No paragraphs.
 
-Required JSON schema (ONLY these keys):
+Required JSON schema:
 {
   "pattern": "Soft Pursuit",
   "summary": "One reaches gently. The other goes quiet. Both feel rejected.",
@@ -66,10 +78,49 @@ Required JSON schema (ONLY these keys):
   "tension": { "value": 58, "label": "hot/cold" },
   "insight": "When one softens, the other follows—just a beat later.",
   "alignment": 72,
-  "distance_signal": "Silence feels like peace for one of you—and punishment for the other."
+  "distance_signal": "Silence feels like peace for one of you—and punishment for the other.",
+  "differences": [
+    { "label": "How you handle conflict", "description": "One sentence showing how they diverge." },
+    { "label": "Short title", "description": "One sentence showing how they diverge." },
+    { "label": "Short title", "description": "One sentence showing how they diverge." }
+  ],
+  "riskPatterns": [
+    { "label": "Short title", "description": "One honest sentence about what could go wrong." },
+    { "label": "Short title", "description": "One honest sentence about what could go wrong." }
+  ],
+  "whatHelps": [
+    "One concrete actionable suggestion — no therapy speak.",
+    "One concrete actionable suggestion — no therapy speak.",
+    "One concrete actionable suggestion — no therapy speak."
+  ],
+  "partnerDecoder": {
+    "partnerA": "One paragraph about how Partner A processes emotion and what they need.",
+    "partnerB": "One paragraph about how Partner B processes emotion and what they need.",
+    "whenTheyMeet": "One paragraph about what happens when these two patterns interact."
+  },
+  "frictionMap": [{ "title": "Short title", "text": "1–2 lines of contrast, specific to them." }],
+  "bridge": [{ "title": "Doable move", "text": "1–2 lines, concrete and non-generic." }],
+  "decoder": "Partner A: ...\n\nPartner B: ...\n\nWhen you meet: ..."
 }
 
-Do NOT include any other keys.
+Extra requirements:
+- differences: exactly 3 items; specific to their image choices; not generic.
+- riskPatterns: 2–3 items; honest, slightly uncomfortable; not alarmist.
+- whatHelps: exactly 3 items. Each must be a direct directive, not advice. Format each as:
+  'Partner A: [exact action in plain words]' or
+  'Partner B: [exact action in plain words]' or
+  'Both: [exact shared action]'
+  Use the fewest words possible.
+  Make it something they can do tonight.
+  No words like: consider, try, explore, practice, communicate, validate, journey, reflect.
+  Wrong: 'Partner A should try to name their feelings'
+  Right: 'Partner A: Say I am overwhelmed before you go quiet'
+- partnerDecoder: warm but honest; write in second person (e.g. "Partner A tends to...").
+- frictionMap: 2–3 items; title + 1–2 line contrast; no generic "you’re different" statements.
+- bridge: 2–3 items; concrete + specific; no generic advice.
+- decoder: a single string with 3 short paragraphs (Partner A / Partner B / When you meet). No bullets.
+
+You may include both the legacy deep-insight fields (differences/whatHelps/partnerDecoder) and the new ones (frictionMap/bridge/decoder). If you include both, make them consistent.
 `;
 }
 
@@ -83,7 +134,7 @@ async function generateImage(openai, prompt) {
       size: "1024x1024",
       response_format: "url",
       style: "natural",
-      quality: "hd",
+      quality: "standard",
     });
     return response.data?.[0]?.url ?? null;
   } catch (e) {
@@ -92,8 +143,53 @@ async function generateImage(openai, prompt) {
   }
 }
 
+const interpretImage = async (openai, imageUrl, role, patternName) => {
+  if (!imageUrl) return null;
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      max_tokens: 150,
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "image_url",
+              image_url: { url: imageUrl },
+            },
+            {
+              type: "text",
+              text: `This is ${role} in a couple emotional reflection for the pattern "${patternName}".
+In 2-3 short sentences, interpret what the specific colors, shapes and movement in this image represent emotionally.
+Be specific to what you actually see — name actual colors and forms.
+No generic statements. No "this represents".
+Write directly: "The deep red at the center..." "The soft blue edges..." etc.
+Keep it under 60 words.`,
+            },
+          ],
+        },
+      ],
+    });
+    return response.choices?.[0]?.message?.content ?? null;
+  } catch (e) {
+    console.warn("Image interpretation failed:", e.message);
+    return null;
+  }
+};
+
 export async function POST(req) {
   try {
+    console.log("🔴 COUPLE ANALYZE ROUTE HIT");
+    const request = req;
+    console.log("=== API ROUTE HIT ===");
+    console.log("Cookies:", request.headers.get("cookie")?.slice(0, 100));
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    console.log("User in API:", user?.id ?? "NULL", error?.message ?? "no error");
+
     const payload = await req.json();
     const { partnerA, partnerB } = payload;
     const depthMode = readDepthModeFromBody(payload);
@@ -176,11 +272,79 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
       input: prompt + strictCardSuffix,
     });
 
-    const raw = extractOpenAIResponsesText(response);
-    const parsed = parseStrictJsonObject(raw);
+    const rawText = extractOpenAIResponsesText(response);
+    let parsed = null;
+    try {
+      const cleaned = extractJSON(rawText);
+      parsed = JSON.parse(cleaned);
+    } catch (err) {
+      console.error("RAW AI RESPONSE:", rawText);
+      try {
+        console.error("CLEANED:", extractJSON(rawText));
+      } catch {
+        /* ignore */
+      }
+      throw new Error("Invalid JSON from AI");
+    }
+
     const card = validateCoupleStructured(parsed, chosenPattern.name);
     if (!card) {
       return NextResponse.json({ error: "AI returned invalid structured JSON" }, { status: 500 });
+    }
+
+    if (user) {
+      try {
+        // First try to get existing profile
+        const { data: existingProfile, error: fetchError } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        console.log("Existing profile:", existingProfile, fetchError);
+
+        if (fetchError?.code === "PGRST116") {
+          // Profile doesn't exist yet — create it first
+          await supabase.from("user_profiles").insert({
+            id: user.id,
+            email: user.email,
+            pattern_history: [],
+            couple_sessions: [],
+          });
+        }
+
+        const coupleEntry = {
+          date: new Date().toISOString(),
+          pattern: card.pattern,
+          summary: card.summary,
+          drift: card.drift,
+          tension: card.tension,
+          alignment: card.alignment,
+          insight: card.insight,
+        };
+
+        const currentHistory = existingProfile?.couple_sessions || [];
+        console.log("🔴 ABOUT TO SAVE PROFILE");
+        console.log("🔴 User ID:", user?.id);
+        console.log("🔴 User email:", user?.email);
+
+        const { error: saveError } = await supabase
+          .from("user_profiles")
+          .update({
+            couple_sessions: [...currentHistory, coupleEntry].slice(-20),
+            last_updated: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+
+        console.log("🔴 SAVE COMPLETE - error:", saveError);
+      } catch (e) {
+        console.error("PROFILE SAVE ERROR:", {
+          message: e.message,
+          code: e.code,
+          details: e.details,
+          hint: e.hint,
+        });
+        // Do not throw — result should still return
+      }
     }
 
     const imagePromptA = buildDalleCoupleInnerWorldPrompt(
@@ -197,6 +361,11 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
       generateImage(openai, imagePromptA),
       generateImage(openai, imagePromptB),
       generateImage(openai, imagePromptBetween),
+    ]);
+    const [interpretA, interpretB, interpretBetween] = await Promise.all([
+      interpretImage(openai, innerWorldA, "Partner A's inner world", card.pattern),
+      interpretImage(openai, innerWorldB, "Partner B's inner world", card.pattern),
+      interpretImage(openai, spaceBetween, "the space between the couple", card.pattern),
     ]);
 
     const coupleNarrative = buildCoupleNarrativeFromPartners(
@@ -240,6 +409,9 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
       innerWorldA: innerWorldA ?? null,
       innerWorldB: innerWorldB ?? null,
       spaceBetween: spaceBetween ?? null,
+      imageInterpretA: interpretA ?? null,
+      imageInterpretB: interpretB ?? null,
+      imageInterpretBetween: interpretBetween ?? null,
       coupleNarrative,
       futureProjection,
     });

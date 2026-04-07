@@ -33,6 +33,7 @@ type HubFeature = {
   cta: string;
   href?: string;
   kind?: "translator" | "chat" | "date" | "mind";
+  comingSoon?: boolean;
   Icon?: any;
 };
 
@@ -68,7 +69,9 @@ const FEATURES: HubFeature[] = [
   {
     title: "Silent Signal",
     subtitle: "Send",
-    cta: "Soon",
+    cta: "Open",
+    href: "/silent-signal",
+    comingSoon: true,
     Icon: Sparkles,
   },
 ];
@@ -215,8 +218,7 @@ export default function CoupleHubPage() {
           <ul className="mx-auto mt-12 flex w-full max-w-full flex-col gap-4 md:mt-14 md:gap-5">
             {FEATURES.map((f) => {
               const Icon = f.Icon;
-              const clickable = Boolean(f.kind) || Boolean(f.href);
-              const isSoon = f.cta.toLowerCase() === "soon";
+              const isComingSoon = Boolean(f.comingSoon);
 
               const inner = (
                 <>
@@ -232,18 +234,20 @@ export default function CoupleHubPage() {
                       <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/45">{f.subtitle}</p>
                       <p className="mt-1 text-[17px] font-medium leading-snug text-white md:text-lg">{f.title}</p>
                       <p className="mt-1 text-sm text-white/55">
-                        {isSoon ? "On the roadmap" : f.kind ? "Tap to open" : f.href ? "Unlock" : f.cta}
+                        {isComingSoon
+                          ? "Coming soon. Preview the concept."
+                          : f.kind
+                            ? "Tap to open"
+                            : f.href
+                              ? "Unlock"
+                              : f.cta}
                       </p>
                     </div>
                     <div className="flex shrink-0 items-center justify-center rounded-full border border-white/10 bg-white/[0.06] p-2.5 md:p-3">
-                      {isSoon ? (
-                        <span className="px-1 text-[11px] font-medium uppercase tracking-wider text-white/40">Soon</span>
-                      ) : (
-                        <ChevronRight
-                          className="h-5 w-5 text-white/50 motion-safe:transition-transform motion-safe:duration-300 group-hover:translate-x-0.5 group-hover:text-white/80 md:h-6 md:w-6"
-                          aria-hidden
-                        />
-                      )}
+                      <ChevronRight
+                        className="h-5 w-5 text-white/50 motion-safe:transition-transform motion-safe:duration-300 group-hover:translate-x-0.5 group-hover:text-white/80 md:h-6 md:w-6"
+                        aria-hidden
+                      />
                     </div>
                   </div>
                 </>

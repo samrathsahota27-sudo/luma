@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { X, Loader2, Copy, Check } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
@@ -13,8 +13,22 @@ import {
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
 import { updateMemory } from "@/lib/memory";
 import { supabase } from "@/lib/supabase";
+import {
+  FEATURE_ONBOARDING_COPY,
+  FEATURE_SEEN_STORAGE_KEYS,
+  type FeatureOnboardingKey,
+} from "@/lib/featureOnboarding";
+import { SpeechMicButton } from "@/components/SpeechMicButton";
+import { appendTranscriptValue, useSpeechToText } from "@/hooks/useSpeechToText";
 
 type OverlayKind = "translator" | "mind" | "date" | "chat";
+
+type MemoryDraft = Record<string, unknown> & {
+  conflicts?: unknown[];
+  timeline?: unknown[];
+  scores?: { connection?: number; conflict?: number; distance?: number };
+  patterns?: Record<string, unknown> & { communication?: unknown[] };
+};
 
 type TranslatorResult = { said: string; meant: string; trap: string; do: string };
 type MindResult = { behavior: string; interpretations: string; need: string; confirm: string };
@@ -39,25 +53,60 @@ export function CoupleHubOverlay({
   const [mind, setMind] = useState<MindResult | null>(null);
   const [date, setDate] = useState<DateResult | null>(null);
   const [chatHistory, setChatHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [showIntro, setShowIntro] = useState(false);
+  const mic = useSpeechToText((transcript) => setText((prev) => appendTranscriptValue(prev, transcript)));
 
   const title = useMemo(() => {
     switch (kind) {
       case "translator":
-        return "Translator";
+        return "Emotional Translator";
       case "mind":
         return "Their Mind";
       case "date":
         return "Date AI";
       case "chat":
-        return "Chat";
+        return "AI Chat";
     }
   }, [kind]);
+
+  const onboardingKey = useMemo<FeatureOnboardingKey>(() => {
+    switch (kind) {
+      case "translator":
+        return "emotional_translator";
+      case "chat":
+        return "ai_chat";
+      case "date":
+        return "date_ai";
+      case "mind":
+        return "their_mind";
+    }
+  }, [kind]);
+
+  const onboardingCopy = FEATURE_ONBOARDING_COPY[onboardingKey];
 
   const micro = useMemo(() => hubOverlayMicro(kind, depthMode), [kind, depthMode]);
 
   const placeholder = useMemo(() => hubOverlayPlaceholder(kind, depthMode), [kind, depthMode]);
 
   const actionLabel = useMemo(() => hubOverlayActionLabel(kind, depthMode), [kind, depthMode]);
+
+  function markFeatureSeen() {
+    try {
+      localStorage.setItem(FEATURE_SEEN_STORAGE_KEYS[onboardingKey], "true");
+    } catch {
+      // ignore storage errors
+    }
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    try {
+      const seen = localStorage.getItem(FEATURE_SEEN_STORAGE_KEYS[onboardingKey]) === "true";
+      setShowIntro(!seen);
+    } catch {
+      setShowIntro(true);
+    }
+  }, [open, onboardingKey]);
 
   function resetResults() {
     setTranslator(null);
@@ -93,7 +142,7 @@ export function CoupleHubOverlay({
       if (kind === "chat") recordFeatureUse("chat");
 
       if (kind === "chat") {
-        const nextHistory = [...chatHistory, { role: "user", content: trimmed }];
+        const nextHistory = [...chatHistory, { role: "user" as const, content: trimmed }];
         setChatHistory(nextHistory);
         setText("");
         const res = await fetch("/api/chat", {
@@ -139,7 +188,7 @@ export function CoupleHubOverlay({
         setTranslator({ said: data.said, meant: data.meant, trap: data.trap, do: doText });
 
         const now = new Date().toISOString();
-        const memory = updateMemory((m) => {
+        const memory = updateMemory((m: MemoryDraft) => {
           const conflicts = Array.isArray(m.conflicts) ? m.conflicts : [];
           const timeline = Array.isArray(m.timeline) ? m.timeline : [];
           const scores = m.scores ?? { connection: 0, conflict: 0, distance: 0 };
@@ -198,6 +247,45 @@ export function CoupleHubOverlay({
 
   if (!open) return null;
 
+  if (showIntro) {
+    return (
+      <div className="fixed inset-0 z-[200] bg-[#050508]/90 backdrop-blur-xl">
+        <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_65%_50%_at_50%_-10%,rgba(180,150,255,0.15),transparent)]" />
+        <div className="absolute inset-0 overflow-y-auto overscroll-contain px-5 py-6 md:px-8">
+          <div className="mx-auto flex min-h-full w-full max-w-[560px] items-center justify-center">
+            <div className="w-full rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl md:p-8">
+              <div className="flex items-start justify-between gap-4">
+                <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Feature intro</p>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl border border-white/10 bg-white/[0.04] p-2.5 text-white/75 hover:text-white hover:bg-white/[0.06] transition"
+                  aria-label="Close"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <h1 className="mt-3 font-serif text-[28px] leading-tight text-white [font-family:var(--font-serif-display)]">
+                {onboardingCopy.title}
+              </h1>
+              <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-white/70">{onboardingCopy.intro}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  markFeatureSeen();
+                  setShowIntro(false);
+                }}
+                className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0b0a0d] shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_16px_48px_rgba(255,255,255,0.08)] transition-opacity hover:opacity-95"
+              >
+                Start
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[200] bg-[#050508]/85 backdrop-blur-xl">
       <div aria-hidden className="absolute inset-0 bg-[radial-gradient(ellipse_65%_50%_at_50%_-10%,rgba(180,150,255,0.16),transparent)]" />
@@ -209,6 +297,7 @@ export function CoupleHubOverlay({
               <h1 className="mt-2 font-serif text-2xl md:text-3xl text-white [font-family:var(--font-serif-display)]">
                 {title}
               </h1>
+              <p className="mt-2 whitespace-pre-line text-sm leading-relaxed text-white/60">{onboardingCopy.short}</p>
             </div>
             <button
               type="button"
@@ -224,14 +313,23 @@ export function CoupleHubOverlay({
             <DepthModeSelector value={depthMode} onChange={setDepthMode} disabled={loading} className="mb-5" />
 
             {kind !== "chat" && (
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder={placeholder}
-                rows={5}
-                disabled={loading}
-                className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-[15px] text-white placeholder:text-white/35 outline-none transition-[box-shadow,border-color,background] duration-200 focus:border-white/20 focus:bg-white/[0.03] focus:shadow-[0_0_0_4px_rgba(123,106,168,0.18)] disabled:opacity-50"
-              />
+              <div className="relative">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder={placeholder}
+                  rows={5}
+                  disabled={loading}
+                  className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 pr-24 text-[15px] text-white placeholder:text-white/35 outline-none transition-[box-shadow,border-color,background] duration-200 focus:border-white/20 focus:bg-white/[0.03] focus:shadow-[0_0_0_4px_rgba(123,106,168,0.18)] disabled:opacity-50"
+                />
+                <SpeechMicButton
+                  isListening={mic.isListening}
+                  isSupported={mic.isSupported}
+                  disabled={loading}
+                  onToggle={mic.toggle}
+                  className="absolute right-3 top-3"
+                />
+              </div>
             )}
 
             {kind === "chat" && (
@@ -258,13 +356,22 @@ export function CoupleHubOverlay({
                   )}
                 </div>
                 <div className="flex gap-3">
-                  <input
-                    value={text}
-                    onChange={(e) => setText(e.target.value)}
-                    placeholder={placeholder}
-                    disabled={loading}
-                    className="flex-1 rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/20 focus:bg-white/[0.03]"
-                  />
+                  <div className="relative flex-1">
+                    <input
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder={placeholder}
+                      disabled={loading}
+                      className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 pr-24 text-sm text-white placeholder:text-white/35 outline-none focus:border-white/20 focus:bg-white/[0.03]"
+                    />
+                    <SpeechMicButton
+                      isListening={mic.isListening}
+                      isSupported={mic.isSupported}
+                      disabled={loading}
+                      onToggle={mic.toggle}
+                      className="absolute right-2 top-1/2 -translate-y-1/2"
+                    />
+                  </div>
                   <button
                     type="button"
                     onClick={run}
@@ -298,6 +405,7 @@ export function CoupleHubOverlay({
                 {error && <p className="text-xs text-[#f0b4a6]">{error}</p>}
               </div>
             )}
+            {mic.error && <p className="mt-3 text-xs text-[#f0b4a6]">{mic.error}</p>}
           </div>
 
           {(translator || mind || date) && (

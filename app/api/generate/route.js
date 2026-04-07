@@ -19,6 +19,10 @@ import {
 } from "@/lib/patternScoring";
 import { matchPatternVariant } from "@/lib/patternVariants";
 import { buildDeterministicVariantFallback, variantCopy } from "@/lib/patternVariantCopy";
+import { deriveThemeTone } from "@/lib/themeTone";
+import { buildGuidingReflection } from "@/lib/guidingReflection";
+import { derivePatternLabel } from "@/lib/patternLabel";
+import { createClient } from "@/lib/supabase/server";
 
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -43,6 +47,7 @@ async function callOpenAI(prompt) {
 
 export async function POST(req) {
   try {
+    console.log("🔴 GENERATE ROUTE HIT");
     const payload = await req.json().catch(() => ({}));
     const selections = payload?.selections ?? payload?.answers;
     if (!selections || typeof selections !== "object") {
@@ -54,6 +59,8 @@ export async function POST(req) {
     const chosenPattern = profile.primary;
     const variant = matchPatternVariant(chosenPattern.id, signals);
     const variantSeed = variant ? variantCopy[variant] : null;
+    const micro = deriveThemeTone(signals);
+    const patternLabel = derivePatternLabel({ signals, selections });
 
     const context = payload?.context ?? null;
     const depthMode = readDepthModeFromBody(payload);
@@ -113,10 +120,10 @@ Each string: 1–2 lines max. Short, sharp, honest.
 
 Required JSON schema:
 {
-  "pattern": "${chosenPattern.name}",
+  "pattern": "${patternLabel}",
   "description": "When things get close, you go numb — then blame yourself for it.",
-  "theme": { "title": "Safety", "subtitle": "protecting yourself" },
-  "tone": { "title": "Soft", "subtitle": "not dramatic" },
+  "theme": { "title": "${micro.theme.title}", "subtitle": "${micro.theme.subtitle}" },
+  "tone": { "title": "${micro.tone.title}", "subtitle": "${micro.tone.subtitle}" },
   "core_line": "You call it 'peace' when it's actually avoidance.",
   "reach": "Less noise. More control. A room you can breathe in.",
   "shift": "A small truth said early — before you disappear."
@@ -130,17 +137,73 @@ Do NOT include any other keys.`;
     }
 
     const parsed = parseStrictJsonObject(raw);
-    const card = validateIndividualStructured(parsed, chosenPattern.name);
+    const card = validateIndividualStructured(parsed, null);
     const fallback = buildDeterministicVariantFallback({
-      pattern: chosenPattern.name,
+      pattern: patternLabel,
       variant,
-      theme: { title: "Safety", subtitle: "protecting yourself" },
-      tone: { title: "Soft", subtitle: "not dramatic" },
+      theme: micro.theme,
+      tone: micro.tone,
     });
-    const finalCard = card || fallback;
+    const finalCard = (() => {
+      const base = card || fallback;
+      // Enforce deterministic theme/tone regardless of model drift.
+      return {
+        ...base,
+        pattern: patternLabel,
+        theme: micro.theme,
+        tone: micro.tone,
+      };
+    })();
 
     const round5SpaceBetween = buildRound5SpaceBetweenFromAnswersBlock(selections?.[5]);
     const finalNarrative = buildFinalNarrativeFromSelections(selections);
+    const guidingReflection = buildGuidingReflection({
+      pattern: finalCard.pattern,
+      signals,
+    });
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    console.log("🔴 User in generate:", user?.id ?? "NULL", authError?.message ?? "no auth error");
+
+    if (user) {
+      try {
+        const newEntry = {
+          date: new Date().toISOString(),
+          pattern: finalCard?.pattern ?? card?.pattern,
+          description: finalCard?.description ?? card?.description,
+          theme: finalCard?.theme ?? card?.theme,
+          core_line: finalCard?.core_line ?? card?.core_line,
+        };
+
+        console.log("🔴 SAVING ENTRY:", newEntry);
+
+        const { data: existingProfile } = await supabase
+          .from("user_profiles")
+          .select("pattern_history")
+          .eq("id", user.id)
+          .single();
+
+        const currentHistory = existingProfile?.pattern_history || [];
+
+        const { error: saveError } = await supabase
+          .from("user_profiles")
+          .upsert({
+            id: user.id,
+            email: user.email,
+            pattern_history: [...currentHistory, newEntry].slice(-50),
+            last_updated: new Date().toISOString(),
+          });
+
+        console.log("🔴 SAVE ERROR:", saveError?.message ?? "none");
+      } catch (e) {
+        console.error("🔴 SAVE CRASH:", e.message);
+      }
+    }
 
     return NextResponse.json({
       structured: finalCard,
@@ -165,6 +228,7 @@ Do NOT include any other keys.`;
       ].join("\n"),
       ...(round5SpaceBetween ? { round5SpaceBetween } : {}),
       finalNarrative,
+      guidingReflection,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown server error";

@@ -6,6 +6,9 @@ export type StoryCardFrameProps = {
   title: string;
   imageUrl?: string | null;
   subtitle?: string;
+  insight?: string;
+  drift?: number | null;
+  tension?: number | null;
   brand?: string;
   className?: string;
 };
@@ -20,6 +23,9 @@ export const StoryCardFrame = forwardRef<HTMLDivElement, StoryCardFrameProps>(
       title,
       imageUrl,
       subtitle = "What does your inner world look like?",
+      insight,
+      drift = null,
+      tension = null,
       brand = "Luma",
       className = "",
     },
@@ -65,15 +71,15 @@ export const StoryCardFrame = forwardRef<HTMLDivElement, StoryCardFrameProps>(
     return (
       <div
         ref={ref}
-        className={`relative mx-auto w-full max-w-[360px] overflow-hidden rounded-2xl shadow-[0_12px_48px_rgba(0,0,0,0.22)] ${className}`}
-        style={{ aspectRatio: "9 / 16" }}
+        className={`relative mx-auto w-full max-w-[360px] overflow-hidden rounded-2xl bg-[#050508] shadow-[0_12px_48px_rgba(0,0,0,0.22)] ${className}`}
+        style={{ aspectRatio: "9 / 16", width: "100%", minHeight: 640 }}
       >
         {imgSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imgSrc} alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
         ) : (
           <div
-            className="absolute inset-0 bg-gradient-to-b from-[#E6E8F0] via-[#E8E3D9] to-[#D8E3DC]"
+            className="absolute inset-0 bg-gradient-to-b from-[#0c0b12] via-[#11101a] to-[#050508]"
             aria-hidden
           />
         )}
@@ -84,6 +90,17 @@ export const StoryCardFrame = forwardRef<HTMLDivElement, StoryCardFrameProps>(
           >
             {title}
           </h2>
+          {insight ? (
+            <p className="mt-3 px-2 text-sm leading-relaxed text-white/90 drop-shadow-[0_1px_8px_rgba(0,0,0,0.45)]">
+              {insight}
+            </p>
+          ) : null}
+          {drift != null || tension != null ? (
+            <div className="mt-4 inline-flex items-center justify-center gap-3 text-xs text-white/85">
+              {drift != null ? <span>Drift {Math.round(drift)}%</span> : null}
+              {tension != null ? <span>Tension {Math.round(tension)}%</span> : null}
+            </div>
+          ) : null}
           <div className="min-w-0 shrink pb-1">
             <p className="text-base font-semibold text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.5)]">
               {brand}

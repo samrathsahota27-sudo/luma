@@ -9,9 +9,24 @@ import { parseStrictJsonObject, validateIndividualStructured } from "@/lib/aiStr
 import { extractTagSignalsFromSelections, scoreIndividualPatternsTop3 } from "@/lib/patternScoring";
 import { matchPatternVariant } from "@/lib/patternVariants";
 import { buildDeterministicVariantFallback, variantCopy } from "@/lib/patternVariantCopy";
+import { deriveThemeTone } from "@/lib/themeTone";
+import { buildGuidingReflection } from "@/lib/guidingReflection";
+import { derivePatternLabel } from "@/lib/patternLabel";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(req) {
   try {
+    console.log("🔴 ANALYZE ROUTE HIT");
+    const request = req;
+    console.log("=== API ROUTE HIT ===");
+    console.log("Cookies:", request.headers.get("cookie")?.slice(0, 100));
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error,
+    } = await supabase.auth.getUser();
+    console.log("User in API:", user?.id ?? "NULL", error?.message ?? "no error");
+
     const payload = await req.json().catch(() => ({}));
     const answers = payload?.answers;
     if (!answers || typeof answers !== "object") {
@@ -35,6 +50,8 @@ export async function POST(req) {
     const chosenPattern = profile.primary;
     const variant = matchPatternVariant(chosenPattern.id, signals);
     const variantSeed = variant ? variantCopy[variant] : null;
+    const micro = deriveThemeTone(signals);
+    const patternLabel = derivePatternLabel({ signals, selections: answers });
 
     const prompt = `
 You are augmenting a deterministic pattern system. You are NOT allowed to invent or rename patterns.
@@ -72,10 +89,10 @@ Each string: 1–2 lines max. Short, sharp, honest.
 
 Required JSON schema:
 {
-  "pattern": "${chosenPattern.name}",
+  "pattern": "${patternLabel}",
   "description": "When things get close, you go numb — then blame yourself for it.",
-  "theme": { "title": "Safety", "subtitle": "protecting yourself" },
-  "tone": { "title": "Soft", "subtitle": "not dramatic" },
+  "theme": { "title": "${micro.theme.title}", "subtitle": "${micro.theme.subtitle}" },
+  "tone": { "title": "${micro.tone.title}", "subtitle": "${micro.tone.subtitle}" },
   "core_line": "You call it 'peace' when it's actually avoidance.",
   "reach": "Less noise. More control. A room you can breathe in.",
   "shift": "A small truth said early — before you disappear."
@@ -90,14 +107,82 @@ Do NOT include any other keys.`;
 
     const raw = extractOpenAIResponsesText(response);
     const parsed = parseStrictJsonObject(raw);
-    const structured = validateIndividualStructured(parsed, chosenPattern.name);
+    const structured = validateIndividualStructured(parsed, null);
     const fallback = buildDeterministicVariantFallback({
-      pattern: chosenPattern.name,
+      pattern: patternLabel,
       variant,
-      theme: { title: "Safety", subtitle: "protecting yourself" },
-      tone: { title: "Soft", subtitle: "not dramatic" },
+      theme: micro.theme,
+      tone: micro.tone,
     });
-    const finalCard = structured || fallback;
+    const finalCard = (() => {
+      const base = structured || fallback;
+      return {
+        ...base,
+        pattern: patternLabel,
+        theme: micro.theme,
+        tone: micro.tone,
+      };
+    })();
+    const guidingReflection = buildGuidingReflection({
+      pattern: finalCard.pattern,
+      signals,
+    });
+
+    if (user) {
+      try {
+        // First try to get existing profile
+        const { data: existingProfile, error: fetchError } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        console.log("Existing profile:", existingProfile, fetchError);
+
+        if (fetchError?.code === "PGRST116") {
+          // Profile doesn't exist yet — create it first
+          await supabase.from("user_profiles").insert({
+            id: user.id,
+            email: user.email,
+            pattern_history: [],
+            couple_sessions: [],
+          });
+        }
+
+        const newEntry = {
+          date: new Date().toISOString(),
+          pattern: finalCard.pattern,
+          description: finalCard.description,
+          theme: finalCard.theme,
+          tone: finalCard.tone,
+          core_line: finalCard.core_line,
+          depth_mode: depthMode,
+        };
+
+        const currentHistory = existingProfile?.pattern_history || [];
+        console.log("🔴 ABOUT TO SAVE PROFILE");
+        console.log("🔴 User ID:", user?.id);
+        console.log("🔴 User email:", user?.email);
+
+        const { error: saveError } = await supabase
+          .from("user_profiles")
+          .update({
+            pattern_history: [...currentHistory, newEntry].slice(-50),
+            depth_tone_preference: depthMode,
+            last_updated: new Date().toISOString(),
+          })
+          .eq("id", user.id);
+
+        console.log("🔴 SAVE COMPLETE - error:", saveError);
+      } catch (e) {
+        console.error("PROFILE SAVE ERROR:", {
+          message: e.message,
+          code: e.code,
+          details: e.details,
+          hint: e.hint,
+        });
+        // Do not throw — result should still return
+      }
+    }
 
     return NextResponse.json({
       structured: finalCard,
@@ -118,6 +203,7 @@ Do NOT include any other keys.`;
         `What you reach for: ${finalCard.reach}`,
         `What shifts it: ${finalCard.shift}`,
       ].join("\n"),
+      guidingReflection,
     });
   } catch (error) {
     console.error("AI ERROR:", error);

@@ -137,42 +137,42 @@ export function buildWhyThisIsYou(input: WhyThisIsYouInput): WhyThisIsYouOutput 
 
   const observation =
     selectedImages.length > 0 && tags.length > 0
-      ? `You consistently chose images that pointed toward ${labelLine}.`
+      ? `Across your choices, the same themes kept showing up: ${labelLine}.`
       : tags.length > 0
-        ? `Your choices clustered around ${labelLine}.`
-        : `Your choices weren’t random—there’s a consistent signal in what you picked.`;
+        ? `Your answers kept circling back to ${labelLine}.`
+        : `Even without perfect data, your choices had a clear shape.`;
 
   const interpretationParts: string[] = [];
   if (topGroups.includes("emotional_distance")) {
     interpretationParts.push(
-      "You don’t explode outwardly. You create distance—often through silence—so you don’t have to risk conflict."
+      "You don’t make a scene. You pull back—often through silence—so you don’t have to risk a hard moment."
     );
   }
   if (topGroups.includes("internal_noise")) {
     interpretationParts.push(
-      "A lot happens internally: replaying, overthinking, trying to resolve the feeling in your head before you say anything."
+      "A lot happens in your head first: replaying it, fixing it, trying to feel certain before you speak."
     );
   }
   if (topGroups.includes("control_guarding")) {
     interpretationParts.push(
-      "You share carefully. Keeping control feels safer than being fully seen in real time."
+      "You share carefully. Control feels safer than being fully seen in real time."
     );
   }
   if (topGroups.includes("tension_instability")) {
     interpretationParts.push(
-      "You can feel the strain early—before it becomes a fight—so you start protecting yourself preemptively."
+      "You feel strain early. So you protect yourself before it can turn into something messy."
     );
   }
   if (topGroups.includes("calm_openness")) {
     interpretationParts.push(
-      "You’re drawn to steadiness. You want calm, but you may keep the peace by not saying what’s true yet."
+      "You’re drawn to steadiness. But sometimes calm becomes a reason to hold back the real sentence."
     );
   }
 
   const interpretation =
     interpretationParts.length > 0
       ? interpretationParts.join(" ")
-      : "This suggests you process things inwardly first, and you protect yourself before you risk being exposed.";
+      : "You process things inwardly first, and you protect yourself before you risk being seen.";
 
   const conclusion = conclusionForPattern(primaryPattern);
 

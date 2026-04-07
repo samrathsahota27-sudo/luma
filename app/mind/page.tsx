@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
@@ -10,6 +10,9 @@ import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
 import { mindTagline } from "@/lib/depthUiMicrocopy";
+import { FEATURE_ONBOARDING_COPY, FEATURE_SEEN_STORAGE_KEYS } from "@/lib/featureOnboarding";
+import { SpeechMicButton } from "@/components/SpeechMicButton";
+import { appendTranscriptValue, useSpeechToText } from "@/hooks/useSpeechToText";
 
 type MindResult = {
   behavior: string;
@@ -22,11 +25,23 @@ const REVEAL_DELAY_MS = 520;
 
 export default function MindPage() {
   const { depthMode, setDepthMode } = useDepthMode();
+  const [seenIntro, setSeenIntro] = useState(false);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<MindResult | null>(null);
   const [copiedConfirm, setCopiedConfirm] = useState(false);
+  const featureCopy = FEATURE_ONBOARDING_COPY.their_mind;
+  const mic = useSpeechToText((transcript) => setText((prev) => appendTranscriptValue(prev, transcript)));
+
+  useEffect(() => {
+    try {
+      const seen = localStorage.getItem(FEATURE_SEEN_STORAGE_KEYS.their_mind) === "true";
+      setSeenIntro(seen);
+    } catch {
+      setSeenIntro(false);
+    }
+  }, []);
 
   async function handleReveal() {
     const trimmed = text.trim();
@@ -92,6 +107,40 @@ export default function MindPage() {
     }
   }
 
+  if (!seenIntro) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#0a090c] text-[#e8e4df]">
+        <Navigation />
+        <TimelineBar />
+        <main className={`relative flex ${COUPLE_MAIN_PADDING_TOP} min-h-[calc(100svh-3.5rem)] items-center px-5 pb-10`}>
+          <div
+            className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_70%_55%_at_50%_0%,rgba(135,110,190,0.18),transparent)]"
+            aria-hidden
+          />
+          <div className="relative mx-auto w-full max-w-[560px] rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_26px_90px_rgba(0,0,0,0.55)] backdrop-blur-xl md:p-8">
+            <p className="text-[10px] uppercase tracking-[0.22em] text-white/45">Feature intro</p>
+            <h1 className="mt-3 font-serif text-[28px] leading-tight text-white [font-family:var(--font-serif-display)]">
+              {featureCopy.title}
+            </h1>
+            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-white/70">{featureCopy.intro}</p>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  localStorage.setItem(FEATURE_SEEN_STORAGE_KEYS.their_mind, "true");
+                } catch {}
+                setSeenIntro(true);
+              }}
+              className="mt-6 inline-flex min-h-[44px] w-full items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0b0a0d] shadow-[0_0_0_1px_rgba(255,255,255,0.15),0_16px_48px_rgba(255,255,255,0.08)] transition-opacity hover:opacity-95"
+            >
+              Start
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen flex flex-col bg-[#0a090c] text-[#e8e4df]">
       <Navigation />
@@ -120,6 +169,9 @@ export default function MindPage() {
             <h1 className="font-serif text-2xl md:text-[1.85rem] text-[#f5f1ec] [font-family:var(--font-serif-display)] tracking-tight text-center">
               Inside Their Mind
             </h1>
+            <p className="mt-3 whitespace-pre-line text-center text-[#9a9288] text-sm md:text-base font-light leading-relaxed">
+              {featureCopy.short}
+            </p>
             <p className="mt-3 text-center text-[#9a9288] text-sm md:text-base font-light leading-relaxed">
               {mindTagline(depthMode)}
             </p>
@@ -133,14 +185,24 @@ export default function MindPage() {
 
             <label className="mt-8 block">
               <span className="sr-only">What did they do or say?</span>
-              <textarea
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                placeholder="What did they do or say?"
-                rows={5}
-                disabled={loading}
-                className="w-full rounded-xl border border-[#35303d] bg-[#0e0c10]/90 px-4 py-3 text-[15px] text-[#e8e4df] placeholder:text-[#5c564c] outline-none transition-colors focus:border-[#524a60] focus:ring-1 focus:ring-[#524a60]/40 disabled:opacity-50 resize-y min-h-[120px] placeholder:font-light"
-              />
+              <div className="relative">
+                <textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  placeholder="What did they do or say?"
+                  rows={5}
+                  disabled={loading}
+                  className="w-full rounded-xl border border-[#35303d] bg-[#0e0c10]/90 px-4 py-3 pr-24 text-[15px] text-[#e8e4df] placeholder:text-[#5c564c] outline-none transition-colors focus:border-[#524a60] focus:ring-1 focus:ring-[#524a60]/40 disabled:opacity-50 resize-y min-h-[120px] placeholder:font-light"
+                />
+                <SpeechMicButton
+                  isListening={mic.isListening}
+                  isSupported={mic.isSupported}
+                  disabled={loading}
+                  onToggle={mic.toggle}
+                  className="absolute right-3 top-3"
+                />
+              </div>
+              {mic.error ? <p className="mt-2 text-xs text-[#c49a8c]">{mic.error}</p> : null}
             </label>
             <p className="mt-2 text-xs text-[#5c564c] font-light leading-relaxed italic">
               Example: They&apos;ve been replying late and acting distant
