@@ -10,7 +10,7 @@ import { parseRound5SpaceBetweenFromApi } from "@/lib/reflection/round5OutputGen
 import { getNextRound, buildReflectionSummary } from "@/lib/reflection/reflectionEngine";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
 import { deriveUiFromSavedRound, persistCurrentRoundIntoAnswers } from "@/lib/reflection/roundFlowState";
-import { saveIndividualReflectionWithEmail, getLastIndividualReflection, getIndividualReflectionCount, getCurrentUserName } from "@/lib/reflectionStorage";
+import { getLastIndividualReflection, getIndividualReflectionCount, getCurrentUserName } from "@/lib/reflectionStorage";
 import { nameToSlug } from "@/lib/referralSlug";
 import { getReflectionMirrorMessage } from "@/lib/reflectionMirror";
 import {
@@ -37,14 +37,11 @@ import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
 import { reflectIntroPrimary, reflectIntroSecondary } from "@/lib/depthUiMicrocopy";
-import { getMemory } from "@/lib/memory";
-import { saveMemoryForCurrentUser, signInWithPassword, signUpWithPassword } from "@/lib/memoryCloud";
 import {
   buildEmotionSessionSignature,
   tryRecordEmotionTrackerSession,
 } from "@/lib/emotionalTracker";
 import { insertEmotionTrackerRowOncePerSession } from "@/lib/emotionalTrackerSupabase";
-import { resolveCalendarMood } from "@/lib/calendarOfUs";
 import {
   resolveHowToReadTagsFromSelections,
   resolveRound5PsychologicalSupplementLines,
@@ -53,8 +50,22 @@ import {
 import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
 import { ReviewAnswersScreen } from "@/components/ReviewAnswersScreen";
 import { useUserPlan } from "@/hooks/useUserPlan";
+import { SaveReflectionCta } from "@/components/SaveReflectionCta";
+import { ResultClinicalDisclaimer } from "@/components/ResultClinicalDisclaimer";
+import { ReflectionRetentionPrompt } from "@/components/ReflectionRetentionPrompt";
+import { IndividualReflectionExportSection } from "@/components/IndividualReflectionExportSection";
+import { PrivacyTrustLine } from "@/components/PrivacyTrustLine";
+import { ProUpgradeSoftPrompt } from "@/components/ProUpgradeSoftPrompt";
+import { WhatToDoWithThis } from "@/components/WhatToDoWithThis";
+import { ShareLumaFab } from "@/components/ShareLumaFab";
+import { supabase } from "@/lib/supabase";
 
 type ReflectionPhase = "intro" | "rounds" | "review" | "generating" | "complete";
+
+type ReflectionUsagePayload = {
+  individualReflectionsThisMonth: number;
+  freeMonthlyLimit: number;
+};
 
 type RoundAnswer = {
   selectedType?: "image" | "none";
@@ -114,6 +125,7 @@ const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 export default function ReflectPage() {
   const router = useRouter();
   const { plan, loading: planLoading } = useUserPlan();
+  const [reflectionUsage, setReflectionUsage] = useState<ReflectionUsagePayload | null>(null);
   const { depthMode, setDepthMode } = useDepthMode();
   const [phase, setPhase] = useState<ReflectionPhase>("intro");
   const [currentRound, setCurrentRound] = useState(1);
@@ -137,10 +149,7 @@ export default function ReflectPage() {
   const [trackerInsight, setTrackerInsight] = useState<string | null>(null);
   const [calendarState, setCalendarState] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [saveEmail, setSaveEmail] = useState("");
   const [reminderEmail, setReminderEmail] = useState("");
-  const [saveName, setSaveName] = useState("");
-  const [savePassword, setSavePassword] = useState("");
   const [tagAnswers, setTagAnswers] = useState({
     round1: { q1: [] as string[], q2: [] as string[], q3: [] as string[], text: "" },
     round2: { q1: [] as string[], q2: [] as string[], q3: [] as string[], text: "" },
@@ -153,8 +162,6 @@ export default function ReflectPage() {
   const [hasOpenedDisclaimer, setHasOpenedDisclaimer] = useState(false);
   const [disclaimerSecondsLeft, setDisclaimerSecondsLeft] = useState(5);
   const disclaimerBypassRef = useRef(false);
-  const [savedWithEmail, setSavedWithEmail] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [storyLoading, setStoryLoading] = useState(false);
   const storyCardRef = useRef<HTMLDivElement | null>(null);
   const [previousReflection, setPreviousReflection] = useState<{ content: string } | null>(null);
@@ -572,6 +579,20 @@ export default function ReflectPage() {
       }
 
       const data = await response.json();
+      const ru = data?.reflectionUsage;
+      if (
+        ru &&
+        typeof ru === "object" &&
+        typeof ru.individualReflectionsThisMonth === "number" &&
+        typeof ru.freeMonthlyLimit === "number"
+      ) {
+        setReflectionUsage({
+          individualReflectionsThisMonth: ru.individualReflectionsThisMonth,
+          freeMonthlyLimit: ru.freeMonthlyLimit,
+        });
+      } else {
+        setReflectionUsage(null);
+      }
       setReflection(data.result);
       setStructuredResult(data.structured ?? null);
       setGuidingReflection(Array.isArray(data.guidingReflection) ? data.guidingReflection.filter(Boolean) : null);
@@ -606,12 +627,17 @@ export default function ReflectPage() {
         calendarState: typeof data.calendarState === "string" ? data.calendarState : null,
       }) as EmotionTrackedSession | null;
       if (tracked) {
-        void insertEmotionTrackerRowOncePerSession(sig, {
-          emotionalTag: tracked.tag,
-          shortInsight: tracked.insight,
-          sessionType: "individual",
-          calendarState: tracked.calendarState,
-        });
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (session) {
+          void insertEmotionTrackerRowOncePerSession(sig, {
+            emotionalTag: tracked.tag,
+            shortInsight: tracked.insight,
+            sessionType: "individual",
+            calendarState: tracked.calendarState,
+          });
+        }
       }
       setPhase("complete");
     } catch (err) {
@@ -703,13 +729,11 @@ export default function ReflectPage() {
     setEmotionalTag(null);
     setTrackerInsight(null);
     setError(null);
-    setSaveEmail("");
-    setSavedWithEmail(false);
-    setSaveError(null);
     setPreviousReflection(null);
     setInnerShiftText(null);
     setShowLetterSection(false);
     setLetter(null);
+    setReflectionUsage(null);
   };
 
   const showRounds = phase === "rounds" && !reflection && !error;
@@ -840,6 +864,11 @@ export default function ReflectPage() {
       <Navigation />
 
       <main className="pt-20 pb-12">
+        {phase !== "complete" ? (
+          <div className="max-w-2xl mx-auto px-6 pt-4 pb-0">
+            <PrivacyTrustLine />
+          </div>
+        ) : null}
         {/* Intro Phase */}
         {phase === "intro" && (
           <div className="max-w-2xl mx-auto px-6 py-16 md:py-24 text-center">
@@ -986,14 +1015,20 @@ export default function ReflectPage() {
         {/* Generating Phase */}
         {phase === "generating" && (
           <div className="max-w-2xl mx-auto px-6 py-24 text-center">
+            <div className="flex justify-center mb-6" aria-hidden>
+              <span className="h-10 w-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+            </div>
             <p
               key={generatingMessageIdx}
               className="font-serif text-xl text-foreground transition-all duration-500 animate-luma-fade-only"
             >
-              {AI_STATUS_MESSAGES[generatingMessageIdx]}
+              Generating your reflection…
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
-              Taking a moment to notice the patterns that emerged
+              {AI_STATUS_MESSAGES[generatingMessageIdx]}
+            </p>
+            <p className="mt-4 text-sm text-muted-foreground/90">
+              Usually 15–30 seconds.
             </p>
           </div>
         )}
@@ -1003,6 +1038,7 @@ export default function ReflectPage() {
           <div className="max-w-[680px] mx-auto px-6 py-16 md:py-20">
             <div className="animate-luma-fade-in space-y-4 md:space-y-5" style={{ animationDelay: "120ms" }}>
               {mode === "individual" && structuredResult ? (
+                <IndividualReflectionExportSection>
                 <>
                   {/* 1) Pattern */}
                   <IndividualResultCard badge="YOUR REFLECTION" data={structuredResult} variant="minimal" />
@@ -1013,7 +1049,7 @@ export default function ReflectPage() {
 
                     {evidence.thumbs.length > 0 ? (
                       <>
-                        <div className="mt-3 grid grid-cols-4 gap-2">
+                        <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
                           {evidence.thumbs.map((t) => (
                             <div
                               key={t.alt}
@@ -1144,12 +1180,6 @@ export default function ReflectPage() {
                     </button>
                   </div>
 
-                  {/* Retention messaging */}
-                  <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/[0.03] backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.02)] text-center">
-                    <p className="text-sm text-white/80">Your pattern changes over time.</p>
-                    <p className="mt-2 text-sm text-white/60">Come back in a few days and see what shifts.</p>
-                  </section>
-
                   {/* Conversion hook: individual → couple */}
                   <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.03)] transition-all duration-300 hover:border-white/20 text-center">
                     <p className="text-sm text-white/80">
@@ -1165,8 +1195,19 @@ export default function ReflectPage() {
                     </Link>
                   </section>
                 </>
+                </IndividualReflectionExportSection>
               ) : null}
             </div>
+
+            <ProUpgradeSoftPrompt
+              visible={
+                !planLoading &&
+                plan === "free" &&
+                reflectionUsage != null &&
+                reflectionUsage.individualReflectionsThisMonth >= reflectionUsage.freeMonthlyLimit
+              }
+              className="w-full mt-10"
+            />
 
             {/* Your Inner Shift — only when user has a previous reflection */}
             {previousReflection && (
@@ -1182,7 +1223,7 @@ export default function ReflectPage() {
                     <p className="text-foreground/90 text-base leading-[1.8] font-sans">
                       {innerShiftText}
                     </p>
-                    <div className="mt-8 grid grid-cols-2 gap-4">
+                    <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="luma-glass border border-white/10 p-4">
                         <p className="text-xs uppercase tracking-wider text-muted-foreground mb-2">Then</p>
                         <p className="text-sm text-foreground/90 leading-relaxed line-clamp-4">
@@ -1334,149 +1375,6 @@ export default function ReflectPage() {
               />
             </div>
 
-            {/* Save Your Reflection — account creation (name, email, password) */}
-            {!savedWithEmail ? (
-              <div className="mt-16 md:mt-20 luma-glass p-6 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-white/10">
-                <h2 className="text-foreground text-xl [font-family:var(--font-serif-display)] mb-2">
-                  Save Your Reflection
-                </h2>
-                <p className="text-muted-foreground text-base leading-relaxed mb-6">
-                  Create an account to save this reflection. Your name will be used to personalize your shareable story card.
-                </p>
-                <form
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    setSaveError(null);
-                    const name = saveName.trim();
-                    const email = saveEmail.trim();
-                    const password = savePassword;
-                    if (!name) {
-                      setSaveError("Please enter your name.");
-                      return;
-                    }
-                    if (!email) {
-                      setSaveError("Please enter your email.");
-                      return;
-                    }
-                    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                      setSaveError("Please enter a valid email address.");
-                      return;
-                    }
-                    if (!password || password.length < 6) {
-                      setSaveError("Please enter a password (at least 6 characters).");
-                      return;
-                    }
-                    try {
-                      saveIndividualReflectionWithEmail({
-                        content: reflection,
-                        brutalTruth,
-                        dangerousQuestion,
-                        shadowInsight,
-                        inSimpleWords,
-                        howToReadTags: resolveHowToReadTagsFromSelections(answers),
-                        email,
-                        name,
-                        selectedImages: selectedImagesForSave(answers),
-                      });
-                      // Supabase auth + cloud memory sync (best effort)
-                      const signInRes = await signInWithPassword(email, password);
-                      if (signInRes.error) {
-                        const signUpRes = await signUpWithPassword(email, password);
-                        if (!signUpRes.error) {
-                          await signInWithPassword(email, password);
-                        }
-                      }
-                      const saveSig = buildEmotionSessionSignature({
-                        resultPreview: reflection,
-                        brutalTruth: brutalTruth ?? "",
-                        emotionalTag: emotionalTag ?? "",
-                        sessionType: "individual",
-                      });
-                      void insertEmotionTrackerRowOncePerSession(saveSig, {
-                        emotionalTag:
-                          (emotionalTag && emotionalTag.trim()) ||
-                          (brutalTruth && brutalTruth.trim().split(/\s+/).slice(0, 4).join(" ")) ||
-                          "Reflection",
-                        shortInsight:
-                          (trackerInsight && trackerInsight.trim()) ||
-                          (brutalTruth && brutalTruth.trim()) ||
-                          (reflection && reflection.replace(/\s+/g, " ").trim().slice(0, 220)) ||
-                          "—",
-                        sessionType: "individual",
-                        calendarState: resolveCalendarMood(
-                          (emotionalTag && emotionalTag.trim()) ||
-                            (brutalTruth && brutalTruth.trim().split(/\s+/).slice(0, 4).join(" ")) ||
-                            "Reflection",
-                          (trackerInsight && trackerInsight.trim()) ||
-                            (brutalTruth && brutalTruth.trim()) ||
-                            (reflection && reflection.replace(/\s+/g, " ").trim().slice(0, 220)) ||
-                            "—",
-                          calendarState
-                        ),
-                      });
-                      await saveMemoryForCurrentUser(getMemory());
-                      setSavedWithEmail(true);
-                      fetch("/api/reminder-register", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          email,
-                          lastReflectionAt: new Date().toISOString(),
-                        }),
-                      }).catch(() => {});
-                    } catch {
-                      setSaveError("Could not save. Please try again.");
-                    }
-                  }}
-                  className="space-y-4"
-                >
-                  <input
-                    type="text"
-                    value={saveName}
-                    onChange={(e) => setSaveName(e.target.value)}
-                    placeholder="Name"
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm focus:border-white/10 focus:ring-2 focus:ring-ring/35"
-                    aria-label="Name"
-                  />
-                  <input
-                    type="email"
-                    value={saveEmail}
-                    onChange={(e) => setSaveEmail(e.target.value)}
-                    placeholder="Email"
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm focus:border-white/10 focus:ring-2 focus:ring-ring/35"
-                    aria-label="Email"
-                  />
-                  <input
-                    type="password"
-                    value={savePassword}
-                    onChange={(e) => setSavePassword(e.target.value)}
-                    placeholder="Password (min 6 characters)"
-                    minLength={6}
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-base text-foreground outline-none backdrop-blur-sm focus:border-white/10 focus:ring-2 focus:ring-ring/35"
-                    aria-label="Password"
-                  />
-                  {saveError && (
-                    <p className="text-sm text-destructive">{saveError}</p>
-                  )}
-                  <button
-                    type="submit"
-                    className="w-full rounded-xl bg-primary px-5 py-3 text-base font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity hover:opacity-90 sm:w-auto"
-                  >
-                    Save My Reflection
-                  </button>
-                </form>
-              </div>
-            ) : (
-              <div className="mt-16 md:mt-20 luma-glass border border-white/10 p-6 md:p-8">
-                <p className="text-foreground font-medium">
-                  Your reflection has been saved.
-                </p>
-                <p className="text-muted-foreground text-base mt-2 leading-relaxed">
-                  Return in 10 days to explore how your inner landscape evolves.
-                </p>
-              </div>
-            )}
-
             {/* Referral — invite a friend */}
             <div className="mt-16 md:mt-20 luma-glass border border-white/10 p-6 md:p-8">
               <p className="text-foreground font-serif text-lg [font-family:var(--font-serif-display)]">
@@ -1526,6 +1424,8 @@ export default function ReflectPage() {
               </p>
             </div>
 
+            <SaveReflectionCta className="mt-16 md:mt-20" />
+
             <div className="mt-10 md:mt-12">
               <div className="luma-glass border border-white/10 p-6 md:p-8 text-center">
                 <p className="text-sm text-muted-foreground">This doesn&apos;t change on its own.</p>
@@ -1533,14 +1433,14 @@ export default function ReflectPage() {
                   type="button"
                   onClick={handleJourneyCta}
                   disabled={planLoading}
-                  className="mt-4 w-full rounded-xl bg-[linear-gradient(135deg,rgba(140,110,200,0.95),rgba(105,85,170,0.95))] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+                  className="mt-4 w-full sm:w-auto min-h-[48px] sm:min-h-[44px] rounded-xl bg-[linear-gradient(135deg,rgba(140,110,200,0.95),rgba(105,85,170,0.95))] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
                 >
                   {planLoading ? "Checking access…" : "Start 28-Day Journey"}
                 </button>
                 <button
                   type="button"
                   onClick={() => router.push("/timeline")}
-                  className="mt-3 w-full rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+                  className="mt-3 w-full sm:w-auto min-h-[48px] sm:min-h-[44px] rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-white/[0.08]"
                 >
                   Save to Timeline
                 </button>
@@ -1558,9 +1458,27 @@ export default function ReflectPage() {
                 This reflection is not diagnosis or advice. It is a mirror for your own awareness.
               </p>
             </div>
+
+            <div className="mt-10 space-y-6 pb-4">
+              <WhatToDoWithThis variant="light" className="max-w-[680px] mx-auto w-full" />
+              <PrivacyTrustLine size="wide" />
+              <ReflectionRetentionPrompt variant="individual" />
+              <ResultClinicalDisclaimer />
+            </div>
           </div>
         )}
       </main>
+
+      {phase === "complete" && reflection ? (
+        <ShareLumaFab
+          insightSnippet={
+            structuredResult?.pattern ||
+            (typeof reflection === "string"
+              ? reflection.replace(/\s+/g, " ").trim().slice(0, 120)
+              : null)
+          }
+        />
+      ) : null}
     </div>
   );
 }

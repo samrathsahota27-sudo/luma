@@ -110,9 +110,9 @@ export function HomeBeginPopup() {
               <button
                 type="button"
                 onClick={() => router.push("/choose-mode")}
-                className="inline-flex items-center justify-center rounded-full px-6 py-3 bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-all duration-200 hover:opacity-90 hover:brightness-[1.03]"
+                className="inline-flex items-center justify-center rounded-full px-5 py-3 sm:px-6 bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium text-center transition-all duration-200 hover:opacity-90 hover:brightness-[1.03]"
               >
-                Start Reflection
+                Start your reflection — it&apos;s free
               </button>
               <button
                 type="button"

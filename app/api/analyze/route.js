@@ -14,6 +14,10 @@ import { buildGuidingReflection } from "@/lib/guidingReflection";
 import { derivePatternLabel } from "@/lib/patternLabel";
 import { createClient } from "@/lib/supabase/server";
 import { buildSoloReflectionPrompt } from "@/lib/soloReflectionPrompt";
+import {
+  bumpMonthlyReflectionCount,
+  FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
+} from "@/lib/reflectionUsage";
 
 export async function POST(req) {
   try {
@@ -104,6 +108,7 @@ export async function POST(req) {
       .join("\n\n");
     const fullTextResponse = raw;
 
+    let reflectionUsage = null;
     if (user) {
       try {
         // First try to get existing profile
@@ -137,6 +142,14 @@ export async function POST(req) {
         };
 
         const currentHistory = existingProfile?.pattern_history || [];
+        const prevCount =
+          fetchError?.code === "PGRST116" ? 0 : existingProfile?.reflection_count;
+        const prevMonth =
+          fetchError?.code === "PGRST116" ? null : existingProfile?.reflection_count_month;
+        const { reflection_count, reflection_count_month } = bumpMonthlyReflectionCount(
+          prevCount,
+          prevMonth
+        );
         console.log("🔴 ABOUT TO SAVE PROFILE");
         console.log("🔴 User ID:", user?.id);
         console.log("🔴 User email:", user?.email);
@@ -147,10 +160,18 @@ export async function POST(req) {
             pattern_history: [...currentHistory, newEntry].slice(-50),
             depth_tone_preference: depthMode,
             last_updated: new Date().toISOString(),
+            reflection_count,
+            reflection_count_month,
           })
           .eq("id", user.id);
 
         console.log("🔴 SAVE COMPLETE - error:", saveError);
+        if (!saveError) {
+          reflectionUsage = {
+            individualReflectionsThisMonth: reflection_count,
+            freeMonthlyLimit: FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
+          };
+        }
       } catch (e) {
         console.error("PROFILE SAVE ERROR:", {
           message: e.message,
@@ -184,6 +205,7 @@ export async function POST(req) {
         `What shifts it: ${finalCard.shift}`,
       ].join("\n"),
       guidingReflection,
+      ...(reflectionUsage ? { reflectionUsage } : {}),
     });
   } catch (error) {
     console.error("AI ERROR:", error);

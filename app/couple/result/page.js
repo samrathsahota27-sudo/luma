@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowRight, Check, Share2 } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
-import { saveCoupleReflectionWithEmail } from "@/lib/reflectionStorage";
 import { getStoryCardTitle } from "@/lib/storyCard";
 import { StoryCardFrame } from "@/components/StoryCardFrame";
 import { StoryShareButtons } from "@/components/StoryShareButtons";
@@ -13,10 +12,7 @@ import { DangerousQuestionBlock } from "@/components/DangerousQuestionBlock";
 import { VsCardShare } from "@/components/VsCardShare";
 import { ConflictAnalysisPanel } from "@/components/ConflictAnalysisPanel";
 import { cn } from "@/lib/utils";
-import {
-  resolveHowToReadTagsFromCouplePartners,
-  resolveRound5PsychologicalSupplementLinesForCouple,
-} from "@/lib/reflection/howToReadVisual";
+import { resolveRound5PsychologicalSupplementLinesForCouple } from "@/lib/reflection/howToReadVisual";
 import {
   buildEmotionSessionSignature,
   tryRecordEmotionTrackerSession,
@@ -35,6 +31,13 @@ import {
   writeCouplePriorSnapshot,
 } from "@/lib/coupleResultHistory";
 import { GeneratedCoupleArtImage } from "@/components/GeneratedCoupleArtImage";
+import { SaveReflectionCta } from "@/components/SaveReflectionCta";
+import { ResultClinicalDisclaimer } from "@/components/ResultClinicalDisclaimer";
+import { ReflectionRetentionPrompt } from "@/components/ReflectionRetentionPrompt";
+import { PrivacyTrustLine } from "@/components/PrivacyTrustLine";
+import { WhatToDoWithThis } from "@/components/WhatToDoWithThis";
+import { ShareLumaFab } from "@/components/ShareLumaFab";
+import { supabase } from "@/lib/supabase";
 
 const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
 const COUPLE_PRE_REVEAL_DONE_KEY = "luma_couple_pre_reveal_done";
@@ -348,9 +351,6 @@ export default function CoupleResultPage() {
     spaceBetween: false,
     text: false,
   });
-  const [saveEmail, setSaveEmail] = useState("");
-  const [savedWithEmail, setSavedWithEmail] = useState(false);
-  const [saveError, setSaveError] = useState(null);
   const [storyLoading, setStoryLoading] = useState(false);
   const storyRelRef = useRef(null);
   const storyARef = useRef(null);
@@ -360,6 +360,7 @@ export default function CoupleResultPage() {
   const [sequencePhase, setSequencePhase] = useState(null);
   const [didRunPostRevealAnimation, setDidRunPostRevealAnimation] = useState(false);
   const [resultLinkCopied, setResultLinkCopied] = useState(false);
+  const [sharePartnerBusy, setSharePartnerBusy] = useState(false);
   const [personaCopied, setPersonaCopied] = useState(false);
   const checkInRecordedRef = useRef(false);
   const shiftResolvedForFingerprintRef = useRef(null);
@@ -497,14 +498,19 @@ export default function CoupleResultPage() {
       sessionSignature: sig,
       calendarState: typeof data.calendarState === "string" ? data.calendarState : null,
     });
-    if (tracked) {
+    if (!tracked) return;
+    void (async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) return;
       void insertEmotionTrackerRowOncePerSession(sig, {
         emotionalTag: tracked.tag,
         shortInsight: tracked.insight,
         sessionType: "couple",
         calendarState: tracked.calendarState,
       });
-    }
+    })();
   }, [data, sequencePhase]);
 
   useEffect(() => {
@@ -615,27 +621,47 @@ export default function CoupleResultPage() {
   };
 
   const handleShareResultWithPartner = async () => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const sessionId = params.get("sessionId")?.trim();
-    const shareUrl = sessionId
-      ? `${window.location.origin}/couple/result?sessionId=${encodeURIComponent(sessionId)}`
-      : window.location.href;
-    const shareText = "Share this result with your partner";
+    if (typeof window === "undefined" || !data) return;
+    setSharePartnerBusy(true);
     try {
-      if (navigator.share) {
-        await navigator.share({
-          title: "Luma Couple Result",
-          text: shareText,
-          url: shareUrl,
-        });
-        return;
+      const res = await fetch("/api/shared-results", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resultJson: data }),
+      });
+      const j = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(j.error || "Could not create share link");
       }
-      await navigator.clipboard.writeText(shareUrl);
-      setResultLinkCopied(true);
-      window.setTimeout(() => setResultLinkCopied(false), 2000);
-    } catch {
-      /* ignore */
+      const path = j.path || (j.id ? `/shared/${j.id}` : "");
+      const fullUrl =
+        typeof j.url === "string" && j.url.startsWith("http")
+          ? j.url
+          : `${window.location.origin}${path}`;
+      try {
+        if (navigator.share) {
+          await navigator.share({
+            title: "Our Luma couple reflection",
+            text: "Open our shared reflection",
+            url: fullUrl,
+          });
+        } else {
+          await navigator.clipboard.writeText(fullUrl);
+          setResultLinkCopied(true);
+          window.setTimeout(() => setResultLinkCopied(false), 2500);
+        }
+      } catch (shareErr) {
+        if (String(shareErr?.name || "") !== "AbortError") {
+          await navigator.clipboard.writeText(fullUrl);
+          setResultLinkCopied(true);
+          window.setTimeout(() => setResultLinkCopied(false), 2500);
+        }
+      }
+    } catch (e) {
+      console.warn("Share link failed", e);
+      window.alert(e?.message || "Could not create a share link. Try again later.");
+    } finally {
+      setSharePartnerBusy(false);
     }
   };
 
@@ -1213,7 +1239,7 @@ export default function CoupleResultPage() {
                 <button
                   type="button"
                   onClick={handleSharePersona}
-                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white text-[#0b0a0d] px-4 py-2.5 text-sm font-semibold transition hover:opacity-95"
+                  className="mt-4 w-full sm:w-auto max-w-sm mx-auto sm:mx-0 inline-flex min-h-[48px] sm:min-h-[44px] items-center justify-center rounded-xl bg-white text-[#0b0a0d] px-4 py-2.5 text-sm font-semibold transition hover:opacity-95"
                 >
                   {personaCopied ? "Copied" : "Share this"}
                 </button>
@@ -1230,25 +1256,23 @@ export default function CoupleResultPage() {
                   Couple Reflection
                 </div>
 
-                <div className="mt-4 mb-4 overflow-x-auto flex-nowrap px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  <div className="flex items-center justify-between gap-3">
-                    {[
-                      { src: innerWorldA, label: "Inner World A" },
-                      { src: spaceBetween, label: "Space Between" },
-                      { src: innerWorldB, label: "Inner World B" },
-                    ].map((item) => (
-                      <div key={item.label} className="flex flex-col items-center flex-1 min-w-[92px]">
-                        <div className="relative w-[92px] h-[92px] sm:w-[104px] sm:h-[104px] rounded-xl overflow-hidden border border-white/10 bg-white/[0.03]">
-                          {item.src ? (
-                            <GeneratedCoupleArtImage src={item.src} alt={item.label} className="absolute inset-0 h-full w-full" />
-                          ) : (
-                            <div className="absolute inset-0 bg-gradient-to-br from-[#1c1830] to-[#141c28]" />
-                          )}
-                        </div>
-                        <p className="mt-1 text-xs text-white/55 text-center">{item.label}</p>
+                <div className="mt-4 mb-4 grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-3 px-1 justify-items-center sm:justify-items-stretch">
+                  {[
+                    { src: innerWorldA, label: "Inner World A" },
+                    { src: spaceBetween, label: "Space Between" },
+                    { src: innerWorldB, label: "Inner World B" },
+                  ].map((item) => (
+                    <div key={item.label} className="flex flex-col items-center w-full max-w-[200px] sm:max-w-none sm:flex-1">
+                      <div className="relative w-full max-w-[120px] aspect-square sm:max-w-none sm:w-[104px] sm:h-[104px] sm:aspect-auto rounded-xl overflow-hidden border border-white/10 bg-white/[0.03]">
+                        {item.src ? (
+                          <GeneratedCoupleArtImage src={item.src} alt={item.label} className="absolute inset-0 h-full w-full" />
+                        ) : (
+                          <div className="absolute inset-0 bg-gradient-to-br from-[#1c1830] to-[#141c28]" />
+                        )}
                       </div>
-                    ))}
-                  </div>
+                      <p className="mt-1 text-xs text-white/55 text-center">{item.label}</p>
+                    </div>
+                  ))}
                 </div>
                 <div className="mt-2 mb-4 text-center">
                   <button
@@ -1350,6 +1374,10 @@ export default function CoupleResultPage() {
                 </span>
                 <span className="mt-1 block">Where you diverge.</span>
               </h3>
+              <p className="mt-2 text-sm text-white/55 leading-relaxed">
+                A plain-language map of topics or habits where your two styles pull in different directions — not to
+                pick sides, but to see the pattern.
+              </p>
               <div className="mt-4 flex flex-col gap-3">
                 {differencesRenderList.map((item, idx) => (
                   <div
@@ -1370,6 +1398,9 @@ export default function CoupleResultPage() {
               </span>
               <span className="mt-1 block">What may be asking for attention.</span>
             </h3>
+            <p className="mt-2 text-sm text-white/55 leading-relaxed">
+              Soft signals Luma noticed in your choices — areas that might need a little air or a clearer conversation.
+            </p>
             <div className="mt-4 flex flex-col gap-3">
               {attentionList.map((item, idx) => (
                 <div
@@ -1390,6 +1421,9 @@ export default function CoupleResultPage() {
               </span>
               <span className="mt-1 block">What could shift this.</span>
             </h3>
+            <p className="mt-2 text-sm text-white/55 leading-relaxed">
+              Small, concrete angles to try — not homework, just starting points if you want movement.
+            </p>
             <div className="mt-4 space-y-2.5">
               {whatHelpsList.map((item, idx) => (
                 <div
@@ -1411,6 +1445,10 @@ export default function CoupleResultPage() {
                 </span>
                 <span className="mt-1 block">How you each work.</span>
               </h3>
+              <p className="mt-2 text-sm text-white/55 leading-relaxed">
+                Short reads of how each of you tends to process closeness, stress, or repair — so the same moment can
+                mean two different things.
+              </p>
               <div className="mt-4 flex flex-col gap-3">
                 {decoderPartnerAResolved ? (
                   <div className="rounded-xl border border-white/10 bg-[#0f0b14] p-4">
@@ -1514,10 +1552,19 @@ export default function CoupleResultPage() {
             <button
               type="button"
               onClick={handleShareResultWithPartner}
-              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-white/[0.08]"
+              disabled={sharePartnerBusy || !data}
+              className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-foreground transition hover:bg-white/[0.08] disabled:opacity-50"
             >
-              {resultLinkCopied ? <Check className="h-4 w-4" aria-hidden /> : <Share2 className="h-4 w-4" aria-hidden />}
-              {resultLinkCopied ? "Link copied" : "Share this result with your partner"}
+              {resultLinkCopied ? (
+                <Check className="h-4 w-4" aria-hidden />
+              ) : (
+                <Share2 className="h-4 w-4" aria-hidden />
+              )}
+              {sharePartnerBusy
+                ? "Creating link…"
+                : resultLinkCopied
+                  ? "Link copied"
+                  : "Share with partner"}
             </button>
           </div>
 
@@ -1683,6 +1730,10 @@ export default function CoupleResultPage() {
                   <h2 className="mt-2 font-serif text-[22px] text-white [font-family:var(--font-serif-display)]">
                     The Friction Map
                   </h2>
+                  <p className="mt-2 text-sm text-white/55 leading-relaxed">
+                    Deeper differences in how you each move through stress, repair, and closeness — written as paired
+                    observations.
+                  </p>
                   <div className="mt-4 grid gap-3">
                     {frictionCards.map((c) => (
                       <div key={c.title} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
@@ -1706,6 +1757,9 @@ export default function CoupleResultPage() {
                   <h2 className="mt-2 font-serif text-[22px] text-white [font-family:var(--font-serif-display)]">
                     The Risk Patterns
                   </h2>
+                  <p className="mt-2 text-sm text-white/55 leading-relaxed">
+                    Where this dynamic could wear thin if left unnamed — not predictions, just gentle risk awareness.
+                  </p>
                   <div className="mt-4 grid gap-3">
                     {riskCards.map((c) => (
                       <div key={c.title} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
@@ -1729,6 +1783,9 @@ export default function CoupleResultPage() {
                   <h2 className="mt-2 font-serif text-[22px] text-white [font-family:var(--font-serif-display)]">
                     The Bridge
                   </h2>
+                  <p className="mt-2 text-sm text-white/55 leading-relaxed">
+                    Ideas that meet both of you halfway — ways to translate one inner language into the other.
+                  </p>
                   <div className="mt-4 grid gap-3">
                     {bridgeCards.map((c) => (
                       <div key={c.title} className="rounded-xl border border-white/10 bg-white/[0.04] p-4">
@@ -1752,6 +1809,9 @@ export default function CoupleResultPage() {
                   <h2 className="mt-2 font-serif text-[22px] text-white [font-family:var(--font-serif-display)]">
                     The Decoder
                   </h2>
+                  <p className="mt-2 text-sm text-white/55 leading-relaxed">
+                    A longer narrative read of your two inner worlds and what happens when they meet.
+                  </p>
                   <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4">
                     <p className="text-sm leading-relaxed text-white/75 whitespace-pre-line">{decoderText}</p>
                   </div>
@@ -1759,101 +1819,6 @@ export default function CoupleResultPage() {
               ) : null}
             </div>
           ) : null}
-
-          {/* Save Your Reflection — email capture */}
-          {!savedWithEmail ? (
-            <div className="mt-12 luma-glass p-6 md:p-8 shadow-[0_8px_30px_rgba(0,0,0,0.05)] border border-white/10">
-              <h2 className="text-foreground text-xl font-serif mb-2">
-                Save Your Reflection
-              </h2>
-              <p className="text-muted-foreground text-base leading-relaxed mb-6">
-                Your inner landscape can evolve over time. Enter your email to save this reflection and return later.
-              </p>
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setSaveError(null);
-                  const email = saveEmail.trim();
-                  if (!email) {
-                    setSaveError("Please enter your email.");
-                    return;
-                  }
-                  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-                    setSaveError("Please enter a valid email address.");
-                    return;
-                  }
-                  try {
-                    const mergedHowToRead =
-                      data?.partnerA && data?.partnerB
-                        ? resolveHowToReadTagsFromCouplePartners(data.partnerA, data.partnerB)
-                        : null;
-                    const howToReadTagsForSave =
-                      mergedHowToRead &&
-                      (mergedHowToRead.round2Tag ||
-                        mergedHowToRead.round3Tag ||
-                        mergedHowToRead.round5Tag)
-                        ? mergedHowToRead
-                        : undefined;
-                    saveCoupleReflectionWithEmail({
-                      content: result ?? "",
-                      brutalTruth:
-                        typeof brutalTruth === "string" && brutalTruth.trim() ? brutalTruth.trim() : undefined,
-                      dangerousQuestion:
-                        typeof dangerousQuestion === "string" && dangerousQuestion.trim()
-                          ? dangerousQuestion.trim()
-                          : undefined,
-                      shadowInsight:
-                        typeof shadowInsight === "string" && shadowInsight.trim()
-                          ? shadowInsight.trim()
-                          : undefined,
-                      email,
-                      nameA: nameA || undefined,
-                      nameB: nameB || undefined,
-                      innerWorldA: innerWorldA ?? null,
-                      innerWorldB: innerWorldB ?? null,
-                      spaceBetween: spaceBetween ?? null,
-                      conflictFrictionPoints:
-                        Array.isArray(conflictFrictionPoints) && conflictFrictionPoints.length > 0
-                          ? conflictFrictionPoints
-                          : undefined,
-                      ...(howToReadTagsForSave ? { howToReadTags: howToReadTagsForSave } : {}),
-                    });
-                    setSavedWithEmail(true);
-                  } catch {
-                    setSaveError("Could not save. Please try again.");
-                  }
-                }}
-                className="space-y-4"
-              >
-                <input
-                  type="email"
-                  value={saveEmail}
-                  onChange={(e) => setSaveEmail(e.target.value)}
-                  placeholder="Email"
-                  className="w-full rounded-xl border border-white/10 px-4 py-3 text-base outline-none focus:ring-2 focus:ring-[#2a2a2a]/20 focus:border-white/10"
-                  aria-label="Email"
-                />
-                {saveError && (
-                  <p className="text-sm text-destructive">{saveError}</p>
-                )}
-                <button
-                  type="submit"
-                  className="w-full sm:w-auto px-5 py-3 rounded-xl bg-[#2a2a2a] text-white text-base font-medium hover:opacity-90 transition-opacity"
-                >
-                  Save My Reflection
-                </button>
-              </form>
-            </div>
-          ) : (
-            <div className="mt-12 luma-glass border border-white/10 p-6 md:p-8">
-              <p className="text-foreground font-medium">
-                Your reflection has been saved.
-              </p>
-              <p className="text-muted-foreground text-base mt-2 leading-relaxed">
-                Return in 10 days to explore how your inner landscape evolves.
-              </p>
-            </div>
-          )}
 
           <section
             className={`mt-14 md:mt-16 ${transition} ${reveal.text ? visibleClass : hidden}`}
@@ -1865,7 +1830,7 @@ export default function CoupleResultPage() {
             >
               What happens next
             </h2>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-3">
               <div className="flex flex-col rounded-2xl border border-white/12 bg-white/[0.04] p-5 md:p-6 shadow-[0_8px_32px_rgba(0,0,0,0.12)] min-h-[200px] md:min-h-[220px]">
                 <h3 className="text-base font-semibold text-foreground leading-snug">
                   Check again tomorrow
@@ -1993,9 +1958,24 @@ export default function CoupleResultPage() {
               </div>
             </div>
           </section>
+
+          {sequencePhase === "complete" ? (
+            <div className="mt-12 max-w-[720px] mx-auto px-4 md:px-0">
+              <SaveReflectionCta />
+            </div>
+          ) : null}
         </div>
       </main>
       </div>
+
+      {loadStatus === "ready" ? (
+        <div className="border-t border-white/10 bg-background px-4 py-6 space-y-6 max-w-[720px] mx-auto w-full">
+          <WhatToDoWithThis variant="dark" />
+          <PrivacyTrustLine size="wide" />
+          <ReflectionRetentionPrompt variant="couple" />
+          <ResultClinicalDisclaimer />
+        </div>
+      ) : null}
 
       <Footer />
 
@@ -2050,6 +2030,16 @@ export default function CoupleResultPage() {
           </div>
         </div>
       )}
+
+      {loadStatus === "ready" ? (
+        <ShareLumaFab
+          insightSnippet={
+            patternName ||
+            punchline ||
+            (typeof result === "string" ? result.replace(/\s+/g, " ").trim().slice(0, 120) : null)
+          }
+        />
+      ) : null}
     </div>
   );
 }

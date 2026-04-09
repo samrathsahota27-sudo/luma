@@ -34,21 +34,10 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  const publicRoutes = [
-    '/',
-    '/how-it-works',
-    '/science',
-    '/auth',
-    '/privacy',
-    '/disclaimer',
-    '/help',
-    '/contact',
-    '/insights',
-  ]
-
-  const isPublic = publicRoutes.some(route =>
-    pathname === route ||
-    pathname.startsWith(route + '/')
+  /** Only these areas require a session; everything else is public. */
+  const protectedPrefixes = ['/dashboard', '/history', '/account', '/settings'] as const
+  const isProtected = protectedPrefixes.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`)
   )
 
   if (
@@ -59,7 +48,7 @@ export async function middleware(request: NextRequest) {
     return supabaseResponse
   }
 
-  if (!isPublic && !user) {
+  if (isProtected && !user) {
     return NextResponse.redirect(new URL('/auth', request.url))
   }
 

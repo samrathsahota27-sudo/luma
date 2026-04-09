@@ -10,7 +10,9 @@ import { createClient } from "@/lib/supabase/client"
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/how-it-works", label: "How It Works" },
-  { href: "/science", label: "The Science Behind Luma" },
+  { href: "/about", label: "About" },
+  { href: "/pricing", label: "Pricing" },
+  { href: "/science", label: "Our Approach" },
   { href: "/dashboard", label: "Dashboard" },
   { href: "/test", label: "Individual" },
   { href: "/couple-hub", label: "Couple" },

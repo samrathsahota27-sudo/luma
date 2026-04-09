@@ -1,11 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { applyImageErrorFallback, normalizePublicImageSrc } from "@/lib/publicImage";
 
 export function ImageOption({ src, alt, selected, dimmed, disabled, onSelect }) {
   const imageSrc = normalizePublicImageSrc(src);
+  const [loaded, setLoaded] = useState(false);
+
   return (
     <button
       type="button"
@@ -22,13 +25,27 @@ export function ImageOption({ src, alt, selected, dimmed, disabled, onSelect }) 
       aria-pressed={selected}
       aria-label={alt}
     >
+      {!loaded ? (
+        <div
+          className="absolute inset-0 animate-pulse bg-white/[0.08]"
+          aria-hidden
+        />
+      ) : null}
       <Image
         src={imageSrc}
         alt={alt}
         fill
-        className="object-cover transition-all duration-[220ms] ease-out"
+        loading="lazy"
+        className={cn(
+          "object-cover transition-all duration-[220ms] ease-out",
+          !loaded && "opacity-0"
+        )}
         sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-        onError={applyImageErrorFallback}
+        onError={(e) => {
+          setLoaded(true);
+          applyImageErrorFallback(e);
+        }}
+        onLoadingComplete={() => setLoaded(true)}
       />
 
       {selected && (

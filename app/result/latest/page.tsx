@@ -5,7 +5,18 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
+import { ResultClinicalDisclaimer } from "@/components/ResultClinicalDisclaimer";
+import { ReflectionRetentionPrompt } from "@/components/ReflectionRetentionPrompt";
+import { PrivacyTrustLine } from "@/components/PrivacyTrustLine";
+import { WhatToDoWithThis } from "@/components/WhatToDoWithThis";
+import { ShareLumaFab } from "@/components/ShareLumaFab";
+import { ProUpgradeSoftPrompt } from "@/components/ProUpgradeSoftPrompt";
 import { createClient } from "@/lib/supabase/client";
+import { useUserPlan } from "@/hooks/useUserPlan";
+import {
+  effectiveReflectionsThisMonth,
+  FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
+} from "@/lib/reflectionUsage";
 
 type Narrative = {
   brutalTruth?: string;
@@ -59,9 +70,11 @@ function SectionCard({ title, text }: { title: string; text: string }) {
 
 export default function LatestResultPage() {
   const supabase = createClient();
+  const { plan, loading: planLoading } = useUserPlan();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [entry, setEntry] = useState<ReflectionPayload | null>(null);
+  const [monthlyReflections, setMonthlyReflections] = useState<number | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -73,15 +86,21 @@ export default function LatestResultPage() {
           data: { user },
         } = await supabase.auth.getUser();
         if (!user) {
-          if (mounted) setEntry(null);
+          if (mounted) {
+            setEntry(null);
+            setMonthlyReflections(null);
+          }
           return;
         }
 
-        const { data, error: readError } = await supabase
-          .from("users_memory")
-          .select("memory")
-          .eq("user_id", user.id)
-          .single();
+        const [{ data, error: readError }, { data: profile }] = await Promise.all([
+          supabase.from("users_memory").select("memory").eq("user_id", user.id).single(),
+          supabase
+            .from("user_profiles")
+            .select("reflection_count, reflection_count_month")
+            .eq("id", user.id)
+            .maybeSingle(),
+        ]);
 
         if (readError) throw readError;
         const reflections = Array.isArray(data?.memory?.reflections)
@@ -92,7 +111,12 @@ export default function LatestResultPage() {
             new Date(String(b?.createdAt || b?.result?.createdAt || 0)).getTime() -
             new Date(String(a?.createdAt || a?.result?.createdAt || 0)).getTime()
         );
-        if (mounted) setEntry(sorted[0] ?? null);
+        if (mounted) {
+          setEntry(sorted[0] ?? null);
+          setMonthlyReflections(
+            effectiveReflectionsThisMonth(profile?.reflection_count, profile?.reflection_count_month)
+          );
+        }
       } catch {
         if (mounted) setError("Could not load your latest reflection.");
       } finally {
@@ -173,9 +197,37 @@ export default function LatestResultPage() {
               )}
             </div>
           )}
+
+          {entry ? (
+            <ProUpgradeSoftPrompt
+              variant="light"
+              visible={
+                !planLoading &&
+                plan === "free" &&
+                monthlyReflections != null &&
+                monthlyReflections >= FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH
+              }
+              className="mt-10"
+            />
+          ) : null}
         </div>
       </main>
+      <div className="border-t border-white/10 bg-background px-4 py-6 space-y-6">
+        {entry ? <WhatToDoWithThis variant="light" /> : null}
+        <PrivacyTrustLine size="wide" />
+        <ReflectionRetentionPrompt variant="individual" />
+        <ResultClinicalDisclaimer />
+      </div>
       <Footer />
+
+      {entry ? (
+        <ShareLumaFab
+          insightSnippet={
+            view.pattern ||
+            (view.fullInsight ? view.fullInsight.replace(/\s+/g, " ").trim().slice(0, 120) : null)
+          }
+        />
+      ) : null}
     </div>
   );
 }

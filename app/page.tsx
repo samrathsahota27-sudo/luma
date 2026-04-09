@@ -8,6 +8,11 @@ import { HomeHowItWorks } from "@/components/home-how-it-works"
 import { HomeReturnToReflection } from "@/components/home-return-to-reflection"
 import { HomeBeginPopup } from "@/components/home-begin-popup"
 import { HomeInnerJourneyCalendar } from "@/components/home-inner-journey-calendar"
+import { HomeReflectionsCompletedBadge } from "@/components/HomeReflectionsCompletedBadge"
+import { HomeTestimonials } from "@/components/HomeTestimonials"
+import { PrivacyTrustLine } from "@/components/PrivacyTrustLine"
+import { PricingTiersCards } from "@/components/PricingTiersCards"
+import { WaitlistSignupForm } from "@/components/WaitlistSignupForm"
 
 export default function HomePage() {
   return (
@@ -33,20 +38,22 @@ export default function HomePage() {
           <div aria-hidden className="absolute inset-0 bg-black/30" />
 
           <div className="relative z-10 max-w-[720px] mx-auto animate-luma-fade-only" style={{ animationDuration: "0.8s" }}>
-            <h1 className="font-serif text-[36px] md:text-[52px] leading-tight text-balance text-white [font-family:var(--font-serif-display)] tracking-wide">
-              It&apos;s not what you say. It&apos;s what you avoid.
+            {/* Headline: alternate for A/B — "Your subconscious speaks in images. Luma helps you listen." */}
+            <h1 className="font-serif text-[34px] md:text-[50px] leading-[1.08] text-balance text-white [font-family:var(--font-serif-display)] tracking-wide">
+              Understand yourself through the images you&apos;re drawn to.
             </h1>
-            <p className="mt-8 text-base md:text-lg leading-relaxed text-white/80 max-w-xl mx-auto text-balance">
-              Luma decodes the emotional patterns between you - the tension, distance, and unspoken signals you can
-              feel but can&apos;t explain.
+            <p className="mt-8 text-base md:text-lg leading-relaxed text-white/82 max-w-xl mx-auto text-balance">
+              Choose images that feel right. Get a personalized reflection of your emotional world — in under 3 minutes.
+              No questionnaires. No journaling. Just intuition.
             </p>
-            <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <HomeReflectionsCompletedBadge />
+            <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/choose-mode"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white text-base font-medium transition-all duration-300 hover:bg-white/14 hover:border-white/35 hover:scale-[1.02] shadow-[0_10px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_44px_rgba(0,0,0,0.30)]"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-3.5 sm:px-6 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white text-sm sm:text-base font-medium text-center transition-all duration-300 hover:bg-white/14 hover:border-white/35 hover:scale-[1.02] shadow-[0_10px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_44px_rgba(0,0,0,0.30)]"
               >
-                See My Pattern
-                <ArrowRight className="w-4 h-4" />
+                Start your reflection — it&apos;s free
+                <ArrowRight className="w-4 h-4 shrink-0" />
               </Link>
               <Link
                 href="/couple/start"
@@ -55,6 +62,92 @@ export default function HomePage() {
                 Decode Our Dynamic
                 <ArrowRight className="w-4 h-4" />
               </Link>
+            </div>
+            <PrivacyTrustLine variant="hero" className="mt-6" />
+          </div>
+        </section>
+
+        {/* Why images instead of questions */}
+        <section className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(45,35,72,0.14),rgba(5,5,8,0.98))] px-4 py-14 md:py-20">
+          <div className="max-w-[960px] mx-auto">
+            <h2 className="text-center font-serif text-[24px] md:text-[30px] text-white [font-family:var(--font-serif-display)] text-balance px-2">
+              Why images instead of questions?
+            </h2>
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+              {[
+                {
+                  title: "More honest",
+                  body: "Images bypass the logic brain. You respond before you overthink.",
+                },
+                {
+                  title: "Less effort",
+                  body: "No prompts to answer, no blank page to fill. Just instinct.",
+                },
+                {
+                  title: "Surprisingly revealing",
+                  body: "Patterns in what you're drawn to say more than you'd expect.",
+                },
+              ].map((item) => (
+                <div
+                  key={item.title}
+                  className="rounded-[20px] border border-white/10 bg-white/[0.04] p-6 md:p-7 shadow-[0_12px_40px_rgba(0,0,0,0.2)] backdrop-blur-sm"
+                >
+                  <h3 className="font-serif text-lg md:text-xl text-white [font-family:var(--font-serif-display)]">
+                    {item.title}
+                  </h3>
+                  <p className="mt-3 text-sm md:text-[15px] leading-relaxed text-white/65">{item.body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* What you'll discover — example outputs */}
+        <section className="border-t border-white/10 px-4 py-14 md:py-16">
+          <div className="max-w-[960px] mx-auto">
+            <h2 className="text-center font-serif text-[24px] md:text-[30px] text-foreground [font-family:var(--font-serif-display)] text-balance px-2">
+              What you&apos;ll discover
+            </h2>
+            <p className="mt-3 text-center text-sm text-white/55 max-w-lg mx-auto">
+              Real reflection outputs are written in plain language—here&apos;s the kind of thing you might see.
+            </p>
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-6">
+              <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-6 flex flex-col">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/80">
+                  Individual
+                </p>
+                <h3 className="mt-3 font-serif text-lg text-foreground [font-family:var(--font-serif-display)]">
+                  Your emotional tone this week
+                </h3>
+                <p className="mt-4 text-sm leading-relaxed text-white/70 flex-1">
+                  &ldquo;There&apos;s a quiet pull toward keeping things smooth on the surface—even when something underneath
+                  wants to be named.&rdquo;
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-white/10 bg-white/[0.03] p-6 flex flex-col">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/80">
+                  Individual
+                </p>
+                <h3 className="mt-3 font-serif text-lg text-foreground [font-family:var(--font-serif-display)]">
+                  Patterns you keep returning to
+                </h3>
+                <p className="mt-4 text-sm leading-relaxed text-white/70 flex-1">
+                  &ldquo;When closeness ramps up, you reach for distance first—then wonder why the room feels colder than
+                  you meant it to.&rdquo;
+                </p>
+              </div>
+              <div className="rounded-[20px] border border-violet-400/15 bg-[linear-gradient(165deg,rgba(124,58,237,0.10),rgba(15,12,20,0.92))] p-6 flex flex-col ring-1 ring-white/8">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-amber-200/85">
+                  Couples
+                </p>
+                <h3 className="mt-3 font-serif text-lg text-foreground [font-family:var(--font-serif-display)]">
+                  Where you and your partner see the world differently
+                </h3>
+                <p className="mt-4 text-sm leading-relaxed text-white/75 flex-1">
+                  &ldquo;One of you reads silence as peace; the other reads it as pulling away. Same moment—two different
+                  stories about what just happened.&rdquo;
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -122,10 +215,33 @@ export default function HomePage() {
           </div>
         </section>
 
+        {/* Demo teaser — above How it works (swipeable) */}
+        <section className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(55,42,88,0.16),rgba(6,5,10,0.97))] px-4 py-14 md:py-20">
+          <div className="max-w-[640px] mx-auto text-center">
+            <h2 className="font-serif text-[26px] md:text-[32px] text-white [font-family:var(--font-serif-display)] leading-tight text-balance">
+              See it in action
+            </h2>
+            <p className="mt-4 text-base md:text-[17px] text-white/65 leading-relaxed text-balance">
+              Click to explore a real reflection — no signup needed
+            </p>
+            <Link
+              href="/demo"
+              className="mt-8 inline-flex items-center justify-center gap-2 min-h-[48px] px-7 py-3.5 rounded-full bg-white/[0.09] backdrop-blur-md border border-white/20 text-white text-base font-medium transition-all duration-300 hover:bg-white/[0.14] hover:border-white/30 hover:scale-[1.02] shadow-[0_10px_40px_rgba(0,0,0,0.35)]"
+            >
+              <span className="text-violet-200/90" aria-hidden>
+                ✦
+              </span>
+              Try a sample reflection
+            </Link>
+          </div>
+        </section>
+
+        <HomeTestimonials />
+
         {/* SECTION 3 — How it works (swipeable) */}
         <HomeHowItWorks />
 
-        {/* SECTION 4 — Science Preview */}
+        {/* SECTION 4 — Approach preview */}
         <section className="border-t border-white/10 px-4 py-12">
           <div className="max-w-[960px] mx-auto">
             <div className="relative overflow-hidden rounded-3xl border border-white/10 shadow-[0_16px_60px_rgba(31,26,23,0.14)]">
@@ -140,13 +256,14 @@ export default function HomePage() {
               <div className="relative z-10 p-7 md:p-10">
                 <div className="max-w-[560px]">
                   <div className="inline-block px-4 py-1 rounded-full bg-black/40 backdrop-blur-md text-white text-xs tracking-wide border border-white/30 shadow-sm font-medium uppercase">
-                    THE SCIENCE BEHIND LUMA
+                    How we think about Luma
                   </div>
                   <h2 className="mt-5 font-serif text-[28px] md:text-[36px] leading-tight text-white [font-family:var(--font-serif-display)] drop-shadow-[0_16px_40px_rgba(0,0,0,0.55)]">
-                    Understand how your mind reveals itself
+                    Images, reflection, and careful language
                   </h2>
                   <p className="mt-4 text-white/80 leading-relaxed text-base md:text-[17px] drop-shadow-[0_12px_28px_rgba(0,0,0,0.45)]">
-                    Your choices reflect patterns shaped by how you see and feel.
+                    Inspired by research in projective psychology, visual cognition, and AI pattern recognition—not a
+                    clinical test, but a mirror for your own awareness.
                   </p>
 
                   <div className="mt-8">
@@ -154,7 +271,7 @@ export default function HomePage() {
                       href="/science"
                       className="inline-flex items-center gap-2 text-sm font-medium text-white/90 underline underline-offset-4 decoration-white/30 hover:decoration-white/60 hover:text-white transition"
                     >
-                      Learn More
+                      Read our approach
                       <ArrowRight className="w-4 h-4" />
                     </Link>
                   </div>
@@ -373,12 +490,40 @@ export default function HomePage() {
               Luma simply helps you notice it.
             </p>
             <Link
-              href="/test"
-              className="inline-flex items-center justify-center gap-2 mt-10 px-6 py-3.5 rounded-[12px] bg-white text-[#0b0a0d] text-base font-medium transition-opacity hover:opacity-90 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_12px_40px_rgba(120,90,180,0.2)]"
+              href="/choose-mode"
+              className="inline-flex items-center justify-center gap-2 mt-10 px-5 py-3.5 sm:px-6 rounded-[12px] bg-white text-[#0b0a0d] text-sm sm:text-base font-medium text-center transition-opacity hover:opacity-90 shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_12px_40px_rgba(120,90,180,0.2)]"
             >
-              Begin Reflection
-              <ArrowRight className="w-4 h-4" />
+              Start your reflection — it&apos;s free
+              <ArrowRight className="w-4 h-4 shrink-0" />
             </Link>
+            <PrivacyTrustLine className="mt-6" />
+          </div>
+        </section>
+
+        {/* Pricing */}
+        <section className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(50,38,82,0.14),rgba(6,5,10,0.98))] px-4 py-16 md:py-24">
+          <div className="max-w-[960px] mx-auto">
+            <h2 className="text-center font-serif text-[26px] md:text-[32px] text-white [font-family:var(--font-serif-display)] text-balance">
+              Simple pricing
+            </h2>
+            <p className="mt-3 text-center text-sm text-white/55 max-w-lg mx-auto">
+              Free to try; Pro when you&apos;re ready for depth, history, and more.
+            </p>
+            <PricingTiersCards className="mt-12" compact />
+          </div>
+        </section>
+
+        {/* Early access / waitlist */}
+        <section className="border-t border-white/10 px-4 py-16 md:py-20">
+          <div className="max-w-[520px] mx-auto rounded-[22px] border border-white/10 bg-white/[0.04] p-8 md:p-10 shadow-[0_12px_48px_rgba(0,0,0,0.35)] backdrop-blur-sm">
+            <WaitlistSignupForm
+              source="home-early-access"
+              title="Be the first to know when new features drop"
+              description="Get occasional updates — new flows, couple tools, and Pro. No spam."
+              submitLabel="Join the list"
+              theme="dark"
+              idPrefix="home-waitlist"
+            />
           </div>
         </section>
 
@@ -390,7 +535,7 @@ export default function HomePage() {
             </h2>
             <div className="mt-10 mx-auto w-full max-w-[280px] aspect-[9/16] rounded-[24px] overflow-hidden bg-white/[0.04] shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(0,0,0,0.45),0_0_60px_rgba(120,90,180,0.12)] backdrop-blur-md">
               <div className="relative w-full h-full">
-                <Image src="/r2_a.jpg" alt="" fill className="object-cover" sizes="280px" />
+                <Image src="/images/ex.png" alt="" fill className="object-cover" sizes="280px" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
                 <div className="absolute bottom-6 left-6 right-6 text-white">
                   <p className="text-sm font-medium opacity-90">My Luma reflection</p>

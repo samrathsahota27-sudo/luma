@@ -119,6 +119,7 @@ export function ReviewAnswersScreen({
                       src={src}
                       alt=""
                       fill
+                      loading="lazy"
                       className="object-cover"
                       sizes="(max-width: 768px) 100vw, 560px"
                       onError={applyImageErrorFallback}

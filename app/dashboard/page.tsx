@@ -185,6 +185,34 @@ export default function DashboardPage() {
             ) : null}
           </header>
 
+          {isSignedIn && historyLoaded ? (
+            <section className="rounded-2xl border border-[#2a282e] bg-[#161419]/70 p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm space-y-6">
+              <div>
+                <p className="text-sm font-medium text-[#e8e4e0]">
+                  You&apos;ve completed{" "}
+                  <span className="tabular-nums text-[#f5f2ee]">
+                    {individualReflectionCount + coupleSessions.length}
+                  </span>{" "}
+                  reflection
+                  {individualReflectionCount + coupleSessions.length === 1 ? "" : "s"}
+                </p>
+                <p className="mt-1 text-xs text-[#8a847a]">
+                  {individualReflectionCount} individual
+                  {individualReflectionCount === 1 ? "" : "s"}
+                  {coupleSessions.length > 0
+                    ? ` · ${coupleSessions.length} couple session${coupleSessions.length === 1 ? "" : "s"}`
+                    : ""}
+                </p>
+              </div>
+              <div
+                className="rounded-xl border border-dashed border-[#3d3a44] bg-[#0f0e12]/80 px-4 py-10 text-center"
+                aria-hidden={false}
+              >
+                <p className="text-sm text-[#8a847a]">Pattern tracker — coming soon</p>
+              </div>
+            </section>
+          ) : null}
+
           <section className="flex flex-col items-center">
             {canReflect ? (
               <Link

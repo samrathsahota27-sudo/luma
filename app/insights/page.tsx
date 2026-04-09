@@ -45,7 +45,7 @@ export default function InsightsPage() {
             Ideas behind Luma
           </h1>
           <p className="mt-6 text-muted-foreground text-lg leading-relaxed max-w-xl">
-            Articles on visual cognition, perception, and the science of reflection — written to deepen your understanding of how Luma works.
+            Articles on visual cognition, perception, and reflection — written to deepen your understanding of how Luma works.
           </p>
         </section>
 

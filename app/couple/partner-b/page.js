@@ -9,6 +9,7 @@ import { useDepthMode } from "@/hooks/useDepthMode";
 import { coupleReflectionRounds, reflectionLines, questions, rounds, roundTags } from "@/lib/coupleTestData";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
 import { getRound5SelectionMeta } from "@/lib/reflection/round5Images";
+import { CoupleFlowSteps } from "@/components/CoupleFlowSteps";
 
 const PARTNER_A_STORAGE_KEY = "luma_couple_partner_a";
 const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
@@ -464,8 +465,9 @@ export default function CouplePartnerBPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />
-      <main className="pt-20 pb-12 max-w-[720px] mx-auto">
+      <main className="pt-20 pb-12 max-w-[720px] mx-auto w-full min-w-0">
         <div className="px-6 pb-6">
+          <CoupleFlowSteps activeStep={2} className="mb-6" />
           <div className="mb-4">
             <label htmlFor="partner-b-name" className="block text-sm text-muted-foreground mb-1">
               Your name (for your story card)
@@ -578,16 +580,18 @@ export default function CouplePartnerBPage() {
         )}
 
         {isGenerating && (
-          <div className="px-6 py-24 text-center">
+          <div className="px-6 py-24 text-center max-w-lg mx-auto">
+            <div className="flex justify-center mb-6" aria-hidden>
+              <span className="h-10 w-10 rounded-full border-2 border-primary/30 border-t-primary animate-spin" />
+            </div>
+            <p className="font-serif text-xl text-foreground">Generating your reflection…</p>
             <p
               key={generatingMessageIdx}
-              className="font-serif text-xl text-foreground transition-all duration-500 animate-luma-fade-only"
+              className="mt-2 text-sm text-muted-foreground transition-all duration-500 animate-luma-fade-only"
             >
               {AI_STATUS_MESSAGES[generatingMessageIdx]}
             </p>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Weaving together both reflections into one.
-            </p>
+            <p className="mt-4 text-sm text-muted-foreground">Usually 15–30 seconds.</p>
           </div>
         )}
 
@@ -603,7 +607,7 @@ export default function CouplePartnerBPage() {
                 }
                 setError(null);
               }}
-              className="px-5 py-3 rounded-[12px] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-opacity hover:opacity-90"
+              className="w-full sm:w-auto min-h-[48px] sm:min-h-0 px-5 py-3 rounded-[12px] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-opacity hover:opacity-90"
             >
               {remoteSessionId ? "Back to Couple Mode" : "Try again"}
             </button>

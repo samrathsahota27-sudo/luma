@@ -201,6 +201,24 @@ export function TestRound({
     }, 120);
   }, [onSelectNone]);
 
+  const questions = useMemo(() => {
+    const key = `round${Number(round)}`; // "round1".."round5"
+    const roundData = questionTagConfig?.[key];
+    const fallbackQs = (reflectionLines ?? []).slice(0, 3);
+
+    const q1 = roundData?.q1 ?? (fallbackQs[0] ? { text: fallbackQs[0], tags: [] } : null);
+    const q2 = roundData?.q2 ?? (fallbackQs[1] ? { text: fallbackQs[1], tags: [] } : null);
+    const q3 = roundData?.q3 ?? (fallbackQs[2] ? { text: fallbackQs[2], tags: [] } : null);
+    const q4 = roundData?.q4 ?? null; // only present for round 5
+
+    return [
+      q1 ? { id: "q1", text: q1.text, tags: q1.tags } : null,
+      q2 ? { id: "q2", text: q2.text, tags: q2.tags } : null,
+      q3 ? { id: "q3", text: q3.text, tags: q3.tags } : null,
+      q4 ? { id: "q4", text: q4.text, tags: q4.tags } : null,
+    ].filter(Boolean);
+  }, [round, reflectionLines]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     if (!showReflectionUI && !showSpaceBetweenReflectionUI) return;
@@ -256,24 +274,6 @@ export function TestRound({
   const noneMic = useSpeechToText((transcript) => {
     onNoneTextChange?.(appendTranscriptValue(noneText, transcript));
   });
-
-  const questions = useMemo(() => {
-    const key = `round${Number(round)}`; // "round1".."round5"
-    const roundData = questionTagConfig?.[key];
-    const fallbackQs = (reflectionLines ?? []).slice(0, 3);
-
-    const q1 = roundData?.q1 ?? (fallbackQs[0] ? { text: fallbackQs[0], tags: [] } : null);
-    const q2 = roundData?.q2 ?? (fallbackQs[1] ? { text: fallbackQs[1], tags: [] } : null);
-    const q3 = roundData?.q3 ?? (fallbackQs[2] ? { text: fallbackQs[2], tags: [] } : null);
-    const q4 = roundData?.q4 ?? null; // only present for round 5
-
-    return [
-      q1 ? { id: "q1", text: q1.text, tags: q1.tags } : null,
-      q2 ? { id: "q2", text: q2.text, tags: q2.tags } : null,
-      q3 ? { id: "q3", text: q3.text, tags: q3.tags } : null,
-      q4 ? { id: "q4", text: q4.text, tags: q4.tags } : null,
-    ].filter(Boolean);
-  }, [round, reflectionLines]);
 
   useEffect(() => {
     const useNew = !!roundTagState && typeof onToggleTagSelection === "function";
@@ -881,11 +881,15 @@ export function TestRound({
 
         {/* Continue button — appears only when canProceed */}
         {canProceed && (
-          <div ref={continueRef} id={`round-${round}-next-section`} className="mt-8 flex justify-end">
+          <div
+            ref={continueRef}
+            id={`round-${round}-next-section`}
+            className="mt-8 flex w-full justify-stretch sm:justify-end"
+          >
             <button
               type="button"
               onClick={onNext}
-              className="px-5 py-3 text-base font-medium rounded-[12px] transition-all duration-[250ms] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] hover:opacity-90"
+              className="w-full min-h-[48px] sm:min-h-0 sm:w-auto px-5 py-3 text-base font-medium rounded-[12px] transition-all duration-[250ms] bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] hover:opacity-90"
             >
               {round < total ? "Continue" : "See reflection"}
             </button>

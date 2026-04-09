@@ -7,6 +7,7 @@ import { TestRound } from "@/components/TestRound";
 import { coupleReflectionRounds, reflectionLines, questions, rounds, roundTags } from "@/lib/coupleTestData";
 import { getRoundTag } from "@/lib/reflection/roundTagging";
 import { getRound5SelectionMeta } from "@/lib/reflection/round5Images";
+import { CoupleFlowSteps } from "@/components/CoupleFlowSteps";
 
 const PARTNER_A_STORAGE_KEY = "luma_couple_partner_a";
 
@@ -325,8 +326,9 @@ export default function CoupleStartPage() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <Navigation />
-      <main className="pt-20 pb-12 max-w-[720px] mx-auto">
+      <main className="pt-20 pb-12 max-w-[720px] mx-auto w-full min-w-0">
         <div className="px-6 pb-6">
+          <CoupleFlowSteps activeStep={1} className="mb-6" />
           <div className="mb-4">
             <label htmlFor="partner-a-name" className="block text-sm text-muted-foreground mb-1">
               Your name (for your story card)

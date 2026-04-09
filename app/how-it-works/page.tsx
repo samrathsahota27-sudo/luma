@@ -426,7 +426,7 @@ export default function HowItWorksPage() {
                     href="/science"
                     className="inline-flex items-center gap-2 text-sm font-medium text-white/85 underline underline-offset-4 decoration-white/25 hover:decoration-white/50 hover:text-white transition"
                   >
-                    Read the science behind Luma →
+                    Read our approach →
                   </Link>
                 </div>
               </div>

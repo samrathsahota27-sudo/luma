@@ -1,11 +1,12 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
-import { Loader2, ArrowRight } from "lucide-react";
+import { CoupleFlowSteps } from "@/components/CoupleFlowSteps";
+import { Loader2, ArrowRight, Link2 } from "lucide-react";
 
 function readDepthMode(): string {
   try {
@@ -24,6 +25,8 @@ function CoupleWaitingInner() {
   const [partnerBComplete, setPartnerBComplete] = useState(false);
   const [ready, setReady] = useState(false);
   const [notFound, setNotFound] = useState(false);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
 
   const poll = useCallback(async () => {
     if (!sessionId?.trim()) return;
@@ -39,8 +42,17 @@ function CoupleWaitingInner() {
       setReady(Boolean(data.readyForResult));
     } catch {
       /* ignore transient errors */
+    } finally {
+      setSessionLoading(false);
     }
   }, [sessionId]);
+
+  const partnerBLink = useMemo(() => {
+    if (typeof window === "undefined" || !sessionId?.trim()) return "";
+    return `${window.location.origin}/couple/partner-b?sessionId=${encodeURIComponent(sessionId.trim())}`;
+  }, [sessionId]);
+
+  const flowStep = ready ? 3 : partnerAComplete ? 2 : 1;
 
   useEffect(() => {
     if (!sessionId?.trim()) return;
@@ -86,8 +98,19 @@ function CoupleWaitingInner() {
   const resultHref = `/couple/result?sessionId=${encodeURIComponent(sessionId.trim())}&dm=${encodeURIComponent(readDepthMode())}`;
 
   return (
-    <div className="max-w-[480px] mx-auto px-4 text-center">
+    <div className="max-w-[480px] mx-auto px-4 text-center w-full min-w-0">
+      <CoupleFlowSteps activeStep={flowStep} className="mb-6 text-left sm:text-center" />
+
       <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-6 py-10 md:py-12">
+        {sessionLoading ? (
+          <div className="space-y-4 py-4" aria-busy="true" aria-label="Loading session">
+            <div className="h-10 w-10 rounded-full border-2 border-violet-400/25 border-t-violet-400/80 animate-spin mx-auto" />
+            <div className="h-3 rounded-full bg-white/[0.08] animate-pulse max-w-[200px] mx-auto" />
+            <div className="h-3 rounded-full bg-white/[0.06] animate-pulse max-w-[260px] mx-auto" />
+            <p className="text-center text-sm text-white/45 pt-2">Checking session…</p>
+          </div>
+        ) : (
+          <>
         {!ready && (
           <div className="flex justify-center mb-6" aria-hidden>
             <Loader2 className="h-10 w-10 text-violet-400/80 animate-spin" />
@@ -98,6 +121,31 @@ function CoupleWaitingInner() {
           {statusLine}
         </h1>
         <p className="mt-4 text-sm text-white/60 leading-relaxed">{subLine}</p>
+
+        {!ready && partnerBLink ? (
+          <div className="mt-8 text-left">
+            <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/40 text-center">
+              Invite Partner B
+            </p>
+            <p className="mt-2 text-xs text-white/50 text-center leading-relaxed">
+              Send them this link to open the same session on their phone.
+            </p>
+            <button
+              type="button"
+              onClick={() => {
+                if (!partnerBLink || !navigator.clipboard?.writeText) return;
+                void navigator.clipboard.writeText(partnerBLink).then(() => {
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 2000);
+                });
+              }}
+              className="mt-4 w-full min-h-[48px] inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] px-4 py-3 text-sm font-medium text-white transition-colors hover:bg-white/[0.1]"
+            >
+              <Link2 className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+              {copied ? "Copied!" : "Copy link for Partner B"}
+            </button>
+          </div>
+        ) : null}
 
         <div className="mt-8 flex flex-col gap-2 text-left text-xs text-white/45 max-w-[280px] mx-auto">
           <p className="flex items-center gap-2">
@@ -118,6 +166,8 @@ function CoupleWaitingInner() {
             See our result
             <ArrowRight className="h-5 w-5" />
           </Link>
+        )}
+          </>
         )}
       </div>
 

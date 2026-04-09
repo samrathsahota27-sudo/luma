@@ -1,7 +1,28 @@
-import Link from "next/link"
-import { Navigation } from "@/components/navigation"
-import { Footer } from "@/components/footer"
-import { ArrowRight } from "lucide-react"
+import type { ReactNode } from "react";
+import Link from "next/link";
+import { Navigation } from "@/components/navigation";
+import { Footer } from "@/components/footer";
+import { ArrowRight, ExternalLink } from "lucide-react";
+
+function ExternalCitation({
+  href,
+  children,
+}: {
+  href: string;
+  children: ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="group inline-flex items-center gap-1 text-foreground underline decoration-white/25 underline-offset-4 transition hover:decoration-violet-300/60"
+    >
+      {children}
+      <ExternalLink className="h-3.5 w-3.5 shrink-0 opacity-60 group-hover:opacity-90" aria-hidden />
+    </a>
+  );
+}
 
 export default function SciencePage() {
   return (
@@ -9,178 +30,180 @@ export default function SciencePage() {
       <Navigation />
 
       <main className="flex-1 pt-20">
-        {/* Section 1 — Hero */}
-        <section className="max-w-[720px] mx-auto px-6 py-20 md:py-28 animate-luma-fade-in text-center">
-          <h1 className="font-serif text-4xl md:text-5xl leading-tight text-foreground text-balance [font-family:var(--font-serif-display)]">
-            Understanding the Mind Through Images
+        <section className="max-w-[720px] mx-auto px-6 py-16 md:py-24 text-center">
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-[560px] mx-auto">
+            Inspired by research in projective psychology, visual cognition, and AI pattern recognition.
+          </p>
+          <h1 className="mt-6 font-serif text-3xl md:text-[2.75rem] leading-tight text-foreground text-balance [font-family:var(--font-serif-display)]">
+            Our approach
           </h1>
-          <div className="mt-10 space-y-6 text-muted-foreground text-base md:text-lg leading-relaxed max-w-[640px] mx-auto">
-            <p>
-              Human beings often recognize emotional patterns through
-              images before they find the words to explain them.
-            </p>
-            <p>
-              Luma is built around this simple idea.
-            </p>
-            <p>
-              Instead of relying on verbal questionnaires, Luma allows
-              patterns to surface through visual attention and reflection.
-            </p>
-          </div>
+          <p className="mt-6 text-muted-foreground text-base md:text-lg leading-relaxed max-w-[640px] mx-auto">
+            Luma uses images and language to help you notice patterns in how you see and respond. We are transparent
+            about what that involves—and what it does not.
+          </p>
         </section>
 
-        {/* Section 2 — Visual Cognition */}
         <section className="border-t border-white/10">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <h2 className="font-serif text-2xl md:text-3xl text-foreground text-balance [font-family:var(--font-serif-display)]">
-              Visual Cognition
+          <div className="max-w-[720px] mx-auto px-6 py-14 md:py-20">
+            <h2 className="font-serif text-2xl md:text-3xl text-foreground [font-family:var(--font-serif-display)]">
+              Why images?
             </h2>
-            <p className="mt-6 text-muted-foreground leading-relaxed">
-              Research in cognitive psychology shows that the brain
-              processes visual information significantly faster than language.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              Images can evoke memories, emotions, and associations
-              before conscious reasoning begins.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              Because of this, visual preference can sometimes reveal
-              patterns that structured verbal questions might overlook.
-            </p>
+            <div className="mt-6 space-y-4 text-muted-foreground leading-relaxed">
+              <p>
+                For more than a century, clinicians and researchers have used{" "}
+                <strong className="text-foreground/90 font-medium">ambiguous visual stimuli</strong> to study how people
+                project meaning, memory, and feeling onto what they see. The Rorschach inkblots are the best-known
+                example. <strong className="text-foreground/90 font-medium">Luma is not the Rorschach</strong>—we do not
+                administer a standardized test or score responses against clinical norms.
+              </p>
+              <p>
+                We are inspired by the same broad idea:{" "}
+                <strong className="text-foreground/90 font-medium">
+                  images can invite reflection before you have a neat verbal story
+                </strong>
+                . In expressive and arts-informed work, visual metaphor is often used to externalize inner experience and
+                support meaning-making in a therapeutic relationship. Luma borrows that spirit for a{" "}
+                <strong className="text-foreground/90 font-medium">self-guided</strong>, digital prompt—not therapy
+                itself.
+              </p>
+              <p>
+                Choosing among images is a form of{" "}
+                <strong className="text-foreground/90 font-medium">non-verbal self-expression</strong>: what pulls you,
+                what you avoid, and what you return to can be as informative as what you would say in a questionnaire—
+                with the caveat that none of this is measurement in a clinical sense (see below).
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* Section 3 — Projection in Psychology */}
         <section className="border-t border-white/10 bg-white/[0.03]">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <h2 className="font-serif text-2xl md:text-3xl text-foreground text-balance [font-family:var(--font-serif-display)]">
-              Projection and Meaning-Making
+          <div className="max-w-[720px] mx-auto px-6 py-14 md:py-20">
+            <h2 className="font-serif text-2xl md:text-3xl text-foreground [font-family:var(--font-serif-display)]">
+              What the AI does
             </h2>
-            <p className="mt-6 text-muted-foreground leading-relaxed">
-              In psychology, projection refers to the way people interpret
-              ambiguous images through their own internal experiences.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              When two people look at the same image, they often see
-              different meanings shaped by personal memories, emotions,
-              and associations.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              This principle has been explored for decades in psychological
-              research using visual stimuli to understand perception
-              and emotional organization.
-            </p>
+            <div className="mt-6 space-y-4 text-muted-foreground leading-relaxed">
+              <p>
+                When you complete a flow, your image choices and any text you add are sent to a{" "}
+                <strong className="text-foreground/90 font-medium">large language model</strong> (e.g. GPT-4 class
+                models) that generates <strong className="text-foreground/90 font-medium">interpretive</strong> copy:
+                themes, tensions, and language meant to mirror and extend your reflection.
+              </p>
+              <p>
+                The model does <strong className="text-foreground/90 font-medium">not</strong> access medical records,
+                diagnose conditions, or apply validated psychometric scoring. It produces plausible, empathetic
+                narrative based on patterns in your inputs—useful for self-reflection, not for clinical decision-making.
+              </p>
+              <p>
+                Outputs can be wrong, overly general, or misaligned with your situation. Treat them as{" "}
+                <strong className="text-foreground/90 font-medium">starting points for your own judgment</strong>, not
+                as facts about who you are.
+              </p>
+            </div>
           </div>
         </section>
 
-        {/* Section 4 — Non-Verbal Cognition */}
         <section className="border-t border-white/10">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <h2 className="font-serif text-2xl md:text-3xl text-foreground text-balance [font-family:var(--font-serif-display)]">
-              Reflection Before Explanation
+          <div className="max-w-[720px] mx-auto px-6 py-14 md:py-20">
+            <h2 className="font-serif text-2xl md:text-3xl text-foreground [font-family:var(--font-serif-display)]">
+              What this is NOT
             </h2>
-            <p className="mt-6 text-muted-foreground leading-relaxed">
-              Many emotional processes occur before they are translated
-              into language.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              Non-verbal cognition research suggests that intuitive
-              perception can reveal subtle patterns before people are
-              able to describe them with words.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              By beginning with images instead of direct questions,
-              Luma allows reflection to emerge gradually rather than
-              forcing immediate explanations.
-            </p>
-          </div>
-        </section>
-
-        {/* Section 5 — Pattern Recognition */}
-        <section className="border-t border-white/10 bg-white/[0.04]">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <h2 className="font-serif text-2xl md:text-3xl text-foreground text-balance [font-family:var(--font-serif-display)]">
-              Patterns of Attention
-            </h2>
-            <p className="mt-6 text-muted-foreground leading-relaxed">
-              Human perception naturally searches for patterns.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              Across multiple visual choices, small preferences can
-              begin to reveal recurring themes in attention and
-              emotional response.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              Luma observes these patterns and transforms them
-              into reflective language designed to help people
-              notice what may already exist in their inner experience.
-            </p>
-          </div>
-        </section>
-
-        {/* Section 6 — AI as a Reflective Interpreter */}
-        <section className="border-t border-white/10">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <h2 className="font-serif text-2xl md:text-3xl text-foreground text-balance [font-family:var(--font-serif-display)]">
-              AI as a Mirror
-            </h2>
-            <p className="mt-6 text-muted-foreground leading-relaxed">
-              Luma uses artificial intelligence not to diagnose
-              or categorize people, but to translate patterns into
-              thoughtful observations.
-            </p>
-            <p className="mt-4 text-muted-foreground leading-relaxed">
-              The goal is not to define who someone is, but to
-              offer language that may help them reflect on their
-              own inner landscape.
-            </p>
-          </div>
-        </section>
-
-        {/* Section 7 — Scientific Inspiration */}
-        <section className="border-t border-white/10 bg-white/[0.03]">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20">
-            <h2 className="font-serif text-2xl md:text-3xl text-foreground text-balance [font-family:var(--font-serif-display)]">
-              Fields That Inspire Luma
-            </h2>
-            <ul className="mt-6 space-y-2 text-muted-foreground leading-relaxed list-disc list-inside">
-              <li>cognitive psychology</li>
-              <li>visual perception research</li>
-              <li>projective psychology</li>
-              <li>non-verbal cognition</li>
-              <li>expressive arts therapy</li>
+            <ul className="mt-6 space-y-3 text-muted-foreground leading-relaxed list-disc list-inside marker:text-white/35">
+              <li>
+                <strong className="text-foreground/90 font-medium">Not a diagnostic tool</strong>—it does not identify
+                mental health disorders or replace assessment by a qualified professional.
+              </li>
+              <li>
+                <strong className="text-foreground/90 font-medium">Not therapy</strong>—there is no therapeutic
+                relationship, duty of care, or individualized treatment plan.
+              </li>
+              <li>
+                <strong className="text-foreground/90 font-medium">Not a substitute for professional support</strong>
+                —if you are in crisis or need care, please contact a licensed clinician or emergency services in your
+                area.
+              </li>
             </ul>
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 bg-white/[0.03]">
+          <div className="max-w-[720px] mx-auto px-6 py-14 md:py-20">
+            <h2 className="font-serif text-2xl md:text-3xl text-foreground [font-family:var(--font-serif-display)]">
+              Our inspiration
+            </h2>
             <p className="mt-6 text-muted-foreground leading-relaxed">
-              Luma is inspired by ideas from these areas of research,
-              which explore how images, symbols, and perception
-              can reflect emotional patterns.
+              We read widely; the list below is not exhaustive. These works illustrate threads we find thought-provoking
+              —from how projective methods are evaluated, to emotional processing through visual art, to how LLMs are
+              being discussed in mental health research. Citing them does <strong className="text-foreground/90 font-medium">not</strong>{" "}
+              mean Luma is &quot;validated&quot; by them; they inform our honest framing.
             </p>
+            <ul className="mt-8 space-y-6 text-muted-foreground leading-relaxed">
+              <li>
+                <p className="text-foreground font-medium">(a) Image-based projection and projective techniques</p>
+                <p className="mt-2">
+                  Lilienfeld, S. O., Wood, J. M., &amp; Garb, H. N. (2000). The scientific status of projective
+                  techniques. <em>Psychological Science in the Public Interest</em>, 1(2), 27–66.{" "}
+                  <ExternalCitation href="https://doi.org/10.1111/1529-1006.002">DOI: 10.1111/1529-1006.002</ExternalCitation>
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground/90">
+                  A landmark critical review of projective tests—useful context for why Luma avoids claiming clinical
+                  validation.
+                </p>
+              </li>
+              <li>
+                <p className="text-foreground font-medium">(b) Visual art and emotional processing</p>
+                <p className="mt-2">
+                  Weinfeld-Yehoudayan, A., Czamanski-Cohen, J., Cohen, M., &amp; Weihs, K. L. (2024). A theoretical model
+                  of emotional processing in visual artmaking and art therapy. <em>The Arts in Psychotherapy</em>, 90,
+                  102196.{" "}
+                  <ExternalCitation href="https://doi.org/10.1016/j.aip.2024.102196">
+                    DOI: 10.1016/j.aip.2024.102196
+                  </ExternalCitation>{" "}
+                  ·{" "}
+                  <ExternalCitation href="https://pmc.ncbi.nlm.nih.gov/articles/PMC11391909/">PMC open-access version</ExternalCitation>
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground/90">
+                  Connects nonverbal, embodied experience in artmaking to emotional processing—parallel themes to
+                  &quot;noticing before naming,&quot; outside a therapy room.
+                </p>
+              </li>
+              <li>
+                <p className="text-foreground font-medium">(c) AI and mental health tools</p>
+                <p className="mt-2">
+                  Guo, Z., Lai, A., Thygesen, J. H., Farrington, J., Keen, T., &amp; Li, K. (2024). Large language models
+                  for mental health applications: Systematic review. <em>JMIR Mental Health</em>, 11, e57400.{" "}
+                  <ExternalCitation href="https://doi.org/10.2196/57400">DOI: 10.2196/57400</ExternalCitation> ·{" "}
+                  <ExternalCitation href="https://mental.jmir.org/2024/1/e57400">Journal page</ExternalCitation>
+                </p>
+                <p className="mt-2 text-sm text-muted-foreground/90">
+                  Surveys LLM uses and risks in mental health contexts; aligns with treating Luma as a reflective aid,
+                  not a clinical instrument.
+                </p>
+              </li>
+            </ul>
           </div>
         </section>
 
-        {/* Final Section — Closing */}
         <section className="border-t border-white/10">
-          <div className="max-w-[720px] mx-auto px-6 py-16 md:py-20 text-center">
+          <div className="max-w-[720px] mx-auto px-6 py-14 md:py-16 text-center">
             <p className="font-serif text-xl md:text-2xl text-foreground leading-relaxed [font-family:var(--font-serif-display)]">
-              Luma is not designed to explain the mind.
+              Luma is not here to label you.
             </p>
-            <p className="mt-4 font-serif text-xl md:text-2xl text-foreground leading-relaxed [font-family:var(--font-serif-display)]">
-              It is designed to help people notice it.
+            <p className="mt-3 font-serif text-xl md:text-2xl text-foreground leading-relaxed [font-family:var(--font-serif-display)]">
+              It is here to help you notice.
             </p>
           </div>
         </section>
 
-        {/* Call to Action */}
         <section className="border-t border-white/10 bg-card/85 backdrop-blur-xl text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_-24px_80px_rgba(100,80,160,0.1)]">
-          <div className="max-w-[720px] mx-auto px-6 py-20 text-center">
+          <div className="max-w-[720px] mx-auto px-6 py-16 text-center">
             <h2 className="font-serif text-2xl md:text-3xl [font-family:var(--font-serif-display)]">
-              Curious what your inner world looks like?
+              Try a reflection
             </h2>
             <Link
-              href="/test"
+              href="/reflect"
               className="inline-flex items-center justify-center gap-2 mt-8 rounded-[12px] bg-primary px-6 py-3.5 text-base font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] transition-opacity hover:opacity-90"
             >
-              Begin Reflection
+              Begin reflection
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
@@ -189,5 +212,5 @@ export default function SciencePage() {
 
       <Footer />
     </div>
-  )
+  );
 }

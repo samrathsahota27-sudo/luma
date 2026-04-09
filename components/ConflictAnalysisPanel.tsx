@@ -30,7 +30,8 @@ export function ConflictAnalysisPanel({
         Where you pull apart
       </h2>
       <p className="text-[13px] md:text-sm text-muted-foreground mb-6 leading-snug">
-        Not who’s wrong—how your styles collide.
+        Side-by-side of what each of you is doing in the same moment — not who’s wrong, but how your styles collide and
+        create static.
       </p>
 
       <ul className="space-y-6 md:space-y-5">

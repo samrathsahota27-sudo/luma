@@ -24,6 +24,10 @@ import { buildGuidingReflection } from "@/lib/guidingReflection";
 import { derivePatternLabel } from "@/lib/patternLabel";
 import { createClient } from "@/lib/supabase/server";
 import { buildSoloReflectionPrompt } from "@/lib/soloReflectionPrompt";
+import {
+  bumpMonthlyReflectionCount,
+  FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
+} from "@/lib/reflectionUsage";
 
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -135,6 +139,7 @@ export async function POST(req) {
 
     console.log("🔴 User in generate:", user?.id ?? "NULL", authError?.message ?? "no auth error");
 
+    let reflectionUsage = null;
     if (user) {
       try {
         const newEntry = {
@@ -151,11 +156,15 @@ export async function POST(req) {
 
         const { data: existingProfile } = await supabase
           .from("user_profiles")
-          .select("pattern_history")
+          .select("pattern_history, reflection_count, reflection_count_month")
           .eq("id", user.id)
           .single();
 
         const currentHistory = existingProfile?.pattern_history || [];
+        const { reflection_count, reflection_count_month } = bumpMonthlyReflectionCount(
+          existingProfile?.reflection_count,
+          existingProfile?.reflection_count_month
+        );
 
         const { error: saveError } = await supabase
           .from("user_profiles")
@@ -164,9 +173,17 @@ export async function POST(req) {
             email: user.email,
             pattern_history: [...currentHistory, newEntry].slice(-50),
             last_updated: new Date().toISOString(),
+            reflection_count,
+            reflection_count_month,
           });
 
         console.log("🔴 SAVE ERROR:", saveError?.message ?? "none");
+        if (!saveError) {
+          reflectionUsage = {
+            individualReflectionsThisMonth: reflection_count,
+            freeMonthlyLimit: FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
+          };
+        }
       } catch (e) {
         console.error("🔴 SAVE CRASH:", e.message);
       }
@@ -198,6 +215,7 @@ export async function POST(req) {
       ...(round5SpaceBetween ? { round5SpaceBetween } : {}),
       finalNarrative,
       guidingReflection,
+      ...(reflectionUsage ? { reflectionUsage } : {}),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown server error";

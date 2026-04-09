@@ -1,19 +1,25 @@
+import Link from "next/link"
 import { Navigation } from "@/components/navigation"
 import { Footer } from "@/components/footer"
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-background text-foreground">
       <Navigation />
-      
+
       <main className="flex-1 pt-20">
         <section className="max-w-3xl mx-auto px-6 py-24">
-          <span className="text-xs uppercase tracking-widest text-muted-foreground">
-            Privacy & Ethics
-          </span>
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Privacy Policy</span>
           <h1 className="font-serif text-4xl md:text-5xl leading-tight text-foreground mt-4 text-balance">
             Your relationship is not our business
           </h1>
+          <p className="mt-4 text-sm text-muted-foreground leading-relaxed max-w-2xl">
+            Plain-language summary for now; a fuller legal Privacy Policy may be added as Luma grows. See also{" "}
+            <Link href="/terms" className="text-foreground underline underline-offset-4 hover:opacity-90">
+              Terms of use
+            </Link>
+            .
+          </p>
           
           <div className="mt-10 max-w-2xl">
             <div className="space-y-10">
