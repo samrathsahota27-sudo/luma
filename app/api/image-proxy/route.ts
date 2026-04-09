@@ -10,6 +10,24 @@ function isSafeHttpUrl(raw: string) {
   }
 }
 
+function decodeMaybe(value: string | null) {
+  if (!value) return "";
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+function isExpiredBlobSignature(target: URL) {
+  if (!target.hostname.includes(".blob.core.windows.net")) return false;
+  const seRaw = target.searchParams.get("se");
+  if (!seRaw) return false;
+  const se = new Date(decodeMaybe(seRaw));
+  if (!Number.isFinite(se.getTime())) return false;
+  return se.getTime() <= Date.now();
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const rawUrl = searchParams.get("url");
@@ -20,6 +38,9 @@ export async function GET(req: Request) {
   const target = isSafeHttpUrl(rawUrl);
   if (!target) {
     return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+  }
+  if (isExpiredBlobSignature(target)) {
+    return NextResponse.json({ error: "Signed image URL expired" }, { status: 410 });
   }
 
   // Basic SSRF guard: block localhost/private networks.
@@ -38,8 +59,8 @@ export async function GET(req: Request) {
     res = await fetch(target.toString(), {
       // Allow upstream caches; we'll also set cache headers below.
       redirect: "follow",
+      cache: "no-store",
       headers: {
-        "User-Agent": "luma-image-proxy",
         Accept: "image/*,*/*;q=0.8",
       },
     });
@@ -47,8 +68,30 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Fetch failed" }, { status: 502 });
   }
 
+  // Some signed hosts are sensitive to request shape; retry once with a minimal request.
   if (!res.ok) {
-    return NextResponse.json({ error: "Upstream error" }, { status: 502 });
+    try {
+      const retry = await fetch(target.toString(), {
+        redirect: "follow",
+        cache: "no-store",
+      });
+      res = retry;
+    } catch {
+      // Keep original response for the error path below.
+    }
+  }
+
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      return NextResponse.json(
+        { error: "Upstream rejected signed URL", upstreamStatus: res.status },
+        { status: 410 }
+      );
+    }
+    return NextResponse.json(
+      { error: "Upstream error", upstreamStatus: res.status },
+      { status: 502 }
+    );
   }
 
   const contentType = res.headers.get("content-type") || "";

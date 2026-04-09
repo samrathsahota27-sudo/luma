@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getStore } from "@/lib/reminderStore";
 import { sendEmail } from "@/lib/email";
+import { getBaseUrl } from "@/utils/getBaseUrl";
 
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000;
@@ -45,11 +46,7 @@ function buildSecondReminderHtml(baseUrl) {
 
 async function runReminderJob() {
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL ||
-      "https://luma.app";
-    const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
+    const origin = getBaseUrl();
 
     const store = getStore();
     const now = Date.now();

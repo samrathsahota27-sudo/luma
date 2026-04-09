@@ -1,9 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { getReflections, type ReflectionEntry } from "@/lib/reflectionStorage";
+import { createClient } from "@/lib/supabase/client";
+import {
+  getReflections,
+  buildMergedTimelineEntries,
+  localDateKeyFromIso,
+  type ReflectionEntry,
+} from "@/lib/reflectionStorage";
 
 const WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -42,17 +48,62 @@ function monthLabel(d: Date) {
 }
 
 export function HomeInnerJourneyCalendar() {
+  const supabase = createClient();
   const [entries, setEntries] = useState<ReflectionEntry[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
+  const refreshEntries = useCallback(async () => {
+    const local = getReflections();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setEntries(local);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("pattern_history, couple_sessions")
+        .eq("id", user.id)
+        .single();
+      setEntries(
+        buildMergedTimelineEntries({
+          local,
+          userId: user.id,
+          patternHistory: profile?.pattern_history,
+          coupleSessions: profile?.couple_sessions,
+        })
+      );
+    } catch {
+      setEntries(local);
+    }
+  }, [supabase]);
+
   useEffect(() => {
-    setEntries(getReflections());
-  }, []);
+    void refreshEntries();
+  }, [refreshEntries]);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void refreshEntries();
+    });
+    const onFocus = () => {
+      void refreshEntries();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refreshEntries, supabase]);
 
   const byDate = useMemo(() => {
     const map = new Map<string, ReflectionEntry[]>();
     for (const e of entries) {
-      const key = String(e?.date ?? "").slice(0, 10);
+      const key = localDateKeyFromIso(String(e?.date ?? ""));
       if (!key) continue;
       const list = map.get(key) ?? [];
       list.push(e);
@@ -82,6 +133,10 @@ export function HomeInnerJourneyCalendar() {
   const hasAny = entries.length > 0;
   const selectedEntries = selectedKey ? byDate.get(selectedKey) ?? [] : [];
   const selected = selectedEntries[0] ?? null;
+  const sid = selected ? String(selected.id) : "";
+  const canOpenStoredDetail = Boolean(selected && !sid.startsWith("account-"));
+  const accountDetailHref =
+    selected?.mode === "couple" ? "/couple-hub" : "/result/latest";
 
   const mini = useMemo(() => {
     const today = new Date();
@@ -248,12 +303,21 @@ export function HomeInnerJourneyCalendar() {
                     </div>
 
                     <div className="mt-5 flex flex-wrap items-center gap-3">
-                      <Link
-                        href={`/dashboard/reflection/${selected.id}`}
-                        className="inline-flex items-center justify-center rounded-full px-5 py-3 bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-opacity hover:opacity-90"
-                      >
-                        View Full Result
-                      </Link>
+                      {canOpenStoredDetail ? (
+                        <Link
+                          href={`/dashboard/reflection/${selected.id}`}
+                          className="inline-flex items-center justify-center rounded-full px-5 py-3 bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-opacity hover:opacity-90"
+                        >
+                          View Full Result
+                        </Link>
+                      ) : (
+                        <Link
+                          href={accountDetailHref}
+                          className="inline-flex items-center justify-center rounded-full px-5 py-3 bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-sm font-medium transition-opacity hover:opacity-90"
+                        >
+                          {selected?.mode === "couple" ? "Open couple hub" : "View latest insight"}
+                        </Link>
+                      )}
                       {selectedEntries.length > 1 && (
                         <span className="text-xs text-muted-foreground">
                           {selectedEntries.length} reflections saved that day

@@ -97,6 +97,12 @@ export function TestRound({
   const reflectionRef = useRef(null);
   const questionRef = useRef(null);
   const noneSectionRef = useRef(null);
+  const q1Ref = useRef(null);
+  const q2Ref = useRef(null);
+  const q3Ref = useRef(null);
+  const q4Ref = useRef(null);
+  const noteRef = useRef(null);
+  const continueRef = useRef(null);
 
   const effectiveSelectedOption =
     selectedOption ?? (noneSelected ? "none" : selectedIndex != null ? "image" : null);
@@ -194,6 +200,32 @@ export function TestRound({
       noneSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 120);
   }, [onSelectNone]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!showReflectionUI && !showSpaceBetweenReflectionUI) return;
+    if (currentStep <= 0) return;
+
+    const t = window.setTimeout(() => {
+      const hasQ4 = Boolean(questions?.[3]);
+      const target =
+        currentStep <= 1
+          ? q1Ref.current
+          : currentStep === 2
+            ? q2Ref.current
+            : currentStep === 3
+              ? q3Ref.current
+              : currentStep === 4
+                ? hasQ4
+                  ? q4Ref.current
+                  : noteRef.current || continueRef.current
+                : noteRef.current || continueRef.current;
+
+      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 140);
+
+    return () => window.clearTimeout(t);
+  }, [currentStep, showReflectionUI, showSpaceBetweenReflectionUI, questions]);
 
   const total = totalRounds ?? 4;
   const progressPercent = total > 0 ? (Math.min(round, total) / total) * 100 : 0;
@@ -355,7 +387,7 @@ export function TestRound({
         </header>
 
         {/* 2. Image selection section */}
-        <section className="mb-10">
+        <section id={`round-${round}-question-1`} className="mb-10">
           <h2 className="mx-auto mb-4 max-w-[32ch] text-balance text-center text-lg font-medium text-foreground">
             {headQuestion}
           </h2>
@@ -394,7 +426,11 @@ export function TestRound({
           <section className="mt-2">
             <div ref={questionRef} className="space-y-6">
               {questions?.[0] && currentStep >= 1 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q1Ref}
+                  id={`round-${round}-question-2`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[0].text}</p>
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -438,7 +474,11 @@ export function TestRound({
               ) : null}
 
               {questions?.[1] && currentStep >= 2 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q2Ref}
+                  id={`round-${round}-question-3`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[1].text}</p>
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -482,7 +522,11 @@ export function TestRound({
               ) : null}
 
               {questions?.[2] && currentStep >= 3 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q3Ref}
+                  id={`round-${round}-question-4`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[2].text}</p>
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -527,7 +571,11 @@ export function TestRound({
               ) : null}
 
               {questions?.[3] && currentStep >= 4 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q4Ref}
+                  id={`round-${round}-question-5`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[3].text}</p>
                   <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -571,7 +619,11 @@ export function TestRound({
               ) : null}
 
               {currentStep >= (questions?.[3] ? 5 : 4) ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={noteRef}
+                  id={`round-${round}-result-section`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <label className="block text-sm font-medium text-foreground">
                     Anything in your own words?
                   </label>
@@ -640,7 +692,11 @@ export function TestRound({
           >
             <div ref={questionRef} className="space-y-6">
               {questions?.[0] && currentStep >= 1 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q1Ref}
+                  id={`round-${round}-question-2`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[0].text}</p>
                   {true && (
                     <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
@@ -686,7 +742,11 @@ export function TestRound({
               ) : null}
 
               {questions?.[1] && currentStep >= 2 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q2Ref}
+                  id={`round-${round}-question-3`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[1].text}</p>
                   {true && (
                     <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
@@ -732,7 +792,11 @@ export function TestRound({
               ) : null}
 
               {questions?.[2] && currentStep >= 3 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={q3Ref}
+                  id={`round-${round}-question-4`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <p className="text-sm text-muted-foreground">{questions[2].text}</p>
                   {true && (
                     <p className="text-xs text-white/50 mt-1 mb-2">Select up to 2</p>
@@ -778,7 +842,11 @@ export function TestRound({
               ) : null}
 
               {currentStep >= 4 ? (
-                <div className="animate-in fade-in slide-in-from-bottom-1 duration-300">
+                <div
+                  ref={noteRef}
+                  id={`round-${round}-result-section`}
+                  className="animate-in fade-in slide-in-from-bottom-1 duration-300"
+                >
                   <label className="block text-sm font-medium text-foreground">
                     Anything in your own words?
                   </label>
@@ -813,7 +881,7 @@ export function TestRound({
 
         {/* Continue button — appears only when canProceed */}
         {canProceed && (
-          <div className="mt-8 flex justify-end">
+          <div ref={continueRef} id={`round-${round}-next-section`} className="mt-8 flex justify-end">
             <button
               type="button"
               onClick={onNext}

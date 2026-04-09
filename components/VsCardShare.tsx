@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Download, Share2 } from "lucide-react";
 import { generateVsCardBlob, getVsCardContent, type VsCardSource } from "@/lib/vsCard";
 import { downloadStoryCard, shareOrDownloadStoryCard } from "@/lib/storyCard";
+import { downloadStoryFromElement, shareStoryFromElement } from "@/lib/storyCardCapture";
 
 export function VsCardShare({
   source,
@@ -13,11 +14,32 @@ export function VsCardShare({
   className?: string;
 }) {
   const [loading, setLoading] = useState(false);
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const content = getVsCardContent(source);
 
   const runExport = async (mode: "share" | "download") => {
     setLoading(true);
     try {
+      const el = cardRef.current;
+      if (el) {
+        try {
+          // Let final paint settle so exported image matches what user sees.
+          await new Promise((resolve) => setTimeout(resolve, 400));
+          if (mode === "share") {
+            await shareStoryFromElement(el, {
+              filename: "luma-vs-card.png",
+              title: "Our Luma VS card",
+              text: "See our emotional dynamic side by side.",
+            });
+          } else {
+            await downloadStoryFromElement(el, "luma-vs-card.png");
+          }
+          return;
+        } catch (e) {
+          console.warn("VS card DOM export failed, using canvas fallback", e);
+        }
+      }
+
       const blob = await generateVsCardBlob(source);
       if (mode === "share") {
         await shareOrDownloadStoryCard(blob, "luma-vs-card.png");
@@ -33,31 +55,42 @@ export function VsCardShare({
 
   return (
     <section className={className} aria-label="VS comparison card">
-      <div className="rounded-2xl border border-white/12 bg-gradient-to-b from-[#0c0b0e] to-[#050506] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.55)] md:p-6">
+      <div className="rounded-2xl border border-white/12 bg-gradient-to-b from-[#0f0d13] via-[#08070b] to-[#050506] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.55)] md:p-6">
         <div className="text-center">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/35">Share</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.22em] text-white/40">Share</p>
           <h3 className="mt-2 font-serif text-lg text-white [font-family:var(--font-serif-display)] md:text-xl">
-            VS card
+            Your Dynamic, Side by Side
           </h3>
-          <p className="mt-1.5 text-xs text-white/45 max-w-sm mx-auto leading-relaxed">
-            Story-sized image for Instagram or WhatsApp — minimal, high contrast.
+          <p className="mt-1.5 text-xs leading-relaxed text-white/55 max-w-sm mx-auto">
+            A clean story card that shows both emotional styles and the core tension in one frame.
           </p>
         </div>
 
-        <div className="mx-auto mt-5 w-full max-w-[280px] overflow-hidden rounded-xl border border-white/12 bg-[#050506] shadow-inner">
-          <div className="flex items-center justify-center py-2 border-b border-white/[0.07]">
+        <div
+          ref={cardRef}
+          className="mx-auto mt-5 w-full max-w-[290px] overflow-hidden rounded-xl border border-white/12 bg-[#050506] shadow-inner"
+        >
+          <div className="flex items-center justify-center border-b border-white/[0.07] py-2">
             <span className="text-[10px] font-medium uppercase tracking-[0.28em] text-white/35">Luma</span>
-            <span className="mx-3 text-lg font-light text-white/50">VS</span>
+            <span className="mx-3 text-lg font-light text-white/55">VS</span>
+            <span className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/30">Share</span>
+          </div>
+          <div className="border-b border-white/[0.07] px-3 py-2.5">
+            <p className="text-center text-[9px] font-semibold uppercase tracking-[0.18em] text-white/40">
+              Core tension
+            </p>
+            <p className="mt-1 text-center text-[10px] leading-snug text-white/85">{content.tensionLine}</p>
           </div>
           <div className="flex min-h-[180px]">
             <div className="flex w-1/2 flex-col border-r border-white/10 bg-violet-950/20 px-2.5 py-3">
               <p className="text-center text-[9px] font-semibold uppercase tracking-wider text-white/40 truncate">
                 {content.labelA}
               </p>
+              <p className="mt-1 text-center text-[9px] leading-snug text-violet-100/75">{content.toneA}</p>
               <div className="mt-2 flex flex-1 flex-col gap-1.5">
                 {content.traitsA.map((t, i) => (
-                  <p key={`a-${i}`} className="text-[10px] leading-snug text-white/[0.88]">
-                    · {t}
+                  <p key={`a-${i}`} className="text-[10px] leading-snug text-white/[0.9]">
+                    • {t}
                   </p>
                 ))}
               </div>
@@ -66,17 +99,18 @@ export function VsCardShare({
               <p className="text-center text-[9px] font-semibold uppercase tracking-wider text-white/40 truncate">
                 {content.labelB}
               </p>
+              <p className="mt-1 text-center text-[9px] leading-snug text-sky-100/75">{content.toneB}</p>
               <div className="mt-2 flex flex-1 flex-col gap-1.5">
                 {content.traitsB.map((t, i) => (
-                  <p key={`b-${i}`} className="text-[10px] leading-snug text-white/[0.88]">
-                    · {t}
+                  <p key={`b-${i}`} className="text-[10px] leading-snug text-white/[0.9]">
+                    • {t}
                   </p>
                 ))}
               </div>
             </div>
           </div>
           <div className="border-t border-amber-400/20 bg-black/55 px-3 py-3">
-            <p className="text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-amber-200/75">
+            <p className="text-center text-[8px] font-semibold uppercase tracking-[0.18em] text-amber-200/80">
               Brutal truth
             </p>
             <p className="mt-1.5 text-center text-[10px] leading-snug text-white/[0.9] line-clamp-6 text-pretty">

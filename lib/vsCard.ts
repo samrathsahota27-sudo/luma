@@ -27,6 +27,15 @@ function clip(s: string, max = 58): string {
   return t.length <= max ? t : `${t.slice(0, max - 1).trim()}…`;
 }
 
+function normalizeLine(raw: string, max = 58): string {
+  const cleaned = String(raw ?? "")
+    .replace(/^[•·\-\s]+/, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "";
+  return clip(cleaned, max);
+}
+
 function sentencesFromMap(text: string | null | undefined, maxLines: number): string[] {
   if (!text?.trim()) return [];
   const normalized = text.replace(/\s+/g, " ").trim();
@@ -81,7 +90,9 @@ export function buildVsCardTraits(source: VsCardSource): { traitsA: string[]; tr
     traitsB.push("How you answer when closeness gets real.");
   }
 
-  return { traitsA: traitsA.slice(0, 3), traitsB: traitsB.slice(0, 3) };
+  const cleanA = traitsA.map((t) => normalizeLine(t, 64)).filter(Boolean);
+  const cleanB = traitsB.map((t) => normalizeLine(t, 64)).filter(Boolean);
+  return { traitsA: cleanA.slice(0, 3), traitsB: cleanB.slice(0, 3) };
 }
 
 export function getVsCardContent(source: VsCardSource) {
@@ -91,7 +102,13 @@ export function getVsCardContent(source: VsCardSource) {
   const raw =
     source.brutalTruth?.replace(/\s+/g, " ").trim() || "Two truths in one room—naming the gap is where the work starts.";
   const brutalLine = raw.length > 240 ? `${raw.slice(0, 237).trim()}…` : raw;
-  return { traitsA, traitsB, labelA, labelB, brutalLine };
+  const tensionLine =
+    source.emotionalTag?.trim() ||
+    source.conflictFrictionPoints?.find((x) => typeof x?.mismatch === "string" && x.mismatch.trim())?.mismatch?.trim() ||
+    "Different protection styles can look like rejection.";
+  const toneA = normalizeLine(traitsA[0] || "Moves inward before reconnecting.", 52);
+  const toneB = normalizeLine(traitsB[0] || "Seeks contact quickly for reassurance.", 52);
+  return { traitsA, traitsB, labelA, labelB, brutalLine, tensionLine: clip(tensionLine, 84), toneA, toneB };
 }
 
 function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {

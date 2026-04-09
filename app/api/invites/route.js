@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { getInviteStore } from "@/lib/inviteStore";
+import { getBaseUrl } from "@/utils/getBaseUrl";
 
 function generateInviteId() {
   return randomBytes(16).toString("hex");
@@ -32,13 +33,8 @@ export async function POST(req) {
       createdAt: Date.now(),
     });
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.VERCEL_URL ||
-      (req.headers.get("x-forwarded-host") && `https://${req.headers.get("x-forwarded-host")}`) ||
-      "http://localhost:3000";
-    const origin = baseUrl.startsWith("http") ? baseUrl : `https://${baseUrl}`;
-    const inviteLink = `${origin}/connect/accept?invite=${inviteId}`;
+    const baseUrl = getBaseUrl();
+    const inviteLink = `${baseUrl}/connect/accept?invite=${inviteId}`;
 
     return NextResponse.json({ inviteId, inviteLink });
   } catch (error) {

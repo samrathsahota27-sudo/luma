@@ -48,9 +48,17 @@ import { buildActionTrigger } from "@/lib/actionTrigger";
 import { ActionTriggerCard } from "@/components/ActionTriggerCard";
 import { shareStoryFromElement } from "@/lib/storyCardCapture";
 import { QUESTIONS } from "@/lib/testConfig";
+import { useUserPlan } from "@/hooks/useUserPlan";
 
 const ROUND_TRANSITION_MS = 500;
-const GENERATING_PHASE_2_MS = 3500;
+const AI_STATUS_ROTATE_MS = 1800;
+const AI_STATUS_MESSAGES = [
+  "Reading emotional signals...",
+  "Mapping unspoken patterns...",
+  "Identifying friction points...",
+  "Understanding your dynamic...",
+  "Finalizing your reflection...",
+];
 const RESULT_REVEAL_DELAY_S1 = 200;
 const RESULT_REVEAL_DELAY_S2 = 500;
 const RESULT_REVEAL_DELAY_S3 = 900;
@@ -173,6 +181,7 @@ function IntroCta({ onStart }) {
 
 export default function TestPage() {
   const router = useRouter();
+  const { plan, loading: planLoading } = useUserPlan();
   const [depthMode, setDepthMode] = useState("satin");
   const [phase, setPhase] = useState("intro");
   const [started, setStarted] = useState(false);
@@ -232,6 +241,19 @@ export default function TestPage() {
   const [round5SpaceBetween, setRound5SpaceBetween] = useState(null);
 
   const answersRef = useRef(answers);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const shouldStartNow = params.get("start") === "1";
+      if (shouldStartNow) {
+        setStarted(true);
+        setPhase("rounds");
+      }
+    } catch {
+      // ignore malformed URL/search params
+    }
+  }, []);
 
   useEffect(() => {
     answersRef.current = answers;
@@ -375,8 +397,10 @@ export default function TestPage() {
   useEffect(() => {
     if (!isGenerating) return;
     setGeneratingMessage(0);
-    const t = setTimeout(() => setGeneratingMessage(1), GENERATING_PHASE_2_MS);
-    return () => clearTimeout(t);
+    const t = window.setInterval(() => {
+      setGeneratingMessage((idx) => (idx + 1) % AI_STATUS_MESSAGES.length);
+    }, AI_STATUS_ROTATE_MS);
+    return () => window.clearInterval(t);
   }, [isGenerating]);
 
   useEffect(() => {
@@ -710,8 +734,21 @@ export default function TestPage() {
             const reflections = Array.isArray(m.reflections) ? m.reflections : [];
             const timeline = Array.isArray(m.timeline) ? m.timeline : [];
             const scores = m.scores ?? { connection: 0, conflict: 0 };
+            const fullInsight =
+              typeof data?.fullInsight === "string" && data.fullInsight.trim().length > 0
+                ? data.fullInsight.trim()
+                : data.result;
+            const fullTextResponse =
+              typeof data?.full_text_response === "string" && data.full_text_response.trim().length > 0
+                ? data.full_text_response.trim()
+                : null;
 
-            reflections.push({ result: data, createdAt: now });
+            reflections.push({
+              result: data,
+              fullInsight,
+              ...(fullTextResponse ? { full_text_response: fullTextResponse } : {}),
+              createdAt: now,
+            });
             timeline.push({ type: "reflection", date: now });
 
             return {
@@ -795,6 +832,10 @@ export default function TestPage() {
           calendarState: tracked.calendarState,
         });
       }
+
+      // 1-click completion UX: once reflection is generated/saved, return to dashboard.
+      router.push("/dashboard?updated=1");
+      return;
     } catch (err) {
       console.error("AI ERROR:", err);
       setError("AI generation failed");
@@ -805,10 +846,7 @@ export default function TestPage() {
 
   const showRounds = phase === "rounds" && !isGenerating && !error && result == null;
   const showReview = phase === "review" && !isGenerating && !result;
-  const generatingMessages = [
-    "Your reflection is forming...",
-    "Looking for subtle patterns...",
-  ];
+  const generatingMessages = AI_STATUS_MESSAGES;
 
   const resultParagraphs = result != null ? result.split(/\n\n+/).filter(Boolean) : [];
   const firstParagraph = resultParagraphs[0] ?? "";
@@ -817,6 +855,14 @@ export default function TestPage() {
   const deepExplanationParas = restParagraphs.slice(0, restSplitMid);
   const patternBreakdownParas = restParagraphs.slice(restSplitMid);
   const currentQuestion = QUESTIONS[currentRound - 1] ?? QUESTIONS[0];
+  const handleJourneyCta = () => {
+    if (planLoading) return;
+    if (plan === "premium") {
+      router.push("/timeline?journey=1");
+      return;
+    }
+    router.push("/couples/checkout?source=individual-result");
+  };
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -1456,6 +1502,27 @@ export default function TestPage() {
               <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
                 When someone you invite completes a reflection, you&apos;ll unlock a bonus reflection insight.
               </p>
+            </div>
+
+            <div className="mt-10 md:mt-12">
+              <div className="luma-glass border border-white/10 p-6 md:p-8 text-center">
+                <p className="text-sm text-muted-foreground">This doesn&apos;t change on its own.</p>
+                <button
+                  type="button"
+                  onClick={handleJourneyCta}
+                  disabled={planLoading}
+                  className="mt-4 w-full rounded-xl bg-[linear-gradient(135deg,rgba(140,110,200,0.95),rgba(105,85,170,0.95))] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+                >
+                  {planLoading ? "Checking access…" : "Start 28-Day Journey"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/timeline")}
+                  className="mt-3 w-full rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+                >
+                  Save to Timeline
+                </button>
+              </div>
             </div>
 
             <div className="mt-14 md:mt-16 text-center">

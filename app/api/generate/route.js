@@ -23,6 +23,7 @@ import { deriveThemeTone } from "@/lib/themeTone";
 import { buildGuidingReflection } from "@/lib/guidingReflection";
 import { derivePatternLabel } from "@/lib/patternLabel";
 import { createClient } from "@/lib/supabase/server";
+import { buildSoloReflectionPrompt } from "@/lib/soloReflectionPrompt";
 
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -74,64 +75,16 @@ export async function POST(req) {
       }
     })();
 
-    const prompt = `
-You are augmenting a deterministic pattern system. You are NOT allowed to invent or rename patterns.
-
-Selected library pattern (MUST USE EXACT NAME):
-- pattern_name: ${chosenPattern.name}
-- pattern_core: ${chosenPattern.core}
-
-Variant (MUST influence wording; do not reuse generic lines):
-- variant: ${variant || "none"}
-- variant_nuance: ${variantSeed?.nuance || "—"}
-- variant_seed_phrasing (use or paraphrase; must feel distinct for this variant):
-  - description_seed: ${variantSeed?.description || "—"}
-  - core_line_seed: ${variantSeed?.core_line || "—"}
-  - reach_seed: ${variantSeed?.reach || "—"}
-  - shift_seed: ${variantSeed?.shift || "—"}
-
-Secondary influence (mention subtly, not equal to primary):
-- secondary_pattern_name: ${profile.secondary.name}
-- secondary_pattern_core: ${profile.secondary.core}
-
-Shadow pattern (less obvious; use in mirror_line tension; slightly uncomfortable):
-- shadow_pattern_name: ${profile.shadow.name}
-- shadow_pattern_core: ${profile.shadow.core}
-
-User signals (tags + words):
-${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
-
-Optional relationship context:
-${contextJson || "—"}
-
-${depthModeInstructions(depthMode)}
-
-Write short, sharp lines. No paragraphs. No extra keys.
-Forbidden phrasing: "this suggests", "you tend to".
-No vague words ("vibes", "energy", "spiritual").
-`;
-
-    const structuredSuffix = `
-
-CRITICAL — STRICT STRUCTURED OUTPUT (INDIVIDUAL, UI-ALIGNED):
-Return a single JSON object only. No markdown, no code fences, no text before or after JSON.
-Use direct psychological language (attachment, avoidance, control, distance, pursuit). No "vibes/energy/spiritual".
-Each string: 1–2 lines max. Short, sharp, honest.
-
-Required JSON schema:
-{
-  "pattern": "${patternLabel}",
-  "description": "When things get close, you go numb — then blame yourself for it.",
-  "theme": { "title": "${micro.theme.title}", "subtitle": "${micro.theme.subtitle}" },
-  "tone": { "title": "${micro.tone.title}", "subtitle": "${micro.tone.subtitle}" },
-  "core_line": "You call it 'peace' when it's actually avoidance.",
-  "reach": "Less noise. More control. A room you can breathe in.",
-  "shift": "A small truth said early — before you disappear."
-}
-
-Do NOT include any other keys.`;
-
-    const raw = await callOpenAI(prompt + structuredSuffix);
+    const prompt = buildSoloReflectionPrompt({
+      selections,
+      patternLabel,
+      depthInstructions: depthModeInstructions(depthMode),
+      contextJson,
+    });
+    // Temporary debug logs requested.
+    console.log("[solo-reflection][final-prompt]", prompt);
+    const raw = await callOpenAI(prompt);
+    console.log("[solo-reflection][final-response]", raw);
     if (!raw) {
       throw new Error("AI result was empty");
     }
@@ -161,6 +114,18 @@ Do NOT include any other keys.`;
       pattern: finalCard.pattern,
       signals,
     });
+    const fullInsight = [
+      `Pattern: ${finalCard.pattern}`,
+      finalCard.description,
+      `Theme: ${finalCard.theme.title} — ${finalCard.theme.subtitle}`,
+      `Tone: ${finalCard.tone.title} — ${finalCard.tone.subtitle}`,
+      `One line you'll keep hearing: ${finalCard.core_line}`,
+      `What you reach for: ${finalCard.reach}`,
+      `What shifts this: ${finalCard.shift}`,
+    ]
+      .filter((line) => typeof line === "string" && line.trim().length > 0)
+      .join("\n\n");
+    const fullTextResponse = raw;
 
     const supabase = await createClient();
     const {
@@ -178,6 +143,8 @@ Do NOT include any other keys.`;
           description: finalCard?.description ?? card?.description,
           theme: finalCard?.theme ?? card?.theme,
           core_line: finalCard?.core_line ?? card?.core_line,
+          fullInsight,
+          full_text_response: fullTextResponse,
         };
 
         console.log("🔴 SAVING ENTRY:", newEntry);
@@ -207,6 +174,8 @@ Do NOT include any other keys.`;
 
     return NextResponse.json({
       structured: finalCard,
+      fullInsight,
+      full_text_response: fullTextResponse,
       patternProfile: {
         primary_pattern: profile.primary.name,
         secondary_pattern: profile.secondary.name,

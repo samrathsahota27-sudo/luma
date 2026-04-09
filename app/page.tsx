@@ -34,17 +34,25 @@ export default function HomePage() {
 
           <div className="relative z-10 max-w-[720px] mx-auto animate-luma-fade-only" style={{ animationDuration: "0.8s" }}>
             <h1 className="font-serif text-[36px] md:text-[52px] leading-tight text-balance text-white [font-family:var(--font-serif-display)] tracking-wide">
-              What does your inner world look like?
+              It&apos;s not what you say. It&apos;s what you avoid.
             </h1>
-            <p className="mt-8 text-base md:text-lg leading-relaxed text-white/80 max-w-xl mx-auto">
-              Luma reveals emotional patterns through images, not questions.
+            <p className="mt-8 text-base md:text-lg leading-relaxed text-white/80 max-w-xl mx-auto text-balance">
+              Luma decodes the emotional patterns between you - the tension, distance, and unspoken signals you can
+              feel but can&apos;t explain.
             </p>
-            <div className="mt-12">
+            <div className="mt-12 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/choose-mode"
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-white/10 backdrop-blur-md border border-white/25 text-white text-base font-medium transition-all duration-300 hover:bg-white/14 hover:border-white/35 hover:scale-[1.02] shadow-[0_10px_30px_rgba(0,0,0,0.25)] hover:shadow-[0_14px_44px_rgba(0,0,0,0.30)]"
               >
-                Explore Your Inner World
+                See My Pattern
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/couple/start"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full bg-black/20 backdrop-blur-md border border-white/20 text-white text-base font-medium transition-all duration-300 hover:bg-black/30 hover:border-white/30 hover:scale-[1.02] shadow-[0_10px_30px_rgba(0,0,0,0.22)] hover:shadow-[0_14px_44px_rgba(0,0,0,0.28)]"
+              >
+                Decode Our Dynamic
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>

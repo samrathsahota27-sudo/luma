@@ -69,6 +69,13 @@ async function readSession(sessionId) {
     .maybeSingle();
 }
 
+async function clearResultCache(sessionId) {
+  return supabase
+    .from("couple_sessions")
+    .update({ result: null, generated_at: null })
+    .eq("id", sessionId);
+}
+
 async function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -81,25 +88,45 @@ export async function GET(req, { params }) {
     }
 
     const depthMode = req.nextUrl.searchParams.get("dm") || "satin";
-    const { data: session, error: getError } = await readSession(sessionId);
+    const { data: sessionInit, error: getError } = await readSession(sessionId);
+    let session = sessionInit;
 
     if (getError) {
       console.error("couple-session result get:", getError);
       return NextResponse.json({ error: "Could not load session" }, { status: 500 });
     }
-    if (!session) {
+    if (!sessionInit) {
       return NextResponse.json({ error: "Invalid session" }, { status: 404 });
     }
 
     if (session.result && typeof session.result === "object") {
-      return NextResponse.json({
-        ok: true,
-        status: "ready",
-        readyForResult: true,
-        generatedAt: session.generated_at ?? null,
-        cached: true,
-        ...session.result,
-      });
+      // Re-generate if the cached result is missing the structured deep-insight fields
+      // (results stored before `structured` was added to buildResultBundle).
+      const s = session.result.structured;
+      const hasDeepInsights =
+        s &&
+        typeof s === "object" &&
+        (Array.isArray(s.differences) ||
+          Array.isArray(s.frictionMap) ||
+          Array.isArray(s.riskPatterns) ||
+          Array.isArray(s.whatHelps) ||
+          s.partnerDecoder ||
+          s.decoder);
+
+      if (hasDeepInsights) {
+        return NextResponse.json({
+          ok: true,
+          status: "ready",
+          readyForResult: true,
+          generatedAt: session.generated_at ?? null,
+          cached: true,
+          ...session.result,
+        });
+      }
+
+      // Structured data missing — clear the cached result so it regenerates below.
+      await clearResultCache(sessionId);
+      session = { ...session, result: null, generated_at: null };
     }
 
     if (!session.partner_a || !session.partner_b) {

@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
+import { createClient } from "@/lib/supabase/client";
 import {
   getReflections,
-  getReflectionsByDate,
+  buildMergedTimelineEntries,
+  localDateKeyFromIso,
   daysUntilNextReflection,
   type ReflectionEntry,
   type IndividualReflectionEntry,
@@ -36,6 +38,7 @@ function dateKey(year: number, month: number, day: number): string {
 }
 
 export default function TimelinePage() {
+  const supabase = createClient();
   const [today] = useState(() => new Date());
   const [viewYear, setViewYear] = useState(today.getFullYear());
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1);
@@ -44,23 +47,63 @@ export default function TimelinePage() {
   const [selectedEntries, setSelectedEntries] = useState<ReflectionEntry[]>([]);
   const [modalOpen, setModalOpen] = useState(false);
 
+  const refreshEntries = useCallback(async () => {
+    const local = getReflections();
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setEntries(local);
+        return;
+      }
+      const { data: profile } = await supabase
+        .from("user_profiles")
+        .select("pattern_history, couple_sessions")
+        .eq("id", user.id)
+        .single();
+      setEntries(
+        buildMergedTimelineEntries({
+          local,
+          userId: user.id,
+          patternHistory: profile?.pattern_history,
+          coupleSessions: profile?.couple_sessions,
+        })
+      );
+    } catch {
+      setEntries(local);
+    }
+  }, [supabase]);
+
   useEffect(() => {
-    setEntries(getReflections());
-  }, []);
+    void refreshEntries();
+  }, [refreshEntries]);
+
+  useEffect(() => {
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void refreshEntries();
+    });
+    const onFocus = () => {
+      void refreshEntries();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      sub.subscription.unsubscribe();
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, [refreshEntries, supabase]);
 
   const monthEntries = useMemo(() => {
-    const start = `${viewYear}-${String(viewMonth).padStart(2, "0")}-01`;
-    const lastDay = new Date(viewYear, viewMonth, 0).getDate();
-    const end = `${viewYear}-${String(viewMonth).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-    return entries.filter(
-      (e) => e.date.slice(0, 10) >= start && e.date.slice(0, 10) <= end
-    );
+    const monthPrefix = `${viewYear}-${String(viewMonth).padStart(2, "0")}-`;
+    return entries.filter((e) => localDateKeyFromIso(e.date).startsWith(monthPrefix));
   }, [viewYear, viewMonth, entries]);
 
   const entriesByDay = useMemo(() => {
     const map: Record<string, ReflectionEntry[]> = {};
     monthEntries.forEach((e) => {
-      const key = e.date.slice(0, 10);
+      const key = localDateKeyFromIso(e.date);
       if (!map[key]) map[key] = [];
       map[key].push(e);
     });
@@ -77,12 +120,23 @@ export default function TimelinePage() {
 
   const handleDayClick = (year: number, month: number, day: number) => {
     const key = dateKey(year, month, day);
-    const list = getReflectionsByDate(key);
-    if (list.length === 0) return;
+    const list = entries.filter((e) => localDateKeyFromIso(e.date) === key);
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console
+      console.log("Clicked date:", key);
+      // eslint-disable-next-line no-console
+      console.log("Reflection:", list);
+    }
     setSelectedDate(key);
     setSelectedEntries(list);
-    setModalOpen(true);
+    setModalOpen(list.length > 0);
   };
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+    // eslint-disable-next-line no-console
+    console.log("Selected date:", selectedDate);
+  }, [selectedDate]);
 
   const prevMonth = () => {
     if (viewMonth === 1) {
@@ -172,17 +226,17 @@ export default function TimelinePage() {
               const hasIndividual = dayEntries.some((e) => e.mode === "individual");
               const hasCouple = dayEntries.some((e) => e.mode === "couple");
               const hasAny = dayEntries.length > 0;
+              const isSelected = selectedDate === key;
               return (
                 <button
                   key={key}
                   type="button"
                   onClick={() => handleDayClick(viewYear, viewMonth, day)}
-                  disabled={!hasAny}
                   className={`aspect-square rounded-xl flex flex-col items-center justify-center text-sm transition-colors ${
                     hasAny
                       ? "bg-[#f0eeeb] hover:bg-[#e8e3d9] text-foreground cursor-pointer"
-                      : "text-[#9a9a9a] cursor-default"
-                  }`}
+                      : "text-[#9a9a9a] bg-background/70 hover:bg-background/90 cursor-pointer"
+                  } ${isSelected ? "ring-2 ring-ring/40" : ""}`}
                 >
                   <span className="text-foreground font-medium">{day}</span>
                   <div className="flex gap-0.5 mt-0.5">

@@ -13,6 +13,14 @@ import { getRound5SelectionMeta } from "@/lib/reflection/round5Images";
 const PARTNER_A_STORAGE_KEY = "luma_couple_partner_a";
 const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
 const COUPLE_PRE_REVEAL_DONE_KEY = "luma_couple_pre_reveal_done";
+const AI_STATUS_ROTATE_MS = 1800;
+const AI_STATUS_MESSAGES = [
+  "Reading emotional signals...",
+  "Mapping unspoken patterns...",
+  "Identifying friction points...",
+  "Understanding your dynamic...",
+  "Finalizing your reflection...",
+];
 
 export default function CouplePartnerBPage() {
   const router = useRouter();
@@ -37,6 +45,7 @@ export default function CouplePartnerBPage() {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showNone, setShowNone] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingMessageIdx, setGeneratingMessageIdx] = useState(0);
   const [error, setError] = useState(null);
   const [relationshipTags, setRelationshipTags] = useState([]);
   const [relationshipSummary, setRelationshipSummary] = useState("");
@@ -89,6 +98,15 @@ export default function CouplePartnerBPage() {
       cancelled = true;
     };
   }, [remoteSessionId]);
+
+  useEffect(() => {
+    if (!isGenerating) return;
+    setGeneratingMessageIdx(0);
+    const timer = window.setInterval(() => {
+      setGeneratingMessageIdx((idx) => (idx + 1) % AI_STATUS_MESSAGES.length);
+    }, AI_STATUS_ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [isGenerating]);
 
   useEffect(() => {
     setIsTransitioning(true);
@@ -561,8 +579,11 @@ export default function CouplePartnerBPage() {
 
         {isGenerating && (
           <div className="px-6 py-24 text-center">
-            <p className="font-serif text-xl text-foreground">
-              Your reflection is forming...
+            <p
+              key={generatingMessageIdx}
+              className="font-serif text-xl text-foreground transition-all duration-500 animate-luma-fade-only"
+            >
+              {AI_STATUS_MESSAGES[generatingMessageIdx]}
             </p>
             <p className="mt-3 text-sm text-muted-foreground">
               Weaving together both reflections into one.

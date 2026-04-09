@@ -142,6 +142,52 @@ function extractOneSharedInsight(raw) {
   return m2?.[1] ? String(m2[1]).trim() : "";
 }
 
+function parsePartnerDecoderFromText(raw) {
+  const text = String(raw || "").trim();
+  if (!text) return { partnerA: "", partnerB: "", whenTogether: "" };
+  const lines = text
+    .split(/\n+/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  let partnerA = "";
+  let partnerB = "";
+  let whenTogether = "";
+  for (const line of lines) {
+    if (!partnerA) {
+      const m = line.match(/^partner\s*a\s*:\s*(.+)$/i);
+      if (m?.[1]) {
+        partnerA = m[1].trim();
+        continue;
+      }
+    }
+    if (!partnerB) {
+      const m = line.match(/^partner\s*b\s*:\s*(.+)$/i);
+      if (m?.[1]) {
+        partnerB = m[1].trim();
+        continue;
+      }
+    }
+    if (!whenTogether) {
+      const m = line.match(/^(when (?:you(?:'re| are)? together|you meet|they meet))\s*:\s*(.+)$/i);
+      if (m?.[2]) {
+        whenTogether = m[2].trim();
+      }
+    }
+  }
+  return { partnerA, partnerB, whenTogether };
+}
+
+function toUiMicroCommand(raw) {
+  const source = String(raw || "").trim();
+  if (!source) return "";
+  const first = source.split(/[\n.!?]+/)[0].trim();
+  const words = first.split(/\s+/).filter(Boolean).slice(0, 8);
+  if (!words.length) return "";
+  const line = words.join(" ");
+  const cap = line.charAt(0).toUpperCase() + line.slice(1);
+  return /[.!?]$/.test(cap) ? cap : `${cap}.`;
+}
+
 function getRecommendedTool(pattern) {
   const p = String(pattern || "").trim();
   if (p === "Soft Pursuit") return "Emotional Translator";
@@ -163,6 +209,75 @@ function getTensionStatus(value) {
   if (value <= 50) return { text: "Moderate — friction present", className: "text-yellow-400/70" };
   if (value <= 70) return { text: "High — repair needed", className: "text-orange-400/70" };
   return { text: "Critical — high friction", className: "text-red-400/70" };
+}
+
+function decodeDeep(value) {
+  let out = String(value ?? "");
+  for (let i = 0; i < 3; i += 1) {
+    try {
+      const next = decodeURIComponent(out);
+      if (next === out) break;
+      out = next;
+    } catch {
+      break;
+    }
+  }
+  return out;
+}
+
+function isExpiredBlobSignedUrl(raw) {
+  if (!raw || typeof raw !== "string") return false;
+  try {
+    const target = new URL(raw);
+    if (!target.hostname.includes(".blob.core.windows.net")) return false;
+    const seRaw = target.searchParams.get("se");
+    if (!seRaw) return false;
+    const se = new Date(decodeDeep(seRaw));
+    if (!Number.isFinite(se.getTime())) return false;
+    return se.getTime() <= Date.now();
+  } catch {
+    return false;
+  }
+}
+
+function deriveRelationshipPersona({ tension, drift, alignment }) {
+  const t = Number.isFinite(Number(tension)) ? Number(tension) : 0;
+  const d = Number.isFinite(Number(drift)) ? Number(drift) : 0;
+  const a = Number.isFinite(Number(alignment)) ? Number(alignment) : 0;
+
+  if (t >= 65 && a >= 50) {
+    return {
+      name: "The High-Frequency Loopers",
+      description:
+        "You stay highly engaged, but intensity keeps pulling you into repeat conflict loops.",
+    };
+  }
+  if (d >= 60 || a <= 45) {
+    return {
+      name: "The Parallel Voyagers",
+      description:
+        "You move side by side with too little overlap, so distance grows without loud conflict.",
+    };
+  }
+  if (a >= 62 && t <= 52 && d <= 52) {
+    return {
+      name: "The Silent Guardians",
+      description:
+        "You protect the bond by holding things in — until it quietly builds pressure.",
+    };
+  }
+  if (t >= 55 && a >= 56) {
+    return {
+      name: "The Friction Pair",
+      description:
+        "There is heat and loyalty here; you clash hard, then pull each other back in.",
+    };
+  }
+  return {
+    name: "The Silent Guardians",
+    description:
+      "You keep the relationship stable by containing discomfort, which can turn honesty into delay.",
+  };
 }
 
 function useInViewOnce(options) {
@@ -245,17 +360,11 @@ export default function CoupleResultPage() {
   const [sequencePhase, setSequencePhase] = useState(null);
   const [didRunPostRevealAnimation, setDidRunPostRevealAnimation] = useState(false);
   const [resultLinkCopied, setResultLinkCopied] = useState(false);
+  const [personaCopied, setPersonaCopied] = useState(false);
   const checkInRecordedRef = useRef(false);
   const shiftResolvedForFingerprintRef = useRef(null);
   const revealRunRef = useRef(null);
   const [shiftInsight, setShiftInsight] = useState(null);
-
-  useEffect(() => {
-    if (!data) return;
-    // Debug requested: inspect exact payload fields.
-    // eslint-disable-next-line no-console
-    console.log("Couple result data:", data);
-  }, [data]);
 
   const checkAgainEncouragement = useMemo(
     () => getCheckAgainEncouragement(readCoupleLastCheckInMs()),
@@ -530,6 +639,18 @@ export default function CoupleResultPage() {
     }
   };
 
+  const handleSharePersona = async () => {
+    if (!relationshipPersona?.name) return;
+    const payload = `[Relationship Persona]\n"${relationshipPersona.name}"\n\n${relationshipPersona.description}`;
+    try {
+      await navigator.clipboard.writeText(payload);
+      setPersonaCopied(true);
+      window.setTimeout(() => setPersonaCopied(false), 1800);
+    } catch {
+      /* ignore */
+    }
+  };
+
   const round5SupplementLines = useMemo(() => {
     if (!data?.partnerA || !data?.partnerB) return null;
     const lines = resolveRound5PsychologicalSupplementLinesForCouple(
@@ -592,9 +713,32 @@ export default function CoupleResultPage() {
   const mapReadInnerB = data?.mapReadInnerB ?? null;
   const mapReadBetween = data?.mapReadBetween ?? null;
   const conflictFrictionPoints = data?.conflictFrictionPoints ?? null;
-  const innerWorldA = data?.innerWorldA ? `/api/image-proxy?url=${encodeURIComponent(data.innerWorldA)}` : null;
-  const innerWorldB = data?.innerWorldB ? `/api/image-proxy?url=${encodeURIComponent(data.innerWorldB)}` : null;
-  const spaceBetween = data?.spaceBetween ? `/api/image-proxy?url=${encodeURIComponent(data.spaceBetween)}` : null;
+  const innerWorldARaw =
+    typeof data?.innerWorldA === "string" && data.innerWorldA.trim() ? data.innerWorldA.trim() : "";
+  const innerWorldBRaw =
+    typeof data?.innerWorldB === "string" && data.innerWorldB.trim() ? data.innerWorldB.trim() : "";
+  /** Thumbnails: skip expired signed URLs to avoid broken/502 tiles. */
+  const innerWorldA =
+    innerWorldARaw && !isExpiredBlobSignedUrl(innerWorldARaw)
+      ? `/api/image-proxy?url=${encodeURIComponent(innerWorldARaw)}`
+      : null;
+  const innerWorldB =
+    innerWorldBRaw && !isExpiredBlobSignedUrl(innerWorldBRaw)
+      ? `/api/image-proxy?url=${encodeURIComponent(innerWorldBRaw)}`
+      : null;
+  /** Story export: keep download targets whenever we still have a URL (canvas/text fallback if image fails). */
+  const innerWorldAExport = innerWorldARaw
+    ? `/api/image-proxy?url=${encodeURIComponent(innerWorldARaw)}`
+    : null;
+  const innerWorldBExport = innerWorldBRaw
+    ? `/api/image-proxy?url=${encodeURIComponent(innerWorldBRaw)}`
+    : null;
+  const spaceBetween =
+    typeof data?.spaceBetween === "string" &&
+    data.spaceBetween.trim() &&
+    !isExpiredBlobSignedUrl(data.spaceBetween)
+      ? `/api/image-proxy?url=${encodeURIComponent(data.spaceBetween)}`
+      : null;
   const imageInterpretA = data?.imageInterpretA ?? null;
   const imageInterpretB = data?.imageInterpretB ?? null;
   const imageInterpretBetween = data?.imageInterpretBetween ?? null;
@@ -665,47 +809,184 @@ export default function CoupleResultPage() {
     data?.insight ??
     extractOneSharedInsight(result) ??
     "";
+  const relationshipPersona = (() => {
+    const apiPersona =
+      data?.relationshipPersona && typeof data.relationshipPersona === "object"
+        ? data.relationshipPersona
+        : null;
+    if (
+      apiPersona &&
+      typeof apiPersona.name === "string" &&
+      apiPersona.name.trim() &&
+      typeof apiPersona.description === "string" &&
+      apiPersona.description.trim()
+    ) {
+      return {
+        name: apiPersona.name.trim(),
+        description: apiPersona.description.trim(),
+      };
+    }
+    return deriveRelationshipPersona({
+      tension: tensionValue,
+      drift: driftValue,
+      alignment: alignmentValue,
+    });
+  })();
   const betweenSignals = signalLinesFromText(mapReadBetween, round5SupplementLines);
-  const differencesList = Array.isArray(structured?.differences)
-    ? structured.differences
-        .filter((x) => x && typeof x.label === "string" && typeof x.description === "string")
-        .map((x) => ({ label: String(x.label).trim(), description: String(x.description).trim() }))
-        .filter((x) => x.label && x.description)
-    : [];
-  const whatHelpsList = Array.isArray(structured?.whatHelps)
-    ? structured.whatHelps
-        .filter((x) => typeof x === "string" && x.trim())
-        .map((x) => String(x).trim())
-    : [];
+  const differencesSource = Array.isArray(structured?.differences) && structured.differences.length > 0
+    ? "differences"
+    : Array.isArray(structured?.frictionMap) && structured.frictionMap.length > 0
+      ? "frictionMap"
+      : "none";
+  const differencesList = (() => {
+    const diffs = Array.isArray(structured?.differences) ? structured.differences : [];
+    const mappedDiffs = diffs
+      .filter((x) => x && typeof x === "object")
+      .map((x) => ({
+        label: String(x.label || x.title || "").trim(),
+        description: String(x.description || x.text || "").trim(),
+      }))
+      .filter((x) => x.label && x.description);
+    if (mappedDiffs.length > 0) return mappedDiffs;
+
+    const fm = Array.isArray(structured?.frictionMap) ? structured.frictionMap : [];
+    return fm
+      .filter((x) => x && typeof x === "object")
+      .map((x) => ({
+        label: String(x.title || x.label || "").trim(),
+        description: String(x.text || x.description || "").trim(),
+      }))
+      .filter((x) => x.label && x.description);
+  })();
+  const differencesRenderList =
+    differencesList.length > 0
+      ? differencesList.slice(0, 3)
+      : [
+          {
+            label: "How you signal stress",
+            description:
+              "One tends to go quiet to regulate while the other seeks contact to feel secure.",
+          },
+          {
+            label: "How repair starts",
+            description:
+              "One needs space before talking; the other needs reassurance before settling.",
+          },
+          {
+            label: "How silence is interpreted",
+            description:
+              "The same silence can feel calming to one and rejecting to the other.",
+          },
+        ];
+
+  const whatHelpsSource = Array.isArray(structured?.whatHelps) && structured.whatHelps.length > 0
+    ? "whatHelps"
+    : Array.isArray(structured?.bridge) && structured.bridge.length > 0
+      ? "bridge"
+      : "none";
+  const whatHelpsList = (() => {
+    const helps = Array.isArray(structured?.whatHelps)
+      ? structured.whatHelps
+          .filter((x) => typeof x === "string" && x.trim())
+          .map((x) => toUiMicroCommand(x))
+          .filter(Boolean)
+      : [];
+    if (helps.length > 0) return helps;
+
+    const bridge = Array.isArray(structured?.bridge) ? structured.bridge : [];
+    const fromBridge = bridge
+      .filter((x) => x && typeof x === "object")
+      .map((x) => toUiMicroCommand(x.text || x.description || x.title || x.label || ""))
+      .filter(Boolean);
+    const defaults =
+      tensionValue >= 65
+        ? ["Name the tension directly tonight.", "Ask what felt missed.", "Respond before withdrawing."]
+        : driftValue >= 60 || alignmentValue <= 45
+          ? ["Interrupt distance with one check-in.", "Say one unmet need clearly.", "Schedule repair within 24 hours."]
+          : ["Protect this with weekly honesty.", "Name silence before it spreads.", "Repair small misses early."];
+    const normalizedDefaults = defaults.map((x) => toUiMicroCommand(x)).filter(Boolean).slice(0, 3);
+    const merged = [...helps, ...fromBridge]
+      .map((x) => String(x || "").trim())
+      .filter(Boolean);
+    const unique = [];
+    for (const item of merged) {
+      if (unique.includes(item)) continue;
+      unique.push(item);
+      if (unique.length >= 3) break;
+    }
+    if (unique.length < 3) {
+      for (const item of normalizedDefaults) {
+        if (unique.includes(item)) continue;
+        unique.push(item);
+        if (unique.length >= 3) break;
+      }
+    }
+    return unique.slice(0, 3);
+  })();
+
+  const parsedDecoder = parsePartnerDecoderFromText(structured?.decoder);
+  const hasPartnerDecoderObject =
+    structured?.partnerDecoder &&
+    typeof structured.partnerDecoder === "object" &&
+    (typeof structured.partnerDecoder.partnerA === "string" ||
+      typeof structured.partnerDecoder.partnerB === "string" ||
+      typeof structured.partnerDecoder.whenTheyMeet === "string");
+  const decoderSource = hasPartnerDecoderObject
+    ? "partnerDecoder"
+    : typeof structured?.decoder === "string" && structured.decoder.trim()
+      ? "decoder"
+      : "none";
   const decoderPartnerA =
     typeof structured?.partnerDecoder?.partnerA === "string"
       ? structured.partnerDecoder.partnerA.trim()
-      : "";
+      : parsedDecoder.partnerA;
   const decoderPartnerB =
     typeof structured?.partnerDecoder?.partnerB === "string"
       ? structured.partnerDecoder.partnerB.trim()
-      : "";
+      : parsedDecoder.partnerB;
   const decoderWhenTogether =
     typeof structured?.partnerDecoder?.whenTheyMeet === "string"
       ? structured.partnerDecoder.whenTheyMeet.trim()
-      : "";
-  const hasPartnerDecoder = Boolean(decoderPartnerA || decoderPartnerB || decoderWhenTogether);
+      : parsedDecoder.whenTogether;
+  const decoderPartnerAResolved =
+    decoderPartnerA ||
+    "Partner A tends to process inward first, then reconnect after pressure drops.";
+  const decoderPartnerBResolved =
+    decoderPartnerB ||
+    "Partner B tends to seek signal quickly, so reassurance timing matters more.";
+  const decoderWhenTogetherResolved =
+    decoderWhenTogether ||
+    sharedInsight ||
+    distanceSignal ||
+    "Your interpretations diverge fastest in silence; name what each silence means before assuming intent.";
+  const hasPartnerDecoder = Boolean(decoderPartnerAResolved || decoderPartnerBResolved || decoderWhenTogetherResolved);
+  const decoderData = { partnerA: decoderPartnerA, partnerB: decoderPartnerB, whenTogether: decoderWhenTogether };
 
   const frictionCards = (() => {
     const fm = structured?.frictionMap;
     if (Array.isArray(fm) && fm.length) {
-      return fm
-        .filter((x) => x && typeof x.title === "string" && typeof x.text === "string")
-        .map((x) => ({ title: String(x.title).trim(), text: String(x.text).trim() }))
-        .filter((x) => x.title && x.text)
+      const cards = fm
+        .map((x) => {
+          if (!x || typeof x !== "object") return null;
+          const title = String(x.title || x.label || "").trim();
+          const text = String(x.text || x.description || "").trim();
+          return title && text ? { title, text } : null;
+        })
+        .filter(Boolean)
         .slice(0, 3);
+      if (cards.length) return cards;
+      // fall through if all items failed normalisation
     }
     const diffs = structured?.differences;
     if (Array.isArray(diffs) && diffs.length) {
       return diffs
-        .filter((x) => x && typeof x.label === "string" && typeof x.description === "string")
-        .map((x) => ({ title: String(x.label).trim(), text: String(x.description).trim() }))
-        .filter((x) => x.title && x.text)
+        .map((x) => {
+          if (!x || typeof x !== "object") return null;
+          const title = String(x.label || x.title || "").trim();
+          const text = String(x.description || x.text || "").trim();
+          return title && text ? { title, text } : null;
+        })
+        .filter(Boolean)
         .slice(0, 3);
     }
     return [];
@@ -735,14 +1016,69 @@ export default function CoupleResultPage() {
       .slice(0, 3);
   })();
 
+  /** “What may be asking for attention” — risk patterns first, then signals / fallbacks. */
+  const attentionList = (() => {
+    if (riskCards.length > 0) {
+      return riskCards.map((c) => ({ title: c.title, text: c.text }));
+    }
+    const items = [];
+    const ds = String(distanceSignal || "").trim();
+    if (ds) items.push({ title: "Distance signal", text: ds });
+    const shadow = typeof shadowInsight === "string" ? shadowInsight.trim() : "";
+    if (shadow) items.push({ title: "What stays in the shadows", text: shadow });
+    const bt = typeof brutalTruth === "string" ? brutalTruth.trim() : "";
+    if (bt && items.length < 3) {
+      items.push({
+        title: "The blunt read",
+        text: bt.length > 200 ? `${bt.slice(0, 197)}…` : bt,
+      });
+    }
+    if (items.length >= 2) return items.slice(0, 3);
+    const fill = [];
+    if (tensionValue >= 55) {
+      fill.push({
+        title: "Tension on the line",
+        text: `Tension is ${tensionValue}% (${tensionLabel}). What you sidestep often returns as heat or shutdown.`,
+      });
+    }
+    if (driftValue >= 50 && items.length + fill.length < 3) {
+      fill.push({
+        title: "Drift to watch",
+        text: `Drift is ${driftValue}% (${driftLabel}). Parallel coping can feel calm until you realize you’ve stopped overlapping.`,
+      });
+    }
+    if (items.length + fill.length < 2) {
+      fill.push({
+        title: "Repair rhythm",
+        text: "Notice if you’re both waiting for the other to reopen—timing often matters more than content.",
+      });
+    }
+    if (items.length + fill.length < 2) {
+      const tag = typeof emotionalTag === "string" ? emotionalTag.trim() : "";
+      fill.push({
+        title: "Emotional signal",
+        text: tag
+          ? `Your read landed on “${tag}”—notice where that shows up between you this week.`
+          : "Ask what felt unnamed in the last hard moment—not to fix it, just to map it.",
+      });
+    }
+    return [...items, ...fill].slice(0, 3);
+  })();
+
   const bridgeCards = (() => {
     const bridge = structured?.bridge;
     if (Array.isArray(bridge) && bridge.length) {
-      return bridge
-        .filter((x) => x && typeof x.title === "string" && typeof x.text === "string")
-        .map((x) => ({ title: String(x.title).trim(), text: String(x.text).trim() }))
-        .filter((x) => x.title && x.text)
+      const cards = bridge
+        .map((x) => {
+          if (!x || typeof x !== "object") return null;
+          const title = String(x.title || x.label || "").trim();
+          const text = String(x.text || x.description || "").trim();
+          return title && text ? { title, text } : null;
+        })
+        .filter(Boolean)
         .slice(0, 3);
+      if (cards.length) return cards;
+      // fall through if all items failed normalisation
     }
     const helps = structured?.whatHelps;
     if (Array.isArray(helps) && helps.length) {
@@ -777,6 +1113,39 @@ export default function CoupleResultPage() {
       : recommendedTool === "Silent Signal"
         ? "Words aren't landing. Try saying it a different way."
         : "Paste your last argument. See where the drift actually started.";
+  const resultType =
+    tensionValue >= 65
+      ? "high_tension"
+      : driftValue >= 60 || alignmentValue <= 45
+        ? "high_distance"
+        : "balanced";
+  const prescription = (() => {
+    if (resultType === "high_tension") {
+      return {
+        title: "You’re not stuck. You’re misaligned.",
+        action: "The next step is clarity, not guessing.",
+        cta: "Use Emotional Translator",
+        subtext: "Paste a recent message that felt 'off'. We’ll decode what was really meant.",
+        href: "/translator",
+      };
+    }
+    if (resultType === "high_distance") {
+      return {
+        title: "You’re drifting, not disconnected.",
+        action: "This doesn’t fix itself. It fades unless interrupted.",
+        cta: "Generate a Reconnection Plan",
+        subtext: "A simple, specific action you can take in the next 24 hours.",
+        href: "/future-paths",
+      };
+    }
+    return {
+      title: "This works — but it’s fragile.",
+      action: "Strong dynamics are maintained, not assumed.",
+      cta: "Strengthen Your Pattern",
+      subtext: "See what could quietly break this over time.",
+      href: "/couple-hub",
+    };
+  })();
 
   const formattedResult =
     result != null ? result.replace(/\n/g, "<br>") : null;
@@ -784,7 +1153,6 @@ export default function CoupleResultPage() {
   const transition = "transition-all duration-500 ease-out";
   const hidden = "opacity-0 translate-y-4";
   const visibleClass = "opacity-100 translate-y-0";
-
   const obscureMain = sequencePhase === "analyzing" || sequencePhase === "blur_peel";
   const mainRevealClass =
     obscureMain
@@ -798,7 +1166,7 @@ export default function CoupleResultPage() {
       <Navigation />
 
       <div className={`flex flex-col flex-1 min-w-0 ${mainRevealClass}`}>
-      <main className="flex-1 pt-24 pb-20 px-6">
+      <main className="relative z-10 flex-1 pt-24 pb-24 px-6">
         <div className="max-w-[720px] mx-auto">
           <div className="text-center mb-10 md:mb-12">
             <span className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -833,6 +1201,24 @@ export default function CoupleResultPage() {
           </div>
 
           <section className={`mb-10 ${transition} ${reveal.spaceBetween ? visibleClass : hidden}`}>
+            {relationshipPersona?.name ? (
+              <div className="mb-6 rounded-2xl border border-white/12 bg-white/[0.04] p-5 text-center shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-white/55">Relationship Persona</p>
+                <h2 className="mt-2 font-serif text-[28px] sm:text-[32px] leading-tight text-white [font-family:var(--font-serif-display)]">
+                  &quot;{relationshipPersona.name}&quot;
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-white/75 max-w-[560px] mx-auto">
+                  {relationshipPersona.description}
+                </p>
+                <button
+                  type="button"
+                  onClick={handleSharePersona}
+                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-xl bg-white text-[#0b0a0d] px-4 py-2.5 text-sm font-semibold transition hover:opacity-95"
+                >
+                  {personaCopied ? "Copied" : "Share this"}
+                </button>
+              </div>
+            ) : null}
             <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-white/[0.03] p-4 sm:p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_26px_120px_rgba(0,0,0,0.65)] backdrop-blur-xl">
               <div
                 aria-hidden
@@ -957,16 +1343,15 @@ export default function CoupleResultPage() {
             </div>
           </section>
 
-          {differencesList.length > 0 ? (
-            <section className="mb-10">
-              <div className="inline-flex items-center rounded-full border border-orange-400/30 bg-orange-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-orange-200/90">
-                Friction Map
-              </div>
-              <h3 className="mt-3 font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
-                Where you diverge.
+          <section className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+              <h3 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-orange-200/85 not-italic">
+                  Friction Map
+                </span>
+                <span className="mt-1 block">Where you diverge.</span>
               </h3>
               <div className="mt-4 flex flex-col gap-3">
-                {differencesList.map((item, idx) => (
+                {differencesRenderList.map((item, idx) => (
                   <div
                     key={`${item.label}-${idx}`}
                     className="rounded-xl border border-white/10 border-l-2 border-l-orange-400/30 bg-[#0f0b14] p-4"
@@ -977,52 +1362,78 @@ export default function CoupleResultPage() {
                 ))}
               </div>
             </section>
-          ) : null}
 
-          {whatHelpsList.length > 0 ? (
-            <section className="mb-10">
-              <div className="inline-flex items-center rounded-full border border-teal-400/30 bg-teal-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-200/90">
+          <section className="mb-10 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+            <h3 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-200/90 not-italic">
+                Attention
+              </span>
+              <span className="mt-1 block">What may be asking for attention.</span>
+            </h3>
+            <div className="mt-4 flex flex-col gap-3">
+              {attentionList.map((item, idx) => (
+                <div
+                  key={`${item.title}-${idx}`}
+                  className="rounded-xl border border-white/10 border-l-2 border-l-amber-400/35 bg-[#0f0b14] p-4"
+                >
+                  <p className="text-sm font-semibold text-foreground">{item.title}</p>
+                  <p className="mt-1 text-sm leading-relaxed text-white/70">{item.text}</p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="mb-10 w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+            <h3 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+              <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-teal-200/90 not-italic">
                 Three Things
-              </div>
-              <h3 className="mt-3 font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
-                What could shift this.
-              </h3>
-              <div className="mt-4">
-                {whatHelpsList.map((item, idx) => (
-                  <div key={`${item}-${idx}`} className="mb-4 flex items-start gap-3">
-                    <span className="text-sm font-semibold text-violet-300">{idx + 1}.</span>
-                    <p className="text-sm leading-relaxed text-white/75">{item}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : null}
+              </span>
+              <span className="mt-1 block">What could shift this.</span>
+            </h3>
+            <div className="mt-4 space-y-2.5">
+              {whatHelpsList.map((item, idx) => (
+                <div
+                  key={`${item}-${idx}`}
+                  className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2.5"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-violet-300/90" aria-hidden />
+                  <p className="text-sm font-medium text-white/85">{item}</p>
+                </div>
+              ))}
+            </div>
+          </section>
 
-          {hasPartnerDecoder ? (
-            <section className="mb-10">
-              <div className="inline-flex items-center rounded-full border border-violet-400/30 bg-violet-400/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-200/90">
-                The Decoder
-              </div>
-              <h3 className="mt-3 font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
-                How you each work.
+          {hasPartnerDecoder || decoderText ? (
+            <section className="mb-10 w-full rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+              <h3 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+                <span className="block text-[11px] font-semibold uppercase tracking-[0.2em] text-violet-200/90 not-italic">
+                  The Decoder
+                </span>
+                <span className="mt-1 block">How you each work.</span>
               </h3>
               <div className="mt-4 flex flex-col gap-3">
-                {decoderPartnerA ? (
+                {decoderPartnerAResolved ? (
                   <div className="rounded-xl border border-white/10 bg-[#0f0b14] p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Partner A</p>
-                    <p className="mt-2 text-sm leading-relaxed text-white/75">{decoderPartnerA}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/75">{decoderPartnerAResolved}</p>
                   </div>
                 ) : null}
-                {decoderPartnerB ? (
+                {decoderPartnerBResolved ? (
                   <div className="rounded-xl border border-white/10 bg-[#0f0b14] p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Partner B</p>
-                    <p className="mt-2 text-sm leading-relaxed text-white/75">{decoderPartnerB}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/75">{decoderPartnerBResolved}</p>
                   </div>
                 ) : null}
-                {decoderWhenTogether ? (
+                {decoderWhenTogetherResolved ? (
                   <div className="rounded-xl border border-violet-400/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.14),rgba(59,130,246,0.1))] p-4">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-violet-100/90">When you&apos;re together</p>
-                    <p className="mt-2 text-sm leading-relaxed text-white/80">{decoderWhenTogether}</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/80">{decoderWhenTogetherResolved}</p>
+                  </div>
+                ) : null}
+                {!decoderPartnerA && !decoderPartnerB && decoderText ? (
+                  <div className="rounded-xl border border-white/10 bg-[#0f0b14] p-4">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">Pattern read</p>
+                    <p className="mt-2 text-sm leading-relaxed text-white/75 whitespace-pre-line">{decoderText}</p>
                   </div>
                 ) : null}
               </div>
@@ -1039,15 +1450,16 @@ export default function CoupleResultPage() {
           ) : null}
 
           {/* Conflict analysis + supporting text */}
-          {(formattedResult || (Array.isArray(conflictFrictionPoints) && conflictFrictionPoints.length > 0)) && (
-            <div
-              className={`mb-10 ${transition} ${reveal.text ? visibleClass : hidden}`}
-            >
-              <ConflictAnalysisPanel
-                points={conflictFrictionPoints}
-                labelA={frictionLabelA}
-                labelB={frictionLabelB}
-              />
+          <div
+            className={`mb-10 w-full flex flex-col gap-4 ${transition} ${reveal.text ? visibleClass : hidden}`}
+          >
+              {Array.isArray(conflictFrictionPoints) && conflictFrictionPoints.length > 0 ? (
+                <ConflictAnalysisPanel
+                  points={conflictFrictionPoints}
+                  labelA={frictionLabelA}
+                  labelB={frictionLabelB}
+                />
+              ) : null}
               <div className="mt-6 space-y-6">
                 {reflectionBody ? (
                   <section className="luma-glass border border-white/10 p-4">
@@ -1058,7 +1470,16 @@ export default function CoupleResultPage() {
                       {reflectionBody}
                     </p>
                   </section>
-                ) : null}
+                ) : (
+                  <section className="luma-glass border border-white/10 p-4">
+                    <h3 className="font-serif text-[18px] text-foreground [font-family:var(--font-serif-display)]">
+                      Reflection
+                    </h3>
+                    <p className="mt-2 text-sm leading-relaxed text-white/70">
+                      You both care about this bond, but your repair rhythm needs clearer naming.
+                    </p>
+                  </section>
+                )}
               </div>
               <div className="mt-6 mb-6 border-t border-white/10" />
               <DangerousQuestionBlock
@@ -1085,20 +1506,7 @@ export default function CoupleResultPage() {
                 </Link>
               </section>
               <div className="mt-6 mb-6 border-t border-white/10" />
-              <VsCardShare
-                className={`mt-12 ${transition} ${reveal.text ? visibleClass : hidden}`}
-                source={{
-                  nameA,
-                  nameB,
-                  brutalTruth,
-                  conflictFrictionPoints,
-                  mapReadInnerA,
-                  mapReadInnerB,
-                  emotionalTag,
-                }}
-              />
-            </div>
-          )}
+          </div>
 
           <div className="mb-6 border-t border-white/10" />
 
@@ -1113,9 +1521,40 @@ export default function CoupleResultPage() {
             </button>
           </div>
 
-          {/* Share / Download Story — DOM card + html-to-image; partner cards captured off-screen */}
+          {/* Partner story cards for export — always mounted off-screen (not inside opacity-gated wrappers) */}
           <div
-            className={`mx-auto mb-10 w-full min-w-0 max-w-[680px] ${transition} ${reveal.spaceBetween ? visibleClass : "opacity-0 pointer-events-none"}`}
+            className="pointer-events-none fixed left-[-10000px] top-0 z-0 flex w-[360px] flex-col gap-4"
+            aria-hidden
+          >
+            {innerWorldAExport ? (
+              <StoryCardFrame
+                ref={storyARef}
+                title={getStoryCardTitle({
+                  mode: "couple",
+                  nameA,
+                  nameB,
+                  cardVariant: "partnerA",
+                })}
+                imageUrl={innerWorldAExport}
+              />
+            ) : null}
+            {innerWorldBExport ? (
+              <StoryCardFrame
+                ref={storyBRef}
+                title={getStoryCardTitle({
+                  mode: "couple",
+                  nameA,
+                  nameB,
+                  cardVariant: "partnerB",
+                })}
+                imageUrl={innerWorldBExport}
+              />
+            ) : null}
+          </div>
+
+          {/* Share / Download Story — relationship card */}
+          <div
+            className={`mx-auto mb-10 w-full min-w-0 max-w-[680px] ${transition} ${reveal.spaceBetween ? visibleClass : hidden}`}
           >
             <p className="mb-3 text-center text-xs text-muted-foreground">
               Your shareable relationship card
@@ -1151,53 +1590,28 @@ export default function CoupleResultPage() {
               }}
               className="mt-5"
             />
+          </div>
 
-            <div
-              className="pointer-events-none fixed left-[-10000px] top-0 z-0 flex w-[360px] flex-col gap-4"
-              aria-hidden
-            >
-              {innerWorldA ? (
-                <StoryCardFrame
-                  ref={storyARef}
-                  title={getStoryCardTitle({
-                    mode: "couple",
-                    nameA,
-                    nameB,
-                    cardVariant: "partnerA",
-                  })}
-                  imageUrl={innerWorldA}
-                />
-              ) : null}
-              {innerWorldB ? (
-                <StoryCardFrame
-                  ref={storyBRef}
-                  title={getStoryCardTitle({
-                    mode: "couple",
-                    nameA,
-                    nameB,
-                    cardVariant: "partnerB",
-                  })}
-                  imageUrl={innerWorldB}
-                />
-              ) : null}
-            </div>
-
-            {innerWorldA || innerWorldB ? (
-              <p className="mb-3 mt-8 text-center text-xs text-muted-foreground">
+          {/* Partner inner world story downloads — same reveal as relationship story card */}
+          <div
+            className={`mx-auto mb-10 w-full min-w-0 max-w-[680px] ${transition} ${reveal.spaceBetween ? visibleClass : hidden}`}
+          >
+            {innerWorldAExport || innerWorldBExport ? (
+              <p className="mb-3 text-center text-xs text-muted-foreground">
                 Partner inner world cards
               </p>
             ) : null}
-            {innerWorldA ? (
+            {innerWorldAExport ? (
               <StoryShareButtons
                 targetRef={storyARef}
                 loading={storyLoading}
                 setLoading={setStoryLoading}
                 showShare={false}
-                downloadLabel={`Download ${titleA}`}
+                downloadLabel={`Download ${titleA} story`}
                 filename={`luma-story-${(nameA || "partner-a").toString().toLowerCase().replace(/\s+/g, "-")}.png`}
                 canvasFallback={{
                   mode: "couple",
-                  imageUrl: innerWorldA,
+                  imageUrl: innerWorldAExport,
                   nameA: nameA || undefined,
                   nameB: nameB || undefined,
                   cardVariant: "partnerA",
@@ -1205,17 +1619,17 @@ export default function CoupleResultPage() {
                 className="mt-3"
               />
             ) : null}
-            {innerWorldB ? (
+            {innerWorldBExport ? (
               <StoryShareButtons
                 targetRef={storyBRef}
                 loading={storyLoading}
                 setLoading={setStoryLoading}
                 showShare={false}
-                downloadLabel={`Download ${titleB}`}
+                downloadLabel={`Download ${titleB} story`}
                 filename={`luma-story-${(nameB || "partner-b").toString().toLowerCase().replace(/\s+/g, "-")}.png`}
                 canvasFallback={{
                   mode: "couple",
-                  imageUrl: innerWorldB,
+                  imageUrl: innerWorldBExport,
                   nameA: nameA || undefined,
                   nameB: nameB || undefined,
                   cardVariant: "partnerB",
@@ -1223,6 +1637,23 @@ export default function CoupleResultPage() {
                 className="mt-3"
               />
             ) : null}
+          </div>
+
+          <div
+            className={`mx-auto mb-10 w-full min-w-0 max-w-[680px] ${transition} ${reveal.text ? visibleClass : hidden}`}
+          >
+            <VsCardShare
+              className="mt-2"
+              source={{
+                nameA,
+                nameB,
+                brutalTruth,
+                conflictFrictionPoints,
+                mapReadInnerA,
+                mapReadInnerB,
+                emotionalTag,
+              }}
+            />
           </div>
 
           {/* Deep insights — appended below existing result UI */}
@@ -1540,11 +1971,33 @@ export default function CoupleResultPage() {
               </Link>
             </div>
           </section>
+
+          <section className="mt-10 mb-6" aria-labelledby="your-next-step-heading">
+            <h2
+              id="your-next-step-heading"
+              className="font-serif text-center text-[1.3rem] text-foreground tracking-tight [font-family:var(--font-serif-display)]"
+            >
+              Your Next Step
+            </h2>
+            <div className="mt-5 rounded-2xl border border-white/12 bg-white/[0.04] p-5 shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
+              <p className="text-base font-semibold text-foreground leading-snug">{prescription.title}</p>
+              <p className="mt-2 text-sm text-muted-foreground leading-relaxed">{prescription.action}</p>
+              <div className="mt-5 rounded-xl border border-violet-300/20 bg-[linear-gradient(135deg,rgba(124,58,237,0.16),rgba(59,130,246,0.12))] p-4">
+                <p className="text-sm text-white/85 leading-relaxed">{prescription.subtext}</p>
+                <Link
+                  href={prescription.href}
+                  className="mt-4 inline-flex w-full min-h-[46px] items-center justify-center rounded-xl bg-white text-[#0b0a0d] px-4 py-2.5 text-sm font-semibold transition hover:opacity-95"
+                >
+                  {prescription.cta}
+                </Link>
+              </div>
+            </div>
+          </section>
         </div>
       </main>
+      </div>
 
       <Footer />
-      </div>
 
       {(sequencePhase === "analyzing" || sequencePhase === "blur_peel") && (
         <div

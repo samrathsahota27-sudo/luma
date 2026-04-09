@@ -33,7 +33,6 @@ import { TensionCard } from "@/components/TensionCard";
 import { buildActionTrigger } from "@/lib/actionTrigger";
 import { ActionTriggerCard } from "@/components/ActionTriggerCard";
 import { shareStoryFromElement } from "@/lib/storyCardCapture";
-import { Loader2 } from "lucide-react";
 import { DepthModeSelector } from "@/components/DepthModeSelector";
 import { useDepthMode } from "@/hooks/useDepthMode";
 import { buildRelationshipContext, recordFeatureUse } from "@/lib/relationshipContext";
@@ -53,6 +52,7 @@ import {
 } from "@/lib/resultHelpers";
 import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
 import { ReviewAnswersScreen } from "@/components/ReviewAnswersScreen";
+import { useUserPlan } from "@/hooks/useUserPlan";
 
 type ReflectionPhase = "intro" | "rounds" | "review" | "generating" | "complete";
 
@@ -81,6 +81,15 @@ type EmotionTrackedSession = {
   calendarState: string | null;
 };
 
+const AI_STATUS_ROTATE_MS = 1800;
+const AI_STATUS_MESSAGES = [
+  "Reading emotional signals...",
+  "Mapping unspoken patterns...",
+  "Identifying friction points...",
+  "Understanding your dynamic...",
+  "Finalizing your reflection...",
+];
+
 function selectedImagesForSave(
   answers: Record<number, RoundAnswer>
 ): Record<number, { image: number; text: string }> | undefined {
@@ -104,6 +113,7 @@ const INVITER_REFLECTION_KEY = "luma_connect_inviter_reflection";
 
 export default function ReflectPage() {
   const router = useRouter();
+  const { plan, loading: planLoading } = useUserPlan();
   const { depthMode, setDepthMode } = useDepthMode();
   const [phase, setPhase] = useState<ReflectionPhase>("intro");
   const [currentRound, setCurrentRound] = useState(1);
@@ -158,12 +168,22 @@ export default function ReflectPage() {
   const [referralLink, setReferralLink] = useState("");
   const [referralCopied, setReferralCopied] = useState(false);
   const [round5SpaceBetween, setRound5SpaceBetween] = useState<Round5SpaceBetweenPayload | null>(null);
+  const [generatingMessageIdx, setGeneratingMessageIdx] = useState(0);
 
   const answersRef = useRef<Record<number, RoundAnswer>>(answers);
 
   useEffect(() => {
     answersRef.current = answers;
   }, [answers]);
+
+  useEffect(() => {
+    if (phase !== "generating") return;
+    setGeneratingMessageIdx(0);
+    const timer = window.setInterval(() => {
+      setGeneratingMessageIdx((idx) => (idx + 1) % AI_STATUS_MESSAGES.length);
+    }, AI_STATUS_ROTATE_MS);
+    return () => window.clearInterval(timer);
+  }, [phase]);
 
   const registerReminder = async (email: string) => {
     const value = email.trim();
@@ -806,6 +826,14 @@ export default function ReflectPage() {
           shiftSeed: structuredResult.shift,
         })
       : null;
+  const handleJourneyCta = () => {
+    if (planLoading) return;
+    if (plan === "premium") {
+      router.push("/timeline?journey=1");
+      return;
+    }
+    router.push("/couples/checkout?source=individual-result");
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-black via-zinc-900 to-black">
@@ -958,9 +986,11 @@ export default function ReflectPage() {
         {/* Generating Phase */}
         {phase === "generating" && (
           <div className="max-w-2xl mx-auto px-6 py-24 text-center">
-            <Loader2 className="w-8 h-8 mx-auto text-muted-foreground animate-spin" />
-            <p className="mt-6 font-serif text-xl text-foreground">
-              Gathering your reflection...
+            <p
+              key={generatingMessageIdx}
+              className="font-serif text-xl text-foreground transition-all duration-500 animate-luma-fade-only"
+            >
+              {AI_STATUS_MESSAGES[generatingMessageIdx]}
             </p>
             <p className="mt-2 text-sm text-muted-foreground">
               Taking a moment to notice the patterns that emerged
@@ -1494,6 +1524,27 @@ export default function ReflectPage() {
               <p className="mt-4 text-xs text-muted-foreground leading-relaxed">
                 When someone you invite completes a reflection, you&apos;ll unlock a bonus reflection insight.
               </p>
+            </div>
+
+            <div className="mt-10 md:mt-12">
+              <div className="luma-glass border border-white/10 p-6 md:p-8 text-center">
+                <p className="text-sm text-muted-foreground">This doesn&apos;t change on its own.</p>
+                <button
+                  type="button"
+                  onClick={handleJourneyCta}
+                  disabled={planLoading}
+                  className="mt-4 w-full rounded-xl bg-[linear-gradient(135deg,rgba(140,110,200,0.95),rgba(105,85,170,0.95))] px-5 py-3 text-sm font-semibold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.35)] transition-opacity hover:opacity-95 disabled:opacity-60"
+                >
+                  {planLoading ? "Checking access…" : "Start 28-Day Journey"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push("/timeline")}
+                  className="mt-3 w-full rounded-xl border border-white/15 bg-white/[0.04] px-5 py-3 text-sm font-medium text-foreground transition-colors hover:bg-white/[0.08]"
+                >
+                  Save to Timeline
+                </button>
+              </div>
             </div>
 
             <div className="mt-14 md:mt-16 flex flex-col sm:flex-row items-center justify-center gap-6">

@@ -38,8 +38,8 @@ export function Footer() {
         </div>
 
         <div className="mt-8 pt-6 border-t border-white/10">
-          <p className="text-xs text-white/45">
-            Luma is not therapy, diagnosis, or treatment. It is a reflective experience.
+          <p className="mx-auto max-w-[560px] text-center text-xs leading-relaxed text-white/40">
+            Luma provides psychological patterns, not medical advice. Use the truth responsibly.
           </p>
         </div>
       </div>

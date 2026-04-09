@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 
 export type StoryCardFrameProps = {
   title: string;
@@ -32,27 +32,69 @@ export const StoryCardFrame = forwardRef<HTMLDivElement, StoryCardFrameProps>(
     ref
   ) {
     const [imgSrc, setImgSrc] = useState<string | null>(null);
-    const blobUrlRef = useRef<string | null>(null);
+
+    function decodeDeep(value: string | null) {
+      if (!value) return "";
+      let out = value;
+      for (let i = 0; i < 3; i += 1) {
+        try {
+          const next = decodeURIComponent(out);
+          if (next === out) break;
+          out = next;
+        } catch {
+          break;
+        }
+      }
+      return out;
+    }
+
+    function extractTargetUrl(raw: string) {
+      try {
+        const parsed = new URL(raw, window.location.origin);
+        if (parsed.pathname === "/api/image-proxy") {
+          const nested = parsed.searchParams.get("url");
+          return nested ? decodeDeep(nested) : raw;
+        }
+        return raw;
+      } catch {
+        return raw;
+      }
+    }
+
+    function isExpiredSignedBlobUrl(raw: string) {
+      try {
+        const target = new URL(raw);
+        if (!target.hostname.includes(".blob.core.windows.net")) return false;
+        const seRaw = target.searchParams.get("se");
+        if (!seRaw) return false;
+        const se = new Date(decodeDeep(seRaw));
+        if (!Number.isFinite(se.getTime())) return false;
+        return se.getTime() <= Date.now();
+      } catch {
+        return false;
+      }
+    }
 
     useEffect(() => {
-      const prev = blobUrlRef.current;
-      if (prev) {
-        URL.revokeObjectURL(prev);
-        blobUrlRef.current = null;
-      }
       setImgSrc(null);
 
       const url = imageUrl?.trim();
       if (!url) return;
+      const targetUrl = extractTargetUrl(url);
+      if (isExpiredSignedBlobUrl(targetUrl)) return;
 
       let cancelled = false;
       fetch(url)
         .then((r) => (r.ok ? r.blob() : Promise.reject(new Error(String(r.status)))))
         .then((blob) => {
           if (cancelled) return;
-          const objectUrl = URL.createObjectURL(blob);
-          blobUrlRef.current = objectUrl;
-          setImgSrc(objectUrl);
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            if (cancelled) return;
+            const value = typeof reader.result === "string" ? reader.result : null;
+            setImgSrc(value);
+          };
+          reader.readAsDataURL(blob);
         })
         .catch(() => {
           if (!cancelled) setImgSrc(null);
@@ -60,11 +102,6 @@ export const StoryCardFrame = forwardRef<HTMLDivElement, StoryCardFrameProps>(
 
       return () => {
         cancelled = true;
-        const u = blobUrlRef.current;
-        if (u) {
-          URL.revokeObjectURL(u);
-          blobUrlRef.current = null;
-        }
       };
     }, [imageUrl]);
 

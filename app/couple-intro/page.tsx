@@ -142,7 +142,7 @@ export default function CoupleIntroPage() {
             <p className="mt-2 text-muted-foreground text-base">Open access for now</p>
             <div className="mt-10">
               <Link
-                href="/couple-hub"
+                href="/couple/start"
                 className="inline-flex items-center justify-center gap-2 px-7 py-3.5 rounded-full bg-primary text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.22)] text-base font-medium transition-opacity hover:opacity-90 shadow-[0_4px_20px_rgba(47,47,47,0.15)]"
               >
                 Start Together

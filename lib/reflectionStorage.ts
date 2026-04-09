@@ -6,6 +6,19 @@
 const STORAGE_KEY = "luma_reflections";
 const USER_ID = "default";
 
+/** YYYY-MM-DD in the user's local timezone (for calendar cells). */
+export function localDateKeyFromIso(isoLike: string): string {
+  try {
+    const d = new Date(isoLike);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+}
+
 export type ReflectionMode = "individual" | "couple";
 
 /** Person A vs B friction row from couple / connect conflict analysis. */
@@ -103,14 +116,13 @@ export function getIndividualReflections(): IndividualReflectionEntry[] {
 
 export function getReflectionsByMonth(year: number, month: number): ReflectionEntry[] {
   const entries = loadEntries();
-  const start = new Date(year, month - 1, 1).toISOString().slice(0, 10);
-  const end = new Date(year, month, 0).toISOString().slice(0, 10);
-  return entries.filter((e) => e.date.slice(0, 10) >= start && e.date.slice(0, 10) <= end);
+  const monthPrefix = `${year}-${String(month).padStart(2, "0")}-`;
+  return entries.filter((e) => localDateKeyFromIso(e.date).startsWith(monthPrefix));
 }
 
 export function getReflectionsByDate(dateStr: string): ReflectionEntry[] {
   const prefix = dateStr.slice(0, 10);
-  return loadEntries().filter((e) => e.date.startsWith(prefix));
+  return loadEntries().filter((e) => localDateKeyFromIso(e.date) === prefix);
 }
 
 export function saveIndividualReflection(content: string): void {
@@ -342,4 +354,90 @@ export function daysUntilNextReflection(): number | null {
   nextAllowed.setHours(0, 0, 0, 0);
   if (today >= nextAllowed) return null;
   return Math.ceil((nextAllowed.getTime() - today.getTime()) / (24 * 60 * 60 * 1000));
+}
+
+/** Map Supabase `user_profiles.pattern_history` rows into timeline entries. */
+export function entriesFromPatternHistory(userId: string, history: unknown): IndividualReflectionEntry[] {
+  if (!Array.isArray(history)) return [];
+  const out: IndividualReflectionEntry[] = [];
+  for (let i = 0; i < history.length; i += 1) {
+    const e = history[i] as Record<string, unknown>;
+    const date = typeof e.date === "string" ? e.date : "";
+    if (!date) continue;
+    const fullInsight = typeof e.fullInsight === "string" ? e.fullInsight.trim() : "";
+    const fullText = typeof e.full_text_response === "string" ? e.full_text_response.trim() : "";
+    const pattern = typeof e.pattern === "string" ? e.pattern.trim() : "";
+    const desc = typeof e.description === "string" ? e.description.trim() : "";
+    const core = typeof e.core_line === "string" ? e.core_line.trim() : "";
+    const content =
+      fullInsight ||
+      fullText ||
+      [pattern && `Pattern: ${pattern}`, desc, core].filter(Boolean).join("\n\n") ||
+      "Individual reflection (saved to your account).";
+    out.push({
+      id: `account-ind-${userId}-${i}-${date}`,
+      userId,
+      date,
+      mode: "individual",
+      content,
+    });
+  }
+  return out;
+}
+
+/** Map Supabase `user_profiles.couple_sessions` rows into timeline entries. */
+export function entriesFromCoupleSessions(userId: string, sessions: unknown): CoupleReflectionEntry[] {
+  if (!Array.isArray(sessions)) return [];
+  const out: CoupleReflectionEntry[] = [];
+  for (let i = 0; i < sessions.length; i += 1) {
+    const e = sessions[i] as Record<string, unknown>;
+    const date = typeof e.date === "string" ? e.date : "";
+    if (!date) continue;
+    const pattern = typeof e.pattern === "string" ? e.pattern.trim() : "";
+    const summary = typeof e.summary === "string" ? e.summary.trim() : "";
+    const insight = typeof e.insight === "string" ? e.insight.trim() : "";
+    const content =
+      [pattern && `Pattern: ${pattern}`, summary, insight].filter(Boolean).join("\n\n") ||
+      "Couple reflection (saved to your account).";
+    out.push({
+      id: `account-couple-${userId}-${i}-${date}`,
+      userId,
+      date,
+      mode: "couple",
+      content,
+    });
+  }
+  return out;
+}
+
+export function dedupeReflectionEntriesByDayAndContent(entries: ReflectionEntry[]): ReflectionEntry[] {
+  const seen = new Set<string>();
+  const out: ReflectionEntry[] = [];
+  for (const e of entries) {
+    const dk = localDateKeyFromIso(e.date);
+    const snippet = String(e.content ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 160);
+    const key = `${dk}|${e.mode}|${snippet}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(e);
+  }
+  return out;
+}
+
+export function buildMergedTimelineEntries(options: {
+  local: ReflectionEntry[];
+  userId: string | null;
+  patternHistory: unknown;
+  coupleSessions: unknown;
+}): ReflectionEntry[] {
+  const { local, userId, patternHistory, coupleSessions } = options;
+  if (!userId) return [...local];
+  const fromAccount: ReflectionEntry[] = [
+    ...entriesFromPatternHistory(userId, patternHistory),
+    ...entriesFromCoupleSessions(userId, coupleSessions),
+  ];
+  return dedupeReflectionEntriesByDayAndContent([...local, ...fromAccount]);
 }
