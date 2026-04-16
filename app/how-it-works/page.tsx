@@ -66,6 +66,45 @@ const COUPLES_STEPS: Step[] = [
   },
 ];
 
+const CYCLE_STEPS = [
+  {
+    n: "01",
+    title: "See it",
+    desc: "Your choices reveal your pattern",
+    src: "/demo/individual-hero.jpg",
+    alt: "Visual reflection image selection",
+    clipPath: "polygon(50% 50%, 0% 0%, 100% 0%)",
+    labelStyle: { top: "10%", left: "50%", transform: "translateX(-50%)" } as React.CSSProperties,
+  },
+  {
+    n: "02",
+    title: "Understand it",
+    desc: "We map how you connect",
+    src: "/images/ex.png",
+    alt: "Insight and pattern card",
+    clipPath: "polygon(50% 50%, 100% 0%, 100% 100%)",
+    labelStyle: { top: "50%", right: "5%", transform: "translateY(-50%)" } as React.CSSProperties,
+  },
+  {
+    n: "03",
+    title: "Work through it with tools",
+    desc: "Small shifts over 28 days",
+    src: "/demo/space-between.jpg",
+    alt: "Ongoing reflection progress",
+    clipPath: "polygon(50% 50%, 100% 100%, 0% 100%)",
+    labelStyle: { bottom: "10%", left: "50%", transform: "translateX(-50%)" } as React.CSSProperties,
+  },
+  {
+    n: "04",
+    title: "See what changed",
+    desc: "Watch your dynamic evolve",
+    src: "/demo/partner-a.jpg",
+    alt: "Before and after comparison",
+    clipPath: "polygon(50% 50%, 0% 100%, 0% 0%)",
+    labelStyle: { top: "50%", left: "5%", transform: "translateY(-50%)" } as React.CSSProperties,
+  },
+];
+
 function FlowSteps({ steps }: { steps: Step[] }) {
   return (
     <div className="relative mx-auto mt-10 w-full max-w-[720px]">
@@ -275,122 +314,6 @@ export default function HowItWorksPage() {
           <FlowSteps steps={COUPLES_STEPS} />
         </section>
 
-        <section className="border-t border-white/10 px-4 py-12">
-          <div className="max-w-5xl mx-auto">
-            <div className="text-center">
-              <h2 className="font-serif text-[26px] md:text-[30px] text-foreground [font-family:var(--font-serif-display)]">
-                How the cycle works
-              </h2>
-            </div>
-
-            <div className="relative mt-8 md:mt-10">
-              <div
-                aria-hidden
-                className="pointer-events-none absolute left-1/2 top-0 hidden h-px w-[92%] -translate-x-1/2 bg-gradient-to-r from-white/0 via-white/18 to-white/0 md:block"
-              />
-
-              <div className="relative grid grid-cols-1 gap-6 md:grid-cols-4">
-                {[
-                  {
-                    n: "01",
-                    title: "See it",
-                    text: "Choose what feels like you",
-                    src: "/demo/individual-hero.jpg",
-                    alt: "Visual reflection image selection",
-                  },
-                  {
-                    n: "02",
-                    title: "Understand it",
-                    text: "We map your emotional patterns",
-                    src: "/images/ex.png",
-                    alt: "Insight and pattern card preview",
-                  },
-                  {
-                    n: "03",
-                    title: "Work through it",
-                    text: "Small shifts over 28 days",
-                    src: "/demo/space-between.jpg",
-                    alt: "Ongoing reflection progress visual",
-                  },
-                  {
-                    n: "04",
-                    title: "See what changed",
-                    text: "Watch your dynamic evolve",
-                    src: "/demo/partner-a.jpg",
-                    secondarySrc: "/demo/partner-b.jpg",
-                    alt: "Before and after dynamic comparison",
-                  },
-                ].map((step, idx, arr) => (
-                  <div key={step.n} className="relative">
-                    <article className="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 shadow-sm backdrop-blur-xl">
-                      {step.secondarySrc ? (
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-                            <Image
-                              src={step.src}
-                              alt={`${step.alt} before`}
-                              fill
-                              sizes="(max-width: 768px) 48vw, 130px"
-                              className="object-cover"
-                            />
-                          </div>
-                          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-                            <Image
-                              src={step.secondarySrc}
-                              alt={`${step.alt} after`}
-                              fill
-                              sizes="(max-width: 768px) 48vw, 130px"
-                              className="object-cover"
-                            />
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
-                          <Image
-                            src={step.src}
-                            alt={step.alt}
-                            fill
-                            sizes="(max-width: 768px) 100vw, 280px"
-                            className="object-cover"
-                          />
-                          <div
-                            aria-hidden
-                            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"
-                          />
-                        </div>
-                      )}
-                      <div className="mt-4 flex items-start gap-3">
-                        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-white/15 bg-white/[0.06] px-1 text-[10px] font-medium tracking-[0.14em] text-white/70">
-                          {step.n}
-                        </span>
-                        <div className="min-w-0">
-                          <h3 className="font-serif text-[18px] leading-tight text-white [font-family:var(--font-serif-display)]">
-                            {step.title}
-                          </h3>
-                          <p className="mt-1 text-sm leading-relaxed text-white/65">{step.text}</p>
-                        </div>
-                      </div>
-                    </article>
-
-                    {idx < arr.length - 1 ? (
-                      <div
-                        aria-hidden
-                        className="pointer-events-none absolute -bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-white/10 bg-[#0f0c15] text-white/55 md:bottom-auto md:left-auto md:right-[-16px] md:top-1/2 md:-translate-y-1/2 md:translate-x-0 md:-translate-x-0"
-                      >
-                        <ArrowRight className="h-3.5 w-3.5 rotate-90 md:rotate-0" />
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            <p className="mt-8 text-center text-sm md:text-base text-white/75">
-              ↺ continues
-            </p>
-          </div>
-        </section>
-
         {/* 6) EXAMPLE COUPLES RESULT CARD */}
         <section className="border-t border-white/10 px-4 py-12">
           <div className="max-w-[720px] mx-auto">
@@ -472,12 +395,147 @@ export default function HowItWorksPage() {
                 </div>
 
                 <div className="mt-7 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-5">
+                  <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/45">Alignment</p>
+                  <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full"
+                      style={{
+                        width: "64%",
+                        background: "linear-gradient(90deg, rgba(140,110,200,0.9), rgba(230,230,235,0.8))",
+                      }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs text-white/55 tabular-nums">64% aligned</p>
+                </div>
+
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-5">
                   <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-white/45">One shared insight</p>
                   <p className="mt-3 text-sm leading-relaxed text-white/70">
                     When one softens, the other follows—just a beat later.
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 px-4 py-16">
+          <div className="mx-auto max-w-5xl">
+            <div className="text-center">
+              <h2 className="font-serif text-[26px] md:text-[30px] text-foreground [font-family:var(--font-serif-display)]">
+                How the cycle works
+              </h2>
+            </div>
+
+            <div className="relative mx-auto mt-10 w-full max-w-[320px] md:max-w-[440px]">
+              {/* Slow-spinning decorative outer glow */}
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-[-3px] rounded-full opacity-50"
+                style={{
+                  background:
+                    "conic-gradient(from 0deg, transparent 0%, rgba(140,110,200,0.25) 25%, transparent 50%, rgba(255,210,160,0.15) 75%, transparent 100%)",
+                  animation: "spin 50s linear infinite",
+                }}
+              />
+
+              {/* Main circle */}
+              <div className="relative aspect-square w-full overflow-hidden rounded-full shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_30px_100px_rgba(0,0,0,0.6)]">
+                {CYCLE_STEPS.map((step) => {
+                  const boostClarity = step.n === "03" || step.n === "04";
+                  return (
+                    <div
+                      key={step.n}
+                      className="group absolute inset-0 cursor-default transition-all duration-500"
+                      style={{ clipPath: step.clipPath }}
+                    >
+                      <Image
+                        src={step.src}
+                        alt={step.alt}
+                        fill
+                        sizes="(max-width: 768px) 320px, 440px"
+                        className={[
+                          "object-cover transition-transform duration-700 group-hover:scale-110",
+                          boostClarity ? "filter-none brightness-[1.05] contrast-[1.05] group-hover:brightness-110" : "",
+                        ].join(" ")}
+                        style={{ imageRendering: "auto" }}
+                      />
+                      <div
+                        className={[
+                          "absolute inset-0 transition-colors duration-500",
+                          boostClarity ? "bg-black/25 group-hover:bg-black/15" : "bg-black/50 group-hover:bg-black/30",
+                        ].join(" ")}
+                      />
+
+                      <div
+                        className="pointer-events-none absolute flex flex-col items-center gap-0.5 text-center"
+                        style={step.labelStyle}
+                      >
+                        <span className="text-[9px] font-semibold tracking-[0.22em] text-white/45 md:text-[10px]">
+                          {step.n}
+                        </span>
+                        <p className="text-[11px] font-semibold leading-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)] md:text-[14px]">
+                          {step.title}
+                        </p>
+                        <p className="mt-0.5 hidden text-[10px] leading-snug text-white/50 drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)] md:block">
+                          {step.desc}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Diagonal separator lines */}
+                <svg
+                  aria-hidden
+                  className="pointer-events-none absolute inset-0 z-[5]"
+                  viewBox="0 0 100 100"
+                  fill="none"
+                >
+                  <line x1="50" y1="50" x2="0" y2="0" stroke="rgba(255,255,255,0.1)" strokeWidth="0.3" />
+                  <line x1="50" y1="50" x2="100" y2="0" stroke="rgba(255,255,255,0.1)" strokeWidth="0.3" />
+                  <line x1="50" y1="50" x2="100" y2="100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.3" />
+                  <line x1="50" y1="50" x2="0" y2="100" stroke="rgba(255,255,255,0.1)" strokeWidth="0.3" />
+                </svg>
+
+                {/* Center hub */}
+                <div className="absolute left-1/2 top-1/2 z-10 flex h-[76px] w-[76px] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border border-white/15 bg-[#0f0c15] shadow-[0_0_50px_rgba(0,0,0,0.9),0_0_0_1px_rgba(255,255,255,0.06)] md:h-[96px] md:w-[96px]">
+                  <span className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/50 md:text-[10px]">
+                    28 Day
+                  </span>
+                  <span className="text-[15px] font-semibold text-white [font-family:var(--font-serif-display)] md:text-[18px]">
+                    Cycle
+                  </span>
+                </div>
+              </div>
+
+              {/* Clockwise direction hint */}
+              <div
+                aria-hidden
+                className="absolute -right-1 top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-white/10 bg-[#0f0c15] md:-right-3 md:h-7 md:w-7"
+              >
+                <ArrowRight className="h-3 w-3 text-white/40" />
+              </div>
+            </div>
+
+            {/* Mobile step descriptions */}
+            <div className="mx-auto mt-8 grid max-w-[320px] grid-cols-2 gap-4 md:hidden">
+              {CYCLE_STEPS.map((step) => (
+                <div key={step.n} className="text-center">
+                  <span className="text-[9px] font-medium tracking-[0.2em] text-white/35">{step.n}</span>
+                  <p className="text-[12px] font-medium text-white/70">{step.title}</p>
+                  <p className="mt-0.5 text-[10px] leading-snug text-white/40">{step.desc}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mx-auto mt-4 max-w-[300px] text-center">
+              <p className="text-[14px] leading-relaxed text-white/70 md:text-[16px]">
+                A 28-day cycle where your patterns don&apos;t just reveal - they shift through the tools you use.
+              </p>
+              <p className="mt-2 text-[14px] leading-relaxed text-white/70 md:text-[16px]">
+                Each reflection, conversation, and insight shapes how you evolve together.
+              </p>
             </div>
           </div>
         </section>

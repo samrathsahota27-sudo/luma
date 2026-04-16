@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 const FREE_FEATURES = [
   "2 individual reflections per month",
-  "1 couples session per month",
+  "Individual mode only (no couple sessions)",
   "Basic insights",
   "No saved history",
 ];
