@@ -24,6 +24,7 @@ export async function POST() {
       : await supabase.from("user_profiles").insert({
           id: user.id,
           email: user.email ?? null,
+          start_date: new Date().toISOString().slice(0, 10),
           reflection_reminder_requested_at: now,
           last_updated: now,
         });

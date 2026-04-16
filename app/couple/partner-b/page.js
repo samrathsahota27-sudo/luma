@@ -350,6 +350,7 @@ export default function CouplePartnerBPage() {
               answers: partnerBAnswers,
               name: partnerBName.trim() || null,
               role: submitRole,
+              depthMode,
             }),
           });
           const submitJson = await submitRes.json().catch(() => ({}));

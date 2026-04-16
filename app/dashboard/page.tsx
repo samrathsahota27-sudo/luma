@@ -17,6 +17,28 @@ function formatDate(iso: string) {
   });
 }
 
+function getTodayDateString() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function calculateCurrentDay(startDate: string | null) {
+  if (!startDate) return 0;
+  const start = new Date(startDate);
+  if (Number.isNaN(start.getTime())) return 0;
+  const today = new Date();
+  const startDay = new Date(start.getFullYear(), start.getMonth(), start.getDate()).getTime();
+  const todayDay = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+  const days = Math.floor((todayDay - startDay) / (1000 * 60 * 60 * 24));
+  return Math.max(0, Math.min(28, days));
+}
+
+function getWeekLabel(currentDay: number) {
+  if (currentDay <= 6) return "Week 1";
+  if (currentDay <= 13) return "Week 2";
+  if (currentDay <= 20) return "Week 3";
+  return "Week 4";
+}
+
 function excerpt(text: string, maxLen: number) {
   const t = text.replace(/\s+/g, " ").trim();
   return t.length <= maxLen ? t : t.slice(0, maxLen) + "…";
@@ -52,6 +74,25 @@ function buildEmergingPatternText(entries: any[]) {
   return [lineA, lineB].filter(Boolean).join(" ");
 }
 
+function getLatestWeeklyShiftInsight(patternHistory: any[], coupleSessions: any[]) {
+  const all = [
+    ...(Array.isArray(patternHistory) ? patternHistory : []),
+    ...(Array.isArray(coupleSessions) ? coupleSessions : []),
+  ];
+  const withShift = all
+    .filter((entry) => entry && typeof entry === "object")
+    .map((entry) => ({
+      date: String((entry as any)?.date || ""),
+      weeklyShiftInsight: String((entry as any)?.weekly_shift_insight || "").trim(),
+    }))
+    .filter((entry) => entry.weeklyShiftInsight && entry.date);
+  if (withShift.length === 0) return null;
+  withShift.sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+  return withShift[0]?.weeklyShiftInsight || null;
+}
+
 const placeholderLastSummary = "You tend to overthink emotional distance.";
 
 export default function DashboardPage() {
@@ -59,6 +100,7 @@ export default function DashboardPage() {
   const [patternHistory, setPatternHistory] = useState<any[]>([]);
   const [coupleSessions, setCoupleSessions] = useState<any[]>([]);
   const [isSignedIn, setIsSignedIn] = useState<boolean | null>(null);
+  const [journeyStartDate, setJourneyStartDate] = useState<string | null>(null);
   const [historyLoaded, setHistoryLoaded] = useState(false);
 
   const fetchDashboardData = useCallback(async () => {
@@ -71,22 +113,49 @@ export default function DashboardPage() {
       if (!user) {
         setPatternHistory([]);
         setCoupleSessions([]);
+        setJourneyStartDate(null);
         setHistoryLoaded(true);
         return;
       }
 
       const { data: profile } = await supabase
         .from("user_profiles")
-        .select("pattern_history, couple_sessions")
+        .select("pattern_history, couple_sessions, start_date")
         .eq("id", user.id)
         .single();
 
       if (profile) {
         setPatternHistory(profile.pattern_history || []);
         setCoupleSessions(profile.couple_sessions || []);
+        const existingStartDate =
+          typeof profile.start_date === "string" && profile.start_date.trim()
+            ? profile.start_date
+            : null;
+        if (existingStartDate) {
+          setJourneyStartDate(existingStartDate);
+        } else {
+          const startDate = getTodayDateString();
+          setJourneyStartDate(startDate);
+          await supabase
+            .from("user_profiles")
+            .update({
+              start_date: startDate,
+              last_updated: new Date().toISOString(),
+            })
+            .eq("id", user.id);
+        }
       } else {
         setPatternHistory([]);
         setCoupleSessions([]);
+        const startDate = getTodayDateString();
+        setJourneyStartDate(startDate);
+        await supabase.from("user_profiles").insert({
+          id: user.id,
+          email: user.email ?? null,
+          pattern_history: [],
+          couple_sessions: [],
+          start_date: startDate,
+        });
       }
     } finally {
       setHistoryLoaded(true);
@@ -126,6 +195,22 @@ export default function DashboardPage() {
   const emergingPatternText = buildEmergingPatternText(sortedPatternHistory);
   const individualReflectionCount = patternHistory.length;
   const recentCount = patternHistory.length + coupleSessions.length;
+  const latestWeeklyShiftInsight = useMemo(
+    () => getLatestWeeklyShiftInsight(patternHistory, coupleSessions),
+    [patternHistory, coupleSessions]
+  );
+  const journeyCurrentDay = useMemo(
+    () => calculateCurrentDay(journeyStartDate),
+    [journeyStartDate]
+  );
+  const journeyWeekLabel = useMemo(
+    () => getWeekLabel(journeyCurrentDay),
+    [journeyCurrentDay]
+  );
+  const journeyProgressPercent = useMemo(
+    () => Math.round((journeyCurrentDay / 28) * 100),
+    [journeyCurrentDay]
+  );
   const lastSummary = lastPatternEntry
     ? excerpt(
         String(
@@ -210,6 +295,46 @@ export default function DashboardPage() {
               >
                 <p className="text-sm text-[#8a847a]">Pattern tracker — coming soon</p>
               </div>
+            </section>
+          ) : null}
+
+          {isSignedIn && historyLoaded ? (
+            <section className="rounded-2xl border border-[#2a282e] bg-[#161419]/70 p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-[#e8e4e0]">
+                  Day <span className="tabular-nums text-[#f5f2ee]">{journeyCurrentDay}</span> of 28
+                </p>
+                <span className="rounded-full border border-[#3d3a44] bg-[#141318] px-3 py-1 text-[11px] uppercase tracking-[0.12em] text-[#b8ae9f]">
+                  {journeyWeekLabel}
+                </span>
+              </div>
+              <div className="mt-4 h-2 w-full rounded-full bg-[#242129] overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#8c6ec8] to-[#ded8ec] transition-all duration-500"
+                  style={{ width: `${journeyProgressPercent}%` }}
+                />
+              </div>
+              <p className="mt-2 text-xs text-[#8a847a]">
+                Started {journeyStartDate ? formatDate(journeyStartDate) : "today"}
+              </p>
+              <Link
+                href="/timeline?journey=1"
+                className="mt-5 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-[#e8e4e0] px-5 py-3 text-sm font-medium text-[#1a1816] transition-all duration-200 hover:opacity-90"
+              >
+                Continue journey
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </section>
+          ) : null}
+
+          {latestWeeklyShiftInsight ? (
+            <section className="rounded-2xl border border-[#2a282e] bg-[#161419]/70 p-6 md:p-8 shadow-[0_12px_40px_rgba(0,0,0,0.4)] backdrop-blur-sm">
+              <p className="text-[11px] uppercase tracking-[0.14em] text-[#9c968c]">
+                Weekly Insight
+              </p>
+              <p className="mt-3 text-sm md:text-base leading-relaxed text-[#d8d0c4]">
+                {latestWeeklyShiftInsight}
+              </p>
             </section>
           ) : null}
 

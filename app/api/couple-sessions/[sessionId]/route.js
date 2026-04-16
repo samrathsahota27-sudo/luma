@@ -10,7 +10,7 @@ export async function GET(_req, { params }) {
 
     const { data, error } = await supabase
       .from("couple_sessions")
-      .select("id, partner_a, partner_b, status")
+      .select("id, partner_a, partner_b, status, result, result_generated")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -25,6 +25,8 @@ export async function GET(_req, { params }) {
 
     const partnerA = data.partner_a ?? null;
     const partnerB = data.partner_b ?? null;
+    const hasResult = Boolean(data.result && typeof data.result === "object");
+    const bothSubmitted = Boolean(partnerA) && Boolean(partnerB);
 
     return NextResponse.json({
       id: data.id,
@@ -33,7 +35,10 @@ export async function GET(_req, { params }) {
       partnerB,
       partnerAComplete: Boolean(partnerA),
       partnerBComplete: Boolean(partnerB),
-      readyForResult: Boolean(partnerA) && Boolean(partnerB),
+      bothSubmitted,
+      hasResult,
+      resultGenerated: data.result_generated === true,
+      readyForResult: hasResult,
     });
   } catch (e) {
     console.error("couple-sessions get crash:", e);

@@ -22,6 +22,7 @@ import {
   scoreCouplePatternsTop3,
 } from "@/lib/patternScoring";
 import { createClient } from "@/lib/supabase/server";
+import { buildCoupleWeeklyInsight } from "@/lib/weeklyInsight";
 
 function extractJSON(text) {
   const t = String(text ?? "");
@@ -543,6 +544,7 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
       drift: card.drift?.value,
       alignment: card.alignment,
     });
+    let weeklyShiftInsight = null;
 
     if (user) {
       try {
@@ -561,6 +563,7 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
             email: user.email,
             pattern_history: [],
             couple_sessions: [],
+            start_date: new Date().toISOString().slice(0, 10),
           });
         }
 
@@ -576,6 +579,14 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
         };
 
         const currentHistory = existingProfile?.couple_sessions || [];
+        const previousEntry =
+          Array.isArray(currentHistory) && currentHistory.length > 0
+            ? currentHistory[currentHistory.length - 1]
+            : null;
+        weeklyShiftInsight = buildCoupleWeeklyInsight(previousEntry, card);
+        if (weeklyShiftInsight) {
+          coupleEntry.weekly_shift_insight = weeklyShiftInsight;
+        }
         console.log("🔴 ABOUT TO SAVE PROFILE");
         console.log("🔴 User ID:", user?.id);
         console.log("🔴 User email:", user?.email);
@@ -668,6 +679,7 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
       imageInterpretBetween: interpretBetween ?? null,
       coupleNarrative,
       futureProjection,
+      weeklyShiftInsight,
     });
   } catch (error) {
     console.error("Couple analyze error:", error);
@@ -715,6 +727,7 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
         imageInterpretBetween: null,
         coupleNarrative: null,
         futureProjection: null,
+        weeklyShiftInsight: null,
       });
     } catch (fallbackError) {
       console.error("Couple analyze fallback error:", fallbackError);

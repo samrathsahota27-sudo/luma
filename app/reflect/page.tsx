@@ -145,6 +145,7 @@ export default function ReflectPage() {
   const [inSimpleWords, setInSimpleWords] = useState<string[] | null>(null);
   const [dangerousQuestion, setDangerousQuestion] = useState<string | null>(null);
   const [shadowInsight, setShadowInsight] = useState<string | null>(null);
+  const [weeklyShiftInsight, setWeeklyShiftInsight] = useState<string | null>(null);
   const [emotionalTag, setEmotionalTag] = useState<string | null>(null);
   const [trackerInsight, setTrackerInsight] = useState<string | null>(null);
   const [calendarState, setCalendarState] = useState<string | null>(null);
@@ -611,6 +612,9 @@ export default function ReflectPage() {
       setShadowInsight(
         typeof data.shadowInsight === "string" ? data.shadowInsight.trim() || null : null
       );
+      setWeeklyShiftInsight(
+        typeof data.weeklyShiftInsight === "string" ? data.weeklyShiftInsight.trim() || null : null
+      );
       const sig = buildEmotionSessionSignature({
         resultPreview: data.result,
         brutalTruth: typeof data.brutalTruth === "string" ? data.brutalTruth : "",
@@ -726,6 +730,7 @@ export default function ReflectPage() {
     setInSimpleWords(null);
     setDangerousQuestion(null);
     setShadowInsight(null);
+    setWeeklyShiftInsight(null);
     setEmotionalTag(null);
     setTrackerInsight(null);
     setError(null);
@@ -1042,6 +1047,13 @@ export default function ReflectPage() {
                 <>
                   {/* 1) Pattern */}
                   <IndividualResultCard badge="YOUR REFLECTION" data={structuredResult} variant="minimal" />
+
+                  {weeklyShiftInsight ? (
+                    <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">
+                      <h3 className="text-white text-base font-medium">Weekly insight</h3>
+                      <p className="mt-3 text-sm text-white/70 leading-relaxed">{weeklyShiftInsight}</p>
+                    </section>
+                  ) : null}
 
                   {/* Evidence layer */}
                   <section className="mx-auto w-full max-w-[420px] rounded-3xl p-5 border border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_0_40px_rgba(255,255,255,0.04)] transition-all duration-300 hover:border-white/20">

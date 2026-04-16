@@ -135,9 +135,9 @@ export function SharedCoupleResultView({
           <div className="mt-4 flex items-end justify-between gap-2 sm:gap-4">
             {(
               [
-                { src: innerA, label: nameA ? `${nameA}'s world` : "Inner world A" },
+                { src: innerA, label: nameA ? `${nameA}'s world` : "Inner world A", emphasis: false },
                 { src: space, label: "Space between", emphasis: true },
-                { src: innerB, label: nameB ? `${nameB}'s world` : "Inner world B" },
+                { src: innerB, label: nameB ? `${nameB}'s world` : "Inner world B", emphasis: false },
               ] as const
             ).map((item) => (
               <div key={item.label} className="flex flex-1 min-w-0 flex-col items-center">

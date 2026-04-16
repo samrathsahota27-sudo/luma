@@ -194,6 +194,50 @@ export default function SciencePage() {
           </div>
         </section>
 
+        <section className="border-t border-white/10">
+          <div className="max-w-[720px] mx-auto px-6 py-14 md:py-20">
+            <h2 className="font-serif text-2xl md:text-3xl text-foreground [font-family:var(--font-serif-display)]">
+              Why this works differently
+            </h2>
+            <p className="mt-6 text-muted-foreground leading-relaxed whitespace-pre-line">
+              {"Many tools try to explain relationships — astrology, personality tests, tarot.\nLuma takes a different path."}
+            </p>
+
+            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03]">
+              {[
+                {
+                  title: "Not assigned — observed",
+                  text: "We don’t assign you a type or sign.\nWe watch what you actually choose — and build patterns from that.",
+                },
+                {
+                  title: "Not fixed — evolving",
+                  text: "Your patterns aren’t permanent.\nEach reflection updates your map as you change.",
+                },
+                {
+                  title: "Not abstract — personal",
+                  text: "Instead of general meanings, Luma reflects your specific emotional patterns — shaped by your own inputs.",
+                },
+              ].map((item, index) => (
+                <div
+                  key={item.title}
+                  className={`p-5 md:p-6 ${index > 0 ? "border-t border-white/10" : ""}`}
+                >
+                  <h3 className="font-serif text-lg text-foreground [font-family:var(--font-serif-display)]">
+                    {item.title}
+                  </h3>
+                  <p className="mt-2 text-sm md:text-base leading-relaxed text-muted-foreground whitespace-pre-line">
+                    {item.text}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-8 text-foreground/85 leading-relaxed whitespace-pre-line">
+              {"This isn’t about belief.\nIt’s about seeing something real in yourself — and what happens between you."}
+            </p>
+          </div>
+        </section>
+
         <section className="border-t border-white/10 bg-card/85 backdrop-blur-xl text-foreground shadow-[inset_0_1px_0_rgba(255,255,255,0.06),0_-24px_80px_rgba(100,80,160,0.1)]">
           <div className="max-w-[720px] mx-auto px-6 py-16 text-center">
             <h2 className="font-serif text-2xl md:text-3xl [font-family:var(--font-serif-display)]">

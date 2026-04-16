@@ -23,6 +23,7 @@ function CoupleWaitingInner() {
   const sessionId = searchParams.get("sessionId");
   const [partnerAComplete, setPartnerAComplete] = useState(false);
   const [partnerBComplete, setPartnerBComplete] = useState(false);
+  const [bothSubmitted, setBothSubmitted] = useState(false);
   const [ready, setReady] = useState(false);
   const [notFound, setNotFound] = useState(false);
   const [sessionLoading, setSessionLoading] = useState(true);
@@ -39,6 +40,7 @@ function CoupleWaitingInner() {
       const data = await res.json().catch(() => ({}));
       setPartnerAComplete(Boolean(data.partnerAComplete));
       setPartnerBComplete(Boolean(data.partnerBComplete));
+      setBothSubmitted(Boolean(data.bothSubmitted));
       setReady(Boolean(data.readyForResult));
     } catch {
       /* ignore transient errors */
@@ -52,7 +54,7 @@ function CoupleWaitingInner() {
     return `${window.location.origin}/couple/partner-b?sessionId=${encodeURIComponent(sessionId.trim())}`;
   }, [sessionId]);
 
-  const flowStep = ready ? 3 : partnerAComplete ? 2 : 1;
+  const flowStep = ready || bothSubmitted ? 3 : partnerAComplete ? 2 : 1;
 
   useEffect(() => {
     if (!sessionId?.trim()) return;
@@ -85,10 +87,14 @@ function CoupleWaitingInner() {
 
   const statusLine = ready
     ? "Ready to reveal your dynamic"
+    : bothSubmitted
+      ? "Building your shared result"
     : "Waiting for your partner";
 
   const subLine = ready
     ? "You’re both done. Open your shared result when you’re together—or whenever you’re ready."
+    : bothSubmitted
+      ? "Both reflections are in. We’re generating your shared result now."
     : partnerAComplete && !partnerBComplete
       ? "Partner A is done. We’re waiting on Partner B to finish on their device."
       : !partnerAComplete && partnerBComplete
@@ -122,7 +128,7 @@ function CoupleWaitingInner() {
         </h1>
         <p className="mt-4 text-sm text-white/60 leading-relaxed">{subLine}</p>
 
-        {!ready && partnerBLink ? (
+        {!ready && !bothSubmitted && partnerBLink ? (
           <div className="mt-8 text-left">
             <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-white/40 text-center">
               Invite Partner B

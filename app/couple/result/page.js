@@ -365,6 +365,7 @@ export default function CoupleResultPage() {
   const checkInRecordedRef = useRef(false);
   const shiftResolvedForFingerprintRef = useRef(null);
   const revealRunRef = useRef(null);
+  const resultRequestStartedRef = useRef(false);
   const [shiftInsight, setShiftInsight] = useState(null);
 
   const checkAgainEncouragement = useMemo(
@@ -402,6 +403,9 @@ export default function CoupleResultPage() {
   }, [sequencePhase]);
 
   useEffect(() => {
+    if (resultRequestStartedRef.current) return;
+    resultRequestStartedRef.current = true;
+
     let cancelled = false;
 
     async function load() {
@@ -1133,6 +1137,10 @@ export default function CoupleResultPage() {
   const coreDynamicText = getCoupleCoreDynamicText(data);
   const shiftRevealOpen = coreDynamicText ? reveal.coreDynamic : reveal.innerA;
   const recommendedTool = getRecommendedTool(patternName);
+  const weeklyShiftInsightText =
+    shiftInsight ||
+    (typeof data?.weeklyShiftInsight === "string" ? data.weeklyShiftInsight.trim() : "") ||
+    null;
   const recommendedToolLine =
     recommendedTool === "AI Chat"
       ? "You're both stuck in the same loop. Talk it through with a neutral voice."
@@ -1478,12 +1486,12 @@ export default function CoupleResultPage() {
             </section>
           ) : null}
 
-          {shiftInsight ? (
+          {weeklyShiftInsightText ? (
             <div
               className={`mb-10 max-w-[560px] mx-auto rounded-xl border border-white/10 bg-white/[0.03] px-4 py-4 ${transition} ${shiftRevealOpen ? visibleClass : hidden}`}
             >
               <p className="text-xs uppercase tracking-widest text-white/60 mb-1">Since last time</p>
-              <p className="text-sm text-white/70 leading-relaxed">{shiftInsight}</p>
+              <p className="text-sm text-white/70 leading-relaxed">{weeklyShiftInsightText}</p>
             </div>
           ) : null}
 

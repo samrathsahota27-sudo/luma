@@ -32,6 +32,8 @@ export async function POST() {
       partner_a: null,
       partner_b: null,
       status: "awaiting_partner",
+      result_generated: false,
+      result: null,
     };
 
     const { error } = await supabase.from("couple_sessions").insert(row);

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { ArrowRight, Brain, Calendar, Link2, MessageSquareText, Sparkles, Users, Wand2 } from "lucide-react";
@@ -272,6 +273,122 @@ export default function HowItWorksPage() {
             </div>
           </div>
           <FlowSteps steps={COUPLES_STEPS} />
+        </section>
+
+        <section className="border-t border-white/10 px-4 py-12">
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center">
+              <h2 className="font-serif text-[26px] md:text-[30px] text-foreground [font-family:var(--font-serif-display)]">
+                How the cycle works
+              </h2>
+            </div>
+
+            <div className="relative mt-8 md:mt-10">
+              <div
+                aria-hidden
+                className="pointer-events-none absolute left-1/2 top-0 hidden h-px w-[92%] -translate-x-1/2 bg-gradient-to-r from-white/0 via-white/18 to-white/0 md:block"
+              />
+
+              <div className="relative grid grid-cols-1 gap-6 md:grid-cols-4">
+                {[
+                  {
+                    n: "01",
+                    title: "See it",
+                    text: "Choose what feels like you",
+                    src: "/demo/individual-hero.jpg",
+                    alt: "Visual reflection image selection",
+                  },
+                  {
+                    n: "02",
+                    title: "Understand it",
+                    text: "We map your emotional patterns",
+                    src: "/images/ex.png",
+                    alt: "Insight and pattern card preview",
+                  },
+                  {
+                    n: "03",
+                    title: "Work through it",
+                    text: "Small shifts over 28 days",
+                    src: "/demo/space-between.jpg",
+                    alt: "Ongoing reflection progress visual",
+                  },
+                  {
+                    n: "04",
+                    title: "See what changed",
+                    text: "Watch your dynamic evolve",
+                    src: "/demo/partner-a.jpg",
+                    secondarySrc: "/demo/partner-b.jpg",
+                    alt: "Before and after dynamic comparison",
+                  },
+                ].map((step, idx, arr) => (
+                  <div key={step.n} className="relative">
+                    <article className="relative overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-4 shadow-sm backdrop-blur-xl">
+                      {step.secondarySrc ? (
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                            <Image
+                              src={step.src}
+                              alt={`${step.alt} before`}
+                              fill
+                              sizes="(max-width: 768px) 48vw, 130px"
+                              className="object-cover"
+                            />
+                          </div>
+                          <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                            <Image
+                              src={step.secondarySrc}
+                              alt={`${step.alt} after`}
+                              fill
+                              sizes="(max-width: 768px) 48vw, 130px"
+                              className="object-cover"
+                            />
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-white/10 bg-white/[0.04]">
+                          <Image
+                            src={step.src}
+                            alt={step.alt}
+                            fill
+                            sizes="(max-width: 768px) 100vw, 280px"
+                            className="object-cover"
+                          />
+                          <div
+                            aria-hidden
+                            className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 to-transparent"
+                          />
+                        </div>
+                      )}
+                      <div className="mt-4 flex items-start gap-3">
+                        <span className="inline-flex h-7 min-w-7 items-center justify-center rounded-md border border-white/15 bg-white/[0.06] px-1 text-[10px] font-medium tracking-[0.14em] text-white/70">
+                          {step.n}
+                        </span>
+                        <div className="min-w-0">
+                          <h3 className="font-serif text-[18px] leading-tight text-white [font-family:var(--font-serif-display)]">
+                            {step.title}
+                          </h3>
+                          <p className="mt-1 text-sm leading-relaxed text-white/65">{step.text}</p>
+                        </div>
+                      </div>
+                    </article>
+
+                    {idx < arr.length - 1 ? (
+                      <div
+                        aria-hidden
+                        className="pointer-events-none absolute -bottom-4 left-1/2 z-10 flex h-8 w-8 -translate-x-1/2 items-center justify-center rounded-full border border-white/10 bg-[#0f0c15] text-white/55 md:bottom-auto md:left-auto md:right-[-16px] md:top-1/2 md:-translate-y-1/2 md:translate-x-0 md:-translate-x-0"
+                      >
+                        <ArrowRight className="h-3.5 w-3.5 rotate-90 md:rotate-0" />
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <p className="mt-8 text-center text-sm md:text-base text-white/75">
+              ↺ continues
+            </p>
+          </div>
         </section>
 
         {/* 6) EXAMPLE COUPLES RESULT CARD */}

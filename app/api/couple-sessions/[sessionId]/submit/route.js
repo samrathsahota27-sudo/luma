@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
+import { ensureCoupleSessionResult } from "@/lib/coupleSessionResult";
 
 export async function POST(req, { params }) {
   try {
@@ -15,11 +16,12 @@ export async function POST(req, { params }) {
       return NextResponse.json({ error: "answers is required" }, { status: 400 });
     }
     const role = typeof body.role === "string" ? body.role : null;
+    const depthMode = body?.depthMode === "steel" ? "steel" : "satin";
 
     const name = typeof body.name === "string" ? body.name.trim() || null : null;
     const { data: session, error: getError } = await supabase
       .from("couple_sessions")
-      .select("id, partner_a, partner_b, status")
+      .select("id, partner_a, partner_b, status, result, result_generated")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -37,24 +39,36 @@ export async function POST(req, { params }) {
       submittedAt: Date.now(),
     };
 
-    if (session.partner_a && session.partner_b) {
-      return NextResponse.json({ error: "Session already completed" }, { status: 409 });
+    if (session.result && typeof session.result === "object") {
+      return NextResponse.json({
+        ok: true,
+        id: session.id,
+        status: session.status ?? null,
+        partnerA: session.partner_a ?? null,
+        partnerB: session.partner_b ?? null,
+        partnerAComplete: Boolean(session.partner_a),
+        partnerBComplete: Boolean(session.partner_b),
+        readyForResult: true,
+        resultGenerated: true,
+      });
     }
 
-    const updates =
-      role === "partnerB"
-        ? { partner_b: payload }
-        : role === "partnerA"
-          ? { partner_a: payload }
-          : !session.partner_a
-            ? { partner_a: payload }
-            : { partner_b: payload };
+    const normalizedRole =
+      role === "partnerA" || role === "partnerB"
+        ? role
+        : session.partner_a && !session.partner_b
+          ? "partnerB"
+          : !session.partner_a && session.partner_b
+            ? "partnerA"
+            : "partnerA";
+
+    const updates = normalizedRole === "partnerB" ? { partner_b: payload } : { partner_a: payload };
 
     const { data: updated, error: updateError } = await supabase
       .from("couple_sessions")
       .update(updates)
       .eq("id", sessionId)
-      .select("id, partner_a, partner_b, status")
+      .select("id, partner_a, partner_b, status, result, result_generated")
       .single();
 
     if (updateError) {
@@ -66,6 +80,20 @@ export async function POST(req, { params }) {
     const partnerB = updated.partner_b ?? null;
     const partnerAComplete = Boolean(partnerA);
     const partnerBComplete = Boolean(partnerB);
+    const bothSubmitted = partnerAComplete && partnerBComplete;
+
+    let resultStatus = "waiting";
+    if (updated.result && typeof updated.result === "object") {
+      resultStatus = "ready";
+    } else if (bothSubmitted) {
+      try {
+        const ensured = await ensureCoupleSessionResult(req, sessionId, depthMode);
+        resultStatus = ensured.status;
+      } catch (error) {
+        console.error("couple-sessions submit ensure result:", error);
+        return NextResponse.json({ error: "Could not generate result" }, { status: 500 });
+      }
+    }
 
     return NextResponse.json({
       ok: true,
@@ -75,7 +103,9 @@ export async function POST(req, { params }) {
       partnerB,
       partnerAComplete,
       partnerBComplete,
-      readyForResult: partnerAComplete && partnerBComplete,
+      readyForResult: resultStatus === "ready",
+      resultStatus,
+      resultGenerated: resultStatus === "ready" || updated.result_generated === true,
     });
   } catch (e) {
     console.error("couple-sessions submit:", e);

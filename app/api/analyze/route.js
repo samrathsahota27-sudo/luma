@@ -18,6 +18,7 @@ import {
   bumpMonthlyReflectionCount,
   FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
 } from "@/lib/reflectionUsage";
+import { buildIndividualWeeklyInsight } from "@/lib/weeklyInsight";
 
 export async function POST(req) {
   try {
@@ -109,6 +110,7 @@ export async function POST(req) {
     const fullTextResponse = raw;
 
     let reflectionUsage = null;
+    let weeklyShiftInsight = null;
     if (user) {
       try {
         // First try to get existing profile
@@ -126,6 +128,7 @@ export async function POST(req) {
             email: user.email,
             pattern_history: [],
             couple_sessions: [],
+            start_date: new Date().toISOString().slice(0, 10),
           });
         }
 
@@ -142,6 +145,14 @@ export async function POST(req) {
         };
 
         const currentHistory = existingProfile?.pattern_history || [];
+        const previousEntry =
+          Array.isArray(currentHistory) && currentHistory.length > 0
+            ? currentHistory[currentHistory.length - 1]
+            : null;
+        weeklyShiftInsight = buildIndividualWeeklyInsight(previousEntry, finalCard);
+        if (weeklyShiftInsight) {
+          newEntry.weekly_shift_insight = weeklyShiftInsight;
+        }
         const prevCount =
           fetchError?.code === "PGRST116" ? 0 : existingProfile?.reflection_count;
         const prevMonth =
@@ -205,6 +216,7 @@ export async function POST(req) {
         `What shifts it: ${finalCard.shift}`,
       ].join("\n"),
       guidingReflection,
+      weeklyShiftInsight,
       ...(reflectionUsage ? { reflectionUsage } : {}),
     });
   } catch (error) {
