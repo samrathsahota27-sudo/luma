@@ -5,6 +5,7 @@ import { MemoryBootstrap } from '@/components/MemoryBootstrap'
 import { InactivityReminderBanner } from '@/components/InactivityReminderBanner'
 import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import PWALayout from '@/components/PWALayout'
+import { PWAEnhancementBoundary } from '@/components/PWAEnhancementBoundary'
 import { PUBLIC_SITE_URL } from '@/lib/site'
 import './globals.css'
 
@@ -88,10 +89,12 @@ export default async function RootLayout({
         <meta name="theme-color" content="#0a0a0a" />
       </head>
       <body className="font-sans min-w-0 overflow-x-hidden">
-        <MemoryBootstrap />
-        <InactivityReminderBanner />
-        <PWALayout>{children}</PWALayout>
-        <PWAInstallPrompt />
+        <PWAEnhancementBoundary fallback={children}>
+          <MemoryBootstrap />
+          <InactivityReminderBanner />
+          <PWALayout>{children}</PWALayout>
+          <PWAInstallPrompt />
+        </PWAEnhancementBoundary>
         <Analytics />
       </body>
     </html>
