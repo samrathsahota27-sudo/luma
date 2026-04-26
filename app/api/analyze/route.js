@@ -19,6 +19,7 @@ import {
   FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
 } from "@/lib/reflectionUsage";
 import { buildIndividualWeeklyInsight } from "@/lib/weeklyInsight";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 export async function POST(req) {
   try {
@@ -59,11 +60,17 @@ export async function POST(req) {
     const micro = deriveThemeTone(signals);
     const patternLabel = derivePatternLabel({ signals, selections: answers });
 
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: payload?.context ?? null,
+    });
+
     const prompt = buildSoloReflectionPrompt({
       selections: answers,
       patternLabel,
       depthInstructions: depthModeInstructions(depthMode),
-      contextJson: "",
+      contextJson: accountContext.contextJson,
     });
     // Temporary debug logs requested.
     console.log("[solo-reflection][final-prompt]", prompt);
@@ -193,6 +200,22 @@ export async function POST(req) {
         // Do not throw — result should still return
       }
     }
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "individual_reflection",
+      input: {
+        depthMode,
+        patternLabel,
+      },
+      output: {
+        pattern: finalCard.pattern,
+        theme: finalCard.theme?.title ?? null,
+        tone: finalCard.tone?.title ?? null,
+        weeklyShiftInsight: weeklyShiftInsight ?? null,
+      },
+    });
 
     return NextResponse.json({
       structured: finalCard,

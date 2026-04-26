@@ -6,6 +6,8 @@ import {
   readDepthModeFromBody,
 } from "@/lib/depthMode";
 import { firstResponsesOutputText } from "@/lib/openaiFirstOutputText";
+import { createClient } from "@/lib/supabase/server";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 const SYSTEM = `You are a relationship strategist.
 
@@ -95,6 +97,15 @@ export async function POST(req: Request) {
     }
 
     const openai = new OpenAI({ apiKey });
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: (context && typeof context === "object" ? context : null) as any,
+    });
 
     const userBlock = `What the user shared about the relationship right now:
 ---
@@ -104,15 +115,7 @@ ${text}
 Output ONLY the JSON object with keys state, missing, plan.`;
 // (accept `need` for backwards compatibility; prefer `missing`.)
 
-    const contextJson = (() => {
-      if (!context || typeof context !== "object") return "";
-      try {
-        const s = JSON.stringify(context);
-        return s.length > 8000 ? `${s.slice(0, 8000)}…` : s;
-      } catch {
-        return "";
-      }
-    })();
+    const contextJson = accountContext.contextJson;
 
     const input = `${SYSTEM}${depthModeInstructions(depthMode)}${dateDepthSuffix(depthMode)}
 
@@ -130,6 +133,21 @@ ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse thi
     }
 
     const data = parseJsonResponse(raw);
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "date_ai",
+      input: {
+        depthMode,
+        textPreview: text.slice(0, 180),
+      },
+      output: {
+        state: data.state.slice(0, 140),
+        missing: data.missing.slice(0, 140),
+        plan: data.plan.slice(0, 200),
+      },
+    });
 
     return NextResponse.json(data);
   } catch (error) {

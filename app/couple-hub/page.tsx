@@ -4,8 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
+import { supabase } from "@/lib/supabase";
 import { TimelineBar, COUPLE_MAIN_PADDING_TOP } from "@/components/TimelineBar";
-import { ArrowRight, Brain, CalendarHeart, ChevronRight, MessageSquareText, Sparkles, Waves } from "lucide-react";
+import { ArrowRight, Brain, CalendarHeart, ChevronRight, MessageSquareText, Sparkles, Swords, Waves } from "lucide-react";
 import { DailyQuestionCard } from "@/components/DailyQuestionCard";
 import { RelationshipMapHero } from "@/components/RelationshipMapHero";
 import { FutureProjectionPanel } from "@/components/FutureProjectionPanel";
@@ -13,6 +14,8 @@ import { CoupleHubOverlay } from "@/components/CoupleHubOverlay";
 import { CalendarOfUsTimeline } from "@/components/CalendarOfUsTimeline";
 import { useLumaMemory } from "@/hooks/useLumaMemory";
 import { CoupleHubNudges } from "@/components/CoupleHubNudges";
+import { SharedMirrorInviteCard } from "@/components/SharedMirrorInviteCard";
+import { PatternUnlockSystemCard } from "@/components/PatternUnlockSystemCard";
 import {
   JOURNEY_PROGRESS_STORAGE_KEY,
   clampJourneyStep,
@@ -42,14 +45,14 @@ const FEATURES: HubFeature[] = [
     title: "Emotional Translator",
     subtitle: "Decode",
     cta: "Open",
-    kind: "translator",
+    href: "/tools/emotional-translator",
     Icon: MessageSquareText,
   },
   {
-    title: "AI Chat",
-    subtitle: "Resolve",
+    title: "Chat Assistant",
+    subtitle: "Decrypt",
     cta: "Open",
-    kind: "chat",
+    href: "/tools/chat-assistant",
     Icon: Waves,
   },
   {
@@ -60,21 +63,41 @@ const FEATURES: HubFeature[] = [
     Icon: CalendarHeart,
   },
   {
-    title: "Their Mind",
+    title: "Theory Mode",
     subtitle: "Theory",
     cta: "Open",
-    kind: "mind",
+    href: "/tools/theory-mode",
     Icon: Brain,
   },
   {
-    title: "Silent Signal",
+    title: "Signal Detector",
     subtitle: "Send",
     cta: "Open",
-    href: "/silent-signal",
-    comingSoon: true,
+    href: "/tools/signal-detector",
+    comingSoon: false,
     Icon: Sparkles,
   },
+  {
+    title: "Conflict Replay",
+    subtitle: "Process",
+    cta: "Open",
+    href: "/tools/conflict-replay",
+    comingSoon: false,
+    Icon: Swords,
+  },
 ];
+
+function calculateJourneyStepFromStartDate(startDate: string): number {
+  const raw = String(startDate || "").trim();
+  if (!raw) return 0;
+  const startTs = Date.parse(`${raw}T00:00:00.000Z`);
+  if (!Number.isFinite(startTs)) return 0;
+  const now = new Date();
+  const todayUtcTs = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const elapsedDays = Math.max(0, Math.floor((todayUtcTs - startTs) / 86400000));
+  // Advance once per full week (0..4 maps to Week 1..Final)
+  return clampJourneyStep(Math.floor(elapsedDays / 7));
+}
 
 export default function CoupleHubPage() {
   const [quote, setQuote] = useState<string | null>(null);
@@ -84,12 +107,78 @@ export default function CoupleHubPage() {
 
   useEffect(() => {
     setQuote(QUOTES[Math.floor(Math.random() * QUOTES.length)]);
-    try {
-      const saved = Number(localStorage.getItem(JOURNEY_PROGRESS_STORAGE_KEY) ?? "0");
-      setJourneyStep(clampJourneyStep(saved));
-    } catch {
-      setJourneyStep(0);
-    }
+    let cancelled = false;
+
+    const loadJourneyProgress = async () => {
+      try {
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser();
+        if (cancelled) return;
+
+        // Logged-out fallback: keep local progress behavior.
+        if (authError || !user) {
+          const saved = Number(localStorage.getItem(JOURNEY_PROGRESS_STORAGE_KEY) ?? "0");
+          setJourneyStep(clampJourneyStep(saved));
+          return;
+        }
+
+        const { data: profile, error: profileError } = await supabase
+          .from("user_profiles")
+          .select("id, email, couple_journey_start_date")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (cancelled) return;
+
+        const today = new Date().toISOString().slice(0, 10);
+
+        // Create/update profile record if missing or missing journey start date.
+        if (profileError || !profile?.id) {
+          const { error: insertError } = await supabase.from("user_profiles").upsert({
+            id: user.id,
+            email: user.email ?? null,
+            couple_journey_start_date: today,
+            last_updated: new Date().toISOString(),
+          });
+          if (!insertError && !cancelled) {
+            setJourneyStep(0);
+            localStorage.setItem(JOURNEY_PROGRESS_STORAGE_KEY, "0");
+          }
+          return;
+        }
+
+        let startDate = profile.couple_journey_start_date as string | null;
+        if (!startDate) {
+          const { error: updateError } = await supabase
+            .from("user_profiles")
+            .update({ couple_journey_start_date: today, last_updated: new Date().toISOString() })
+            .eq("id", user.id);
+          if (!updateError) startDate = today;
+        }
+
+        const step = calculateJourneyStepFromStartDate(startDate || today);
+        if (!cancelled) {
+          setJourneyStep(step);
+          // Keep local copy in sync for legacy reads in other components.
+          localStorage.setItem(JOURNEY_PROGRESS_STORAGE_KEY, String(step));
+        }
+      } catch {
+        if (cancelled) return;
+        try {
+          const saved = Number(localStorage.getItem(JOURNEY_PROGRESS_STORAGE_KEY) ?? "0");
+          setJourneyStep(clampJourneyStep(saved));
+        } catch {
+          setJourneyStep(0);
+        }
+      }
+    };
+
+    loadJourneyProgress();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const week = getWeekFromStep(journeyStep);
@@ -176,6 +265,24 @@ export default function CoupleHubPage() {
           </div>
         </section>
 
+        <section className="border-t border-white/10 py-16 md:py-20" aria-labelledby="hub-invite-heading">
+          <div className="mx-auto max-w-3xl">
+            <h2 id="hub-invite-heading" className="sr-only">
+              Shared mirror invite
+            </h2>
+            <SharedMirrorInviteCard autoCreate className="rounded-[28px]" />
+          </div>
+        </section>
+
+        <section className="border-t border-white/10 py-16 md:py-20" aria-labelledby="hub-pattern-unlocks-heading">
+          <div className="mx-auto max-w-3xl">
+            <h2 id="hub-pattern-unlocks-heading" className="sr-only">
+              Pattern unlock system
+            </h2>
+            <PatternUnlockSystemCard />
+          </div>
+        </section>
+
         <section className="border-t border-white/10 py-16 md:py-24">
           <div className="rounded-[28px] border border-white/10 bg-white/[0.03] px-4 py-8 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)] md:px-8 md:py-10">
             <CalendarOfUsTimeline variant="dark" fetchLimit={90} />
@@ -202,20 +309,28 @@ export default function CoupleHubPage() {
           </div>
         </section>
 
-        {/* Tools — full-width stacked cards */}
-        <section className="border-t border-white/10 py-16 md:py-24" aria-labelledby="hub-tools-heading">
+        {/* Daily tools — full-width stacked cards */}
+        <section
+          className="border-t border-white/10 py-16 md:py-24"
+          aria-labelledby="hub-tools-heading"
+        >
+          <div className="mx-auto max-w-3xl rounded-3xl border border-violet-300/20 bg-[radial-gradient(ellipse_90%_60%_at_50%_0%,rgba(140,110,220,0.14),rgba(255,255,255,0.02))] px-4 py-6 md:px-8 md:py-8">
           <div className="text-center">
-            <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/50">Tools</p>
+            <p className="inline-flex items-center rounded-full border border-violet-200/20 bg-violet-300/[0.08] px-3 py-1 text-[10px] font-medium uppercase tracking-[0.2em] text-violet-100/80">
+              Daily
+            </p>
             <h2
               id="hub-tools-heading"
-              className="mt-3 font-serif text-[26px] text-white [font-family:var(--font-serif-display)] tracking-tight md:text-[34px]"
+              className="mt-3 font-serif text-[28px] leading-tight text-white [font-family:var(--font-serif-display)] tracking-tight drop-shadow-[0_0_20px_rgba(140,110,220,0.28)] md:text-[36px]"
             >
-              Click the tension.
+              Daily Tools
             </h2>
-            <p className="mt-3 text-sm text-white/55 md:text-base">Get the underneath.</p>
+            <p className="mt-2 text-sm text-white/55 md:text-base">
+              Get the underneath.
+            </p>
           </div>
 
-          <ul className="mx-auto mt-12 flex w-full max-w-full flex-col gap-4 md:mt-14 md:gap-5">
+          <ul className="mx-auto mt-10 flex w-full max-w-full flex-col gap-4 md:mt-12 md:gap-5">
             {FEATURES.map((f) => {
               const Icon = f.Icon;
               const isComingSoon = Boolean(f.comingSoon);
@@ -287,6 +402,7 @@ export default function CoupleHubPage() {
               );
             })}
           </ul>
+          </div>
         </section>
 
         {/* Direction + reflection CTA */}
@@ -334,7 +450,7 @@ export default function CoupleHubPage() {
   return (
     <div className="min-h-screen flex flex-col bg-[#050508] text-[#e8e4df]">
       <Navigation />
-      <TimelineBar />
+      <TimelineBar currentStep={journeyStep} />
       <CoupleHubOverlay open={overlay != null} kind={(overlay ?? "translator") as any} onClose={() => setOverlay(null)} />
       {ControlPanel}
 

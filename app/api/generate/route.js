@@ -28,6 +28,7 @@ import {
   bumpMonthlyReflectionCount,
   FREE_INDIVIDUAL_REFLECTIONS_PER_MONTH,
 } from "@/lib/reflectionUsage";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 async function callOpenAI(prompt) {
   const apiKey = process.env.OPENAI_API_KEY;
@@ -69,21 +70,25 @@ export async function POST(req) {
 
     const context = payload?.context ?? null;
     const depthMode = readDepthModeFromBody(payload);
-    const contextJson = (() => {
-      if (!context || typeof context !== "object") return "";
-      try {
-        const s = JSON.stringify(context);
-        return s.length > 8000 ? `${s.slice(0, 8000)}…` : s;
-      } catch {
-        return "";
-      }
-    })();
+    const supabase = await createClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    console.log("🔴 User in generate:", user?.id ?? "NULL", authError?.message ?? "no auth error");
+
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: context,
+    });
 
     const prompt = buildSoloReflectionPrompt({
       selections,
       patternLabel,
       depthInstructions: depthModeInstructions(depthMode),
-      contextJson,
+      contextJson: accountContext.contextJson,
     });
     // Temporary debug logs requested.
     console.log("[solo-reflection][final-prompt]", prompt);
@@ -130,14 +135,6 @@ export async function POST(req) {
       .filter((line) => typeof line === "string" && line.trim().length > 0)
       .join("\n\n");
     const fullTextResponse = raw;
-
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    console.log("🔴 User in generate:", user?.id ?? "NULL", authError?.message ?? "no auth error");
 
     let reflectionUsage = null;
     if (user) {
@@ -188,6 +185,21 @@ export async function POST(req) {
         console.error("🔴 SAVE CRASH:", e.message);
       }
     }
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "individual_reflection_legacy",
+      input: {
+        depthMode,
+        patternLabel,
+      },
+      output: {
+        pattern: finalCard.pattern,
+        theme: finalCard.theme?.title ?? null,
+        tone: finalCard.tone?.title ?? null,
+      },
+    });
 
     return NextResponse.json({
       structured: finalCard,

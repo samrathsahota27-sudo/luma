@@ -11,10 +11,13 @@ function CoupleJoinInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
+  const mirrorCode = searchParams.get("mirrorCode");
   const partnerRole = searchParams.get("partnerRole");
   const [checking, setChecking] = useState(true);
   const [valid, setValid] = useState(false);
   const [readyForResult, setReadyForResult] = useState(false);
+  const [mirrorJoinState, setMirrorJoinState] = useState<"idle" | "joining" | "connected" | "error">("idle");
+  const [mirrorError, setMirrorError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionId?.trim()) return;
@@ -28,6 +31,42 @@ function CoupleJoinInner() {
   }, [sessionId, partnerRole]);
 
   useEffect(() => {
+    if (!mirrorCode?.trim()) return;
+    let cancelled = false;
+    setMirrorJoinState("joining");
+    setMirrorError(null);
+    (async () => {
+      try {
+        const res = await fetch(`/api/shared-mirror/${encodeURIComponent(mirrorCode.trim().toUpperCase())}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ recentSelections: [] }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setMirrorJoinState("error");
+          setMirrorError(data?.error || "Could not connect this mirror code.");
+          return;
+        }
+        setMirrorJoinState("connected");
+      } catch {
+        if (!cancelled) {
+          setMirrorJoinState("error");
+          setMirrorError("Could not connect this mirror code.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [mirrorCode]);
+
+  useEffect(() => {
+    if (mirrorCode?.trim()) {
+      setChecking(false);
+      return;
+    }
     if (!sessionId?.trim()) {
       setChecking(false);
       setValid(false);
@@ -54,6 +93,50 @@ function CoupleJoinInner() {
       cancelled = true;
     };
   }, [sessionId]);
+
+  if (mirrorCode?.trim()) {
+    return (
+      <div className="max-w-[480px] mx-auto px-4 text-center">
+        <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-white/45">Shared Mirror</p>
+        <h1 className="mt-4 font-serif text-2xl md:text-[1.75rem] text-white [font-family:var(--font-serif-display)] leading-tight">
+          Connecting your mirrors
+        </h1>
+        <p className="mt-4 text-sm text-white/60 leading-relaxed">
+          Code: <span className="font-mono text-white/80">{mirrorCode.trim().toUpperCase()}</span>
+        </p>
+
+        {mirrorJoinState === "joining" ? (
+          <div className="mt-8 flex flex-col items-center gap-3 text-white/65">
+            <Loader2 className="h-7 w-7 animate-spin" />
+            <p className="text-sm">Merging your first mirror overlap...</p>
+          </div>
+        ) : null}
+
+        {mirrorJoinState === "connected" ? (
+          <>
+            <p className="mt-8 text-sm text-emerald-200">Both mirrors connected ✨</p>
+            <button
+              type="button"
+              onClick={() => router.push("/couple-hub")}
+              className="mt-8 flex w-full min-h-[56px] items-center justify-center gap-2 rounded-2xl bg-white text-[#0b0a0d] text-base font-semibold shadow-[0_8px_32px_rgba(255,255,255,0.12)] transition hover:opacity-95"
+            >
+              Open control panel
+              <ArrowRight className="h-5 w-5" />
+            </button>
+          </>
+        ) : null}
+
+        {mirrorJoinState === "error" ? (
+          <>
+            <p className="mt-8 text-sm text-red-300/90">{mirrorError || "Could not connect this mirror code."}</p>
+            <Link href="/couple-hub" className="mt-6 inline-block text-sm text-violet-300 hover:text-violet-200">
+              Back to Control Panel
+            </Link>
+          </>
+        ) : null}
+      </div>
+    );
+  }
 
   if (!sessionId?.trim()) {
     return (

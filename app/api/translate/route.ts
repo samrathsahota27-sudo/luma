@@ -6,6 +6,8 @@ import {
   translatorDepthSuffix,
 } from "@/lib/depthMode";
 import { firstResponsesOutputText } from "@/lib/openaiFirstOutputText";
+import { createClient } from "@/lib/supabase/server";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 const SYSTEM = `You decode emotional subtext with high precision.
 
@@ -86,6 +88,10 @@ export async function POST(req: Request) {
     }
 
     const openai = new OpenAI({ apiKey });
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
     const userBlock = `Their message (verbatim from the user):
 ---
@@ -94,9 +100,16 @@ ${message}
 
 Output ONLY the JSON object with keys said, meant, trap, do.`;
 
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: (context && typeof context === "object" ? context : null) as any,
+    });
+    const mergedContext = accountContext.context;
+
     const memory = (() => {
-      if (!context || typeof context !== "object") return null;
-      const mem = (context as Record<string, unknown>)?.memory;
+      if (!mergedContext || typeof mergedContext !== "object") return null;
+      const mem = (mergedContext as Record<string, unknown>)?.memory;
       return mem && typeof mem === "object" ? (mem as Record<string, unknown>) : null;
     })();
 
@@ -118,15 +131,7 @@ Output ONLY the JSON object with keys said, meant, trap, do.`;
       };
     })();
 
-    const contextJson = (() => {
-      if (!context || typeof context !== "object") return "";
-      try {
-        const s = JSON.stringify(context);
-        return s.length > 8000 ? `${s.slice(0, 8000)}…` : s;
-      } catch {
-        return "";
-      }
-    })();
+    const contextJson = accountContext.contextJson;
 
     const translatorMemoryBlock = (() => {
       // Keep this small and “usable” instead of dumping the entire memory.
@@ -157,6 +162,20 @@ ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse thi
     }
 
     const data = parseJsonResponse(raw);
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "translator",
+      input: {
+        depthMode,
+        messagePreview: message.slice(0, 180),
+      },
+      output: {
+        said: data.said.slice(0, 180),
+        meant: data.meant.slice(0, 180),
+      },
+    });
 
     return NextResponse.json(data);
   } catch (error) {

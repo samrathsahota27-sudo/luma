@@ -23,6 +23,7 @@ import {
 } from "@/lib/patternScoring";
 import { createClient } from "@/lib/supabase/server";
 import { buildCoupleWeeklyInsight } from "@/lib/weeklyInsight";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 function extractJSON(text) {
   const t = String(text ?? "");
@@ -476,8 +477,17 @@ export async function POST(req) {
       .filter(Boolean)
       .join(" | ");
 
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: payload?.context ?? null,
+    });
+
     const prompt =
       buildCouplePrompt(partnerA, partnerB, relationshipDescription) +
+      (accountContext.contextJson
+        ? `\n\nACCOUNT MEMORY CONTEXT (cross-feature, per account):\n${accountContext.contextJson}\nUse this as supporting context to personalize without inventing facts.\n`
+        : "") +
       depthModeInstructions(depthMode) +
       coupleAnalyzeDepthSuffix(depthMode);
     console.log("[couple-reflection][final-prompt]", prompt);
@@ -649,6 +659,23 @@ ${signals.length ? JSON.stringify(signals).slice(0, 6000) : "[]"}
       null,
       depthMode
     );
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "couple_reflection",
+      input: {
+        depthMode,
+        relationshipDescription: relationshipDescription?.slice(0, 240) || null,
+      },
+      output: {
+        pattern: card.pattern,
+        drift: card?.drift?.value ?? null,
+        tension: card?.tension?.value ?? null,
+        alignment: card?.alignment ?? null,
+        weeklyShiftInsight: weeklyShiftInsight ?? null,
+      },
+    });
 
     return NextResponse.json({
       structured: card,

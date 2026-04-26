@@ -55,6 +55,7 @@ import { PrivacyTrustLine } from "@/components/PrivacyTrustLine";
 import { ProUpgradeSoftPrompt } from "@/components/ProUpgradeSoftPrompt";
 import { WhatToDoWithThis } from "@/components/WhatToDoWithThis";
 import { ShareLumaFab } from "@/components/ShareLumaFab";
+import { SmartOnboardingFlow } from "@/components/SmartOnboardingFlow";
 
 const ROUND_TRANSITION_MS = 500;
 const AI_STATUS_ROTATE_MS = 1800;
@@ -1042,6 +1043,7 @@ export default function TestPage() {
             <div className="space-y-4">
               <IndividualReflectionExportSection>
               <IndividualResultCard badge="YOUR REFLECTION" data={structuredResult} variant="minimal" />
+              <SmartOnboardingFlow userName={getCurrentUserName()} className="mt-6" />
               {(() => {
                 const selectedImagesForWhy = Object.keys(answers || {}).flatMap((k) => {
                   const round = Number(k);

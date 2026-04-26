@@ -5,6 +5,8 @@ import {
   futurePathsDepthSuffix,
   readDepthModeFromBody,
 } from "@/lib/depthMode";
+import { createClient } from "@/lib/supabase/server";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 const SYSTEM = `You are Luma, a relationship pattern observer.
 
@@ -47,10 +49,23 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const depthMode = readDepthModeFromBody(body);
     const context = (body?.context as Record<string, unknown> | undefined) ?? undefined;
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: (context ?? null) as any,
+    });
+    const mergedContext = (accountContext.context ?? {}) as Record<string, unknown>;
 
     const memory =
-      context && typeof context === "object" && (context as any).memory && typeof (context as any).memory === "object"
-        ? ((context as any).memory as Record<string, unknown>)
+      mergedContext &&
+      typeof mergedContext === "object" &&
+      (mergedContext as any).memory &&
+      typeof (mergedContext as any).memory === "object"
+        ? ((mergedContext as any).memory as Record<string, unknown>)
         : null;
 
     const scores = (memory?.scores as Record<string, unknown> | undefined) ?? {};
@@ -104,6 +119,18 @@ Generate two paths:
     if (!raw) throw new Error("Empty completion");
 
     const data = parseJsonResponse(raw);
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "future_paths",
+      input: {
+        depthMode,
+      },
+      output: {
+        pathA: data.pathA.slice(0, 220),
+        pathB: data.pathB.slice(0, 220),
+      },
+    });
     return NextResponse.json(data);
   } catch (error) {
     console.error("future-paths API error:", error);

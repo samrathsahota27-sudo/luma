@@ -6,6 +6,8 @@ import {
   readDepthModeFromBody,
 } from "@/lib/depthMode";
 import { firstResponsesOutputText } from "@/lib/openaiFirstOutputText";
+import { createClient } from "@/lib/supabase/server";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 const SYSTEM = `You generate emotional theories, not truths.
 
@@ -86,6 +88,15 @@ export async function POST(req: Request) {
     }
 
     const openai = new OpenAI({ apiKey });
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: (context && typeof context === "object" ? context : null) as any,
+    });
 
     const userBlock = `What the user observed (their words):
 ---
@@ -94,15 +105,7 @@ ${text}
 
 Output ONLY the JSON object with keys behavior, interpretations, need, confirm.`;
 
-    const contextJson = (() => {
-      if (!context || typeof context !== "object") return "";
-      try {
-        const s = JSON.stringify(context);
-        return s.length > 8000 ? `${s.slice(0, 8000)}…` : s;
-      } catch {
-        return "";
-      }
-    })();
+    const contextJson = accountContext.contextJson;
 
     const input = `${SYSTEM}${depthModeInstructions(depthMode)}${mindDepthSuffix(depthMode)}
 
@@ -120,6 +123,21 @@ ${contextJson ? `Relationship Context:\n${contextJson}\n\nInstructions:\nUse thi
     }
 
     const data = parseJsonResponse(raw);
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "mind",
+      input: {
+        depthMode,
+        textPreview: text.slice(0, 180),
+      },
+      output: {
+        behavior: data.behavior.slice(0, 180),
+        need: data.need.slice(0, 180),
+        confirm: data.confirm.slice(0, 180),
+      },
+    });
 
     return NextResponse.json(data);
   } catch (error) {

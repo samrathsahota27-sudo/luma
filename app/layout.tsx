@@ -3,6 +3,7 @@ import { Source_Serif_4, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { MemoryBootstrap } from '@/components/MemoryBootstrap'
 import { InactivityReminderBanner } from '@/components/InactivityReminderBanner'
+import PWALayout from '@/components/PWALayout'
 import { PUBLIC_SITE_URL } from '@/lib/site'
 import './globals.css'
 
@@ -78,10 +79,17 @@ export default async function RootLayout({
 }>) {
   return (
     <html lang="en" className={`dark ${sourceSerif.variable} ${inter.variable} ${playfair.variable}`}>
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Luma" />
+        <meta name="theme-color" content="#0a0a0a" />
+      </head>
       <body className="font-sans min-w-0 overflow-x-hidden">
         <MemoryBootstrap />
         <InactivityReminderBanner />
-        {children}
+        <PWALayout>{children}</PWALayout>
         <Analytics />
       </body>
     </html>

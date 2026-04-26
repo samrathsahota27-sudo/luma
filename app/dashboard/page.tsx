@@ -8,6 +8,7 @@ import { ArrowRight, Lock } from "lucide-react";
 import { PatternOverTimeSection } from "@/components/PatternOverTimeSection";
 import { CalendarOfUsTimeline } from "@/components/CalendarOfUsTimeline";
 import { createClient } from "@/lib/supabase/client";
+import { SharedMirrorInviteCard } from "@/components/SharedMirrorInviteCard";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -335,6 +336,12 @@ export default function DashboardPage() {
               <p className="mt-3 text-sm md:text-base leading-relaxed text-[#d8d0c4]">
                 {latestWeeklyShiftInsight}
               </p>
+            </section>
+          ) : null}
+
+          {hasStarted ? (
+            <section>
+              <SharedMirrorInviteCard autoCreate />
             </section>
           ) : null}
 

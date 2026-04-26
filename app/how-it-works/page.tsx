@@ -177,6 +177,12 @@ export default function HowItWorksPage() {
                 resolvedCount={3}
               />
             </div>
+
+            <p className="mx-auto mt-5 max-w-[620px] text-center text-sm leading-relaxed text-white/60">
+              This Relationship Map is functional inside your 28-day cycle, not just visual. Daily tool usage updates
+              your live pattern signals (connection, drift, and tension), and each week Luma compiles those shifts into
+              a report so you can see what improved, what repeated, and which actions are actually moving your dynamic.
+            </p>
           </div>
         </section>
 
@@ -536,6 +542,12 @@ export default function HowItWorksPage() {
               <p className="mt-2 text-[14px] leading-relaxed text-white/70 md:text-[16px]">
                 Each reflection, conversation, and insight shapes how you evolve together.
               </p>
+              <p className="mt-3 text-[13px] leading-relaxed text-white/60 md:text-[15px]">
+                Weekly reports track your movement across connection, drift, and tension.
+              </p>
+              <p className="mt-1.5 text-[13px] leading-relaxed text-white/60 md:text-[15px]">
+                You&apos;ll see which daily tools are lowering friction, where patterns repeated, and what to do next.
+              </p>
             </div>
           </div>
         </section>
@@ -558,23 +570,25 @@ export default function HowItWorksPage() {
                 { title: "Future Paths", line: "See where this goes if nothing changes.", Icon: ArrowRight },
                 { title: "Calendar of Us", line: "A quiet record of how you&apos;ve been.", Icon: Sparkles },
               ].map(({ title, line, Icon }) => (
-                <li
-                  key={title}
-                  className="relative overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.03] px-5 py-5 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl"
-                >
-                  <div
-                    aria-hidden
-                    className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,rgba(180,150,255,0.10),transparent),radial-gradient(ellipse_50%_40%_at_100%_100%,rgba(255,210,160,0.05),transparent)] opacity-80"
-                  />
-                  <div className="relative flex items-start gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
-                      <Icon className="h-5 w-5 text-white/85" strokeWidth={1.5} />
+                <li key={title}>
+                  <Link
+                    href="/couple-hub"
+                    className="group relative block overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.03] px-5 py-5 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_18px_60px_rgba(0,0,0,0.45)] backdrop-blur-xl transition hover:border-white/20 hover:bg-white/[0.05]"
+                  >
+                    <div
+                      aria-hidden
+                      className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_55%_40%_at_50%_0%,rgba(180,150,255,0.10),transparent),radial-gradient(ellipse_50%_40%_at_100%_100%,rgba(255,210,160,0.05),transparent)] opacity-80"
+                    />
+                    <div className="relative flex items-start gap-4">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.06]">
+                        <Icon className="h-5 w-5 text-white/85" strokeWidth={1.5} />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white">{title}</p>
+                        <p className="mt-1 text-sm text-white/55 leading-relaxed">{line}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-white">{title}</p>
-                      <p className="mt-1 text-sm text-white/55 leading-relaxed">{line}</p>
-                    </div>
-                  </div>
+                  </Link>
                 </li>
               ))}
             </ul>

@@ -6,6 +6,8 @@ import {
   depthModeInstructions,
   readDepthModeFromBody,
 } from "@/lib/depthMode";
+import { createClient } from "@/lib/supabase/server";
+import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
 const SYSTEM = `You are a neutral emotional support system for relationships.
 
@@ -90,16 +92,18 @@ export async function POST(req: Request) {
     }
 
     const openai = new OpenAI({ apiKey });
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const contextJson = (() => {
-      if (!context || typeof context !== "object") return "";
-      try {
-        const s = JSON.stringify(context);
-        return s.length > 8000 ? `${s.slice(0, 8000)}…` : s;
-      } catch {
-        return "";
-      }
-    })();
+    const accountContext = await buildUnifiedAccountContext({
+      supabase,
+      user,
+      clientContext: (context && typeof context === "object" ? context : null) as any,
+    });
+
+    const contextJson = accountContext.contextJson;
 
     const messages: ChatCompletionMessageParam[] = [
       {
@@ -125,6 +129,19 @@ export async function POST(req: Request) {
     if (!reply) {
       throw new Error("Empty completion");
     }
+
+    await recordFeatureUsage({
+      supabase,
+      user,
+      feature: "chat",
+      input: {
+        depthMode,
+        messageCount: sanitized.length,
+      },
+      output: {
+        replyPreview: reply.slice(0, 220),
+      },
+    });
 
     return NextResponse.json({ reply });
   } catch (error) {

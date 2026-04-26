@@ -2,15 +2,49 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2, Sparkles } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { Footer } from "@/components/footer";
 import { TimelineBar, COUPLE_MAIN_PADDING_TOP } from "@/components/TimelineBar";
+import { SpeechMicButton } from "@/components/SpeechMicButton";
 import { FEATURE_ONBOARDING_COPY, FEATURE_SEEN_STORAGE_KEYS } from "@/lib/featureOnboarding";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { appendTranscriptValue, useSpeechToText } from "@/hooks/useSpeechToText";
 
 export default function SilentSignalPage() {
   const [seenIntro, setSeenIntro] = useState(false);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [output, setOutput] = useState<{
+    patternMatch: { name: string; confidence: number; line: string };
+    hiddenMeaning: { summary: string; tieIn: string };
+    bridgeSuggestion: { suggestion: string; whyItWorks: string };
+    telemetry: { driftReference: string | null; tensionReference: string | null; historyAnchors: string[] };
+  } | null>(null);
   const copy = FEATURE_ONBOARDING_COPY.silent_signal;
+  const {
+    isSupported: isMicSupported,
+    isListening,
+    error: micError,
+    toggle: toggleMic,
+    stop: stopMic,
+  } = useSpeechToText((transcript) => {
+    setInput((prev) => appendTranscriptValue(prev, transcript));
+  });
+  const presets = [
+    "24h no reply",
+    "Awkward dinner silence",
+    "Bedtime no talk",
+  ] as const;
+
+  useEffect(() => {
+    if (loading && isListening) {
+      stopMic();
+    }
+  }, [loading, isListening, stopMic]);
 
   useEffect(() => {
     try {
@@ -20,6 +54,27 @@ export default function SilentSignalPage() {
       setSeenIntro(false);
     }
   }, []);
+
+  async function analyzeSilence() {
+    if (!input.trim() || loading) return;
+    setLoading(true);
+    setError(null);
+    setOutput(null);
+    try {
+      const res = await fetch("/api/tools/silent-signals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input.trim() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.error || "silent_signal_failed");
+      setOutput(data);
+    } catch {
+      setError("Could not analyze this silence right now. Try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   if (!seenIntro) {
     return (
@@ -62,6 +117,21 @@ export default function SilentSignalPage() {
       <Navigation />
       <TimelineBar />
       <main className={`flex-1 ${COUPLE_MAIN_PADDING_TOP} pb-20 px-6 relative overflow-hidden`}>
+        <style jsx>{`
+          @keyframes scanline {
+            0% {
+              transform: translateX(-120%);
+              opacity: 0;
+            }
+            25% {
+              opacity: 0.85;
+            }
+            100% {
+              transform: translateX(120%);
+              opacity: 0;
+            }
+          }
+        `}</style>
         <div
           className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_75%_45%_at_50%_-15%,rgba(80,65,110,0.14),transparent)]"
           aria-hidden
@@ -83,12 +153,115 @@ export default function SilentSignalPage() {
               {copy.short}
             </p>
 
-            <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Coming soon</p>
-              <p className="mt-3 text-sm leading-relaxed text-white/70">
-                Silent Signal is in active build. You&apos;ll be able to send low-pressure emotional cues when words feel
-                too loaded.
+            <div className="mt-8 space-y-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+                Describe the silence (how long, what happened before, how it feels)
               </p>
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.02]">
+                {loading ? (
+                  <div className="pointer-events-none absolute inset-x-0 top-0 h-[2px] overflow-hidden">
+                    <div
+                      className="h-full w-1/2 bg-gradient-to-r from-transparent via-violet-300/90 to-transparent"
+                      style={{ animation: "scanline 1.1s linear infinite" }}
+                    />
+                  </div>
+                ) : null}
+                <Textarea
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  disabled={loading}
+                  rows={7}
+                  placeholder="Describe the silence..."
+                  className="min-h-[160px] border-0 bg-transparent text-white placeholder:text-white/35 focus-visible:ring-0"
+                />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <SpeechMicButton
+                  isListening={isListening}
+                  isSupported={isMicSupported}
+                  disabled={loading}
+                  onToggle={toggleMic}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={() => setInput("")}
+                  disabled={loading || !input.trim()}
+                  className="text-white/70 hover:text-white hover:bg-white/10"
+                >
+                  Clear
+                </Button>
+                {presets.map((preset) => (
+                  <Button
+                    key={preset}
+                    type="button"
+                    variant="outline"
+                    onClick={() => setInput(preset)}
+                    className="border-white/20 bg-black/20 text-white/75 hover:bg-white/10"
+                  >
+                    {preset}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                type="button"
+                onClick={analyzeSilence}
+                disabled={loading || !input.trim()}
+                className="w-full bg-white text-[#120f18] hover:bg-white/90"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analyzing
+                  </>
+                ) : (
+                  "Analyze Silence"
+                )}
+              </Button>
+
+              {error ? <p className="text-sm text-red-300/90">{error}</p> : null}
+              {micError ? <p className="text-xs text-amber-200/85">{micError}</p> : null}
+
+              {output ? (
+                <div className="mt-2 space-y-3">
+                  <Card className="border-white/10 bg-white/[0.03]">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg text-white">Pattern Match</CardTitle>
+                      <CardDescription className="text-white/60">
+                        {output.patternMatch.name} detected - {output.patternMatch.confidence}% match
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-white/80">{output.patternMatch.line}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-white/10 bg-white/[0.03]">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg text-white">Hidden Meaning</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm text-white/85">{output.hiddenMeaning.summary}</p>
+                      <p className="text-xs text-white/55">{output.hiddenMeaning.tieIn}</p>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-white/10 bg-white/[0.03]">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-lg text-white inline-flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-violet-200" />
+                        Gentle Bridge Suggestion
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <p className="text-sm text-white/85">{output.bridgeSuggestion.suggestion}</p>
+                      <p className="text-xs text-white/55">{output.bridgeSuggestion.whyItWorks}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>
