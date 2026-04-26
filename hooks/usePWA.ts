@@ -36,24 +36,27 @@ export const usePWA = () => {
     }
 
     checkPWA()
-    const media = window.matchMedia('(display-mode: standalone)')
     const onVisibility = () => checkPWA()
     const onFocus = () => checkPWA()
     const onStorage = () => checkPWA()
-    media.addEventListener('change', checkPWA)
+    const onResize = () => checkPWA()
+    const onOrientation = () => checkPWA()
     document.addEventListener('visibilitychange', onVisibility)
     window.addEventListener('focus', onFocus)
     window.addEventListener('storage', onStorage)
+    window.addEventListener('resize', onResize)
+    window.addEventListener('orientationchange', onOrientation)
 
     // iOS sometimes reports standalone state a moment later.
     const timer = window.setTimeout(checkPWA, 250)
 
     return () => {
       window.clearTimeout(timer)
-      media.removeEventListener('change', checkPWA)
       document.removeEventListener('visibilitychange', onVisibility)
       window.removeEventListener('focus', onFocus)
       window.removeEventListener('storage', onStorage)
+      window.removeEventListener('resize', onResize)
+      window.removeEventListener('orientationchange', onOrientation)
     }
   }, [])
 

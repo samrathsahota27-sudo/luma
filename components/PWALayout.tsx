@@ -75,11 +75,18 @@ export default function PWALayout({ children }: { children: React.ReactNode }) {
   const [isMobileShell, setIsMobileShell] = useState(false)
 
   useEffect(() => {
-    const media = window.matchMedia('(max-width: 1024px), (pointer: coarse)')
-    const sync = () => setIsMobileShell(media.matches)
+    const sync = () => {
+      const compactViewport = window.matchMedia('(max-width: 1024px)').matches
+      const coarsePointer = window.matchMedia('(pointer: coarse)').matches
+      setIsMobileShell(compactViewport || coarsePointer)
+    }
     sync()
-    media.addEventListener('change', sync)
-    return () => media.removeEventListener('change', sync)
+    window.addEventListener('resize', sync)
+    window.addEventListener('orientationchange', sync)
+    return () => {
+      window.removeEventListener('resize', sync)
+      window.removeEventListener('orientationchange', sync)
+    }
   }, [])
 
   // Fallback to mobile shell when standalone detection is inconsistent on iOS/PWA.
