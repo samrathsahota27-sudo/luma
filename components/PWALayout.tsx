@@ -69,7 +69,8 @@ const NAV_ITEMS: NavItem[] = [
 
 export default function PWALayout({ children }: { children: React.ReactNode }) {
   const isPWA = usePWA()
-  const pathname = usePathname()
+  const rawPathname = usePathname()
+  const pathname = rawPathname || '/'
   const router = useRouter()
 
   if (!isPWA) return <>{children}</>
