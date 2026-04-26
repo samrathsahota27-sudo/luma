@@ -2,7 +2,7 @@
 
 import { usePWA } from '@/hooks/usePWA'
 import { usePathname, useRouter } from 'next/navigation'
-import { type ReactNode, useMemo } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 
 type NavItem = {
   label: string
@@ -72,8 +72,18 @@ export default function PWALayout({ children }: { children: React.ReactNode }) {
   const rawPathname = usePathname()
   const pathname = rawPathname || '/'
   const router = useRouter()
+  const [isMobileShell, setIsMobileShell] = useState(false)
 
-  if (!isPWA) return <>{children}</>
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1024px), (pointer: coarse)')
+    const sync = () => setIsMobileShell(media.matches)
+    sync()
+    media.addEventListener('change', sync)
+    return () => media.removeEventListener('change', sync)
+  }, [])
+
+  // Fallback to mobile shell when standalone detection is inconsistent on iOS/PWA.
+  if (!isPWA && !isMobileShell) return <>{children}</>
 
   const handleNavTap = (item: NavItem) => {
     router.push(item.path)
