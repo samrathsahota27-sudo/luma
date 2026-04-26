@@ -3,6 +3,7 @@ import { Source_Serif_4, Inter, Playfair_Display } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import { MemoryBootstrap } from '@/components/MemoryBootstrap'
 import { InactivityReminderBanner } from '@/components/InactivityReminderBanner'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 import PWALayout from '@/components/PWALayout'
 import { PUBLIC_SITE_URL } from '@/lib/site'
 import './globals.css'
@@ -90,6 +91,7 @@ export default async function RootLayout({
         <MemoryBootstrap />
         <InactivityReminderBanner />
         <PWALayout>{children}</PWALayout>
+        <PWAInstallPrompt />
         <Analytics />
       </body>
     </html>

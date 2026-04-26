@@ -1,201 +1,174 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
-import { useEffect, useMemo, useState } from 'react'
+import {
+  buildMergedTimelineEntries,
+  getReflections,
+  localDateKeyFromIso,
+  type CoupleReflectionEntry,
+  type IndividualReflectionEntry,
+  type ReflectionEntry,
+} from '@/lib/reflectionStorage'
+import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
-type ReflectionLike = {
-  date?: string
-  pattern?: string
-  pattern_name?: string
-  shared_pattern?: string
-  description?: string
-  summary?: string
-  core_line?: string
-  fullInsight?: string
-}
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
-type CalendarReflection = {
-  dateKey: string
-  patternName: string
-}
-
-type HistoryItem = {
-  id: string
-  date: string
-  kind: 'Solo' | 'Couple'
-  patternName: string
-  description: string
-}
-
-const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
-
-function getDateKey(date: Date) {
-  const year = date.getFullYear()
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const day = String(date.getDate()).padStart(2, '0')
-  return `${year}-${month}-${day}`
-}
-
-function normalizePatternName(entry: ReflectionLike) {
-  const pattern = entry?.pattern || entry?.pattern_name || entry?.shared_pattern || 'Reflection'
-  return String(pattern).trim() || 'Reflection'
-}
-
-function normalizeDescription(entry: ReflectionLike) {
-  const description = entry?.description || entry?.core_line || entry?.summary || entry?.fullInsight || 'No description yet.'
-  return String(description).replace(/\s+/g, ' ').trim() || 'No description yet.'
-}
-
-function formatMemberDateLabel(isoDate: string, kind: 'Solo' | 'Couple') {
-  const date = new Date(isoDate)
-  if (Number.isNaN(date.getTime())) return kind
-  const month = date.toLocaleDateString('en-US', { month: 'short' })
-  const day = date.getDate()
-  return `${month} ${day} · ${kind}`
-}
-
-function buildCalendarCells(monthDate: Date) {
-  const year = monthDate.getFullYear()
-  const month = monthDate.getMonth()
-  const firstDayOfMonth = new Date(year, month, 1)
-  const lastDayOfMonth = new Date(year, month + 1, 0)
-  const firstWeekday = firstDayOfMonth.getDay()
-  const daysInMonth = lastDayOfMonth.getDate()
-
-  const cells: Array<{ date: Date; inCurrentMonth: boolean }> = []
-
-  for (let i = firstWeekday - 1; i >= 0; i -= 1) {
-    cells.push({ date: new Date(year, month, -i), inCurrentMonth: false })
-  }
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    cells.push({ date: new Date(year, month, day), inCurrentMonth: true })
-  }
-
-  const trailing = (7 - (cells.length % 7)) % 7
-  for (let i = 1; i <= trailing; i += 1) {
-    cells.push({ date: new Date(year, month + 1, i), inCurrentMonth: false })
-  }
-
+function getCalendarGrid(year: number, month: number) {
+  const first = new Date(year, month - 1, 1)
+  const last = new Date(year, month, 0)
+  const startPad = (first.getDay() + 6) % 7 // Monday = 0
+  const daysInMonth = last.getDate()
+  const cells: Array<number | null> = []
+  for (let i = 0; i < startPad; i += 1) cells.push(null)
+  for (let d = 1; d <= daysInMonth; d += 1) cells.push(d)
+  const remainder = cells.length % 7
+  if (remainder) for (let i = 0; i < 7 - remainder; i += 1) cells.push(null)
   return cells
+}
+
+function dateKey(year: number, month: number, day: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function formatDateLabel(iso: string, mode: ReflectionEntry['mode']) {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return mode === 'couple' ? 'Couple' : 'Solo'
+  const month = d.toLocaleDateString('en-US', { month: 'short' })
+  return `${month} ${d.getDate()} · ${mode === 'couple' ? 'Couple' : 'Solo'}`
+}
+
+function formatCalendarHeading(selectedDate: string) {
+  return new Date(`${selectedDate}T12:00:00`).toLocaleDateString('default', {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  })
+}
+
+function excerpt(content: string, max = 135) {
+  const clean = content.replace(/\s+/g, ' ').trim()
+  return clean.length <= max ? clean : `${clean.slice(0, max)}...`
+}
+
+function reflectionTitle(entry: ReflectionEntry) {
+  if (entry.mode === 'couple') return 'Relationship Reflection'
+  return 'Your Reflection'
 }
 
 export default function JourneyPage() {
   const supabase = createClient()
-  const [displayMonth, setDisplayMonth] = useState(() => {
-    const now = new Date()
-    return new Date(now.getFullYear(), now.getMonth(), 1)
-  })
-  const [calendarReflections, setCalendarReflections] = useState<CalendarReflection[]>([])
-  const [historyItems, setHistoryItems] = useState<HistoryItem[]>([])
-  const [selectedDateKey, setSelectedDateKey] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [today] = useState(() => new Date())
+  const [viewYear, setViewYear] = useState(today.getFullYear())
+  const [viewMonth, setViewMonth] = useState(today.getMonth() + 1)
+  const [entries, setEntries] = useState<ReflectionEntry[]>([])
+  const [historyLoaded, setHistoryLoaded] = useState(false)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedEntries, setSelectedEntries] = useState<ReflectionEntry[]>([])
+  const [modalOpen, setModalOpen] = useState(false)
 
-  useEffect(() => {
-    const loadJourneyData = async () => {
-      setLoading(true)
+  const refreshEntries = useCallback(async () => {
+    const local = getReflections()
+    try {
       const {
         data: { user },
       } = await supabase.auth.getUser()
-
       if (!user) {
-        setCalendarReflections([])
-        setHistoryItems([])
-        setLoading(false)
+        setEntries(local)
+        setHistoryLoaded(true)
         return
       }
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('pattern_history, couple_sessions')
+        .eq('id', user.id)
+        .single()
 
-      const { data: profile } = await supabase.from('user_profiles').select('pattern_history, couple_sessions').eq('id', user.id).single()
-
-      const patternHistory = Array.isArray(profile?.pattern_history) ? profile.pattern_history : []
-      const coupleSessions = Array.isArray(profile?.couple_sessions) ? profile.couple_sessions : []
-
-      const soloCalendar = patternHistory
-        .map((entry: ReflectionLike, index: number) => {
-          const date = new Date(String(entry?.date || ''))
-          if (Number.isNaN(date.getTime())) return null
-          return {
-            id: `solo-${index}`,
-            date,
-            dateKey: getDateKey(date),
-            patternName: normalizePatternName(entry),
-            description: normalizeDescription(entry),
-          }
+      setEntries(
+        buildMergedTimelineEntries({
+          local,
+          userId: user.id,
+          patternHistory: profile?.pattern_history,
+          coupleSessions: profile?.couple_sessions,
         })
-        .filter(Boolean) as Array<{
-        id: string
-        date: Date
-        dateKey: string
-        patternName: string
-        description: string
-      }>
-
-      const coupleHistory = coupleSessions
-        .map((entry: ReflectionLike, index: number) => {
-          const date = new Date(String(entry?.date || ''))
-          if (Number.isNaN(date.getTime())) return null
-          return {
-            id: `couple-${index}`,
-            date,
-            dateKey: getDateKey(date),
-            patternName: normalizePatternName(entry),
-            description: normalizeDescription(entry),
-          }
-        })
-        .filter(Boolean) as Array<{
-        id: string
-        date: Date
-        dateKey: string
-        patternName: string
-        description: string
-      }>
-
-      const nextHistory: HistoryItem[] = [
-        ...soloCalendar.map((item) => ({
-          id: item.id,
-          date: item.date.toISOString(),
-          kind: 'Solo' as const,
-          patternName: item.patternName,
-          description: item.description,
-        })),
-        ...coupleHistory.map((item) => ({
-          id: item.id,
-          date: item.date.toISOString(),
-          kind: 'Couple' as const,
-          patternName: item.patternName,
-          description: item.description,
-        })),
-      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-
-      setCalendarReflections(
-        soloCalendar.map((item) => ({
-          dateKey: item.dateKey,
-          patternName: item.patternName,
-        }))
       )
-      setHistoryItems(nextHistory)
-      setLoading(false)
+    } catch {
+      setEntries(local)
+    } finally {
+      setHistoryLoaded(true)
     }
-
-    void loadJourneyData()
   }, [supabase])
 
-  const monthLabel = displayMonth.toLocaleDateString('en-US', {
+  useEffect(() => {
+    void refreshEntries()
+    const { data: sub } = supabase.auth.onAuthStateChange(() => {
+      void refreshEntries()
+    })
+    const onFocus = () => {
+      void refreshEntries()
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onFocus)
+    return () => {
+      sub.subscription.unsubscribe()
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [refreshEntries, supabase])
+
+  const monthEntries = useMemo(() => {
+    const monthPrefix = `${viewYear}-${String(viewMonth).padStart(2, '0')}-`
+    return entries.filter((e) => localDateKeyFromIso(e.date).startsWith(monthPrefix))
+  }, [viewYear, viewMonth, entries])
+
+  const entriesByDay = useMemo(() => {
+    const map: Record<string, ReflectionEntry[]> = {}
+    monthEntries.forEach((e) => {
+      const key = localDateKeyFromIso(e.date)
+      if (!map[key]) map[key] = []
+      map[key].push(e)
+    })
+    return map
+  }, [monthEntries])
+
+  const calendarCells = useMemo(() => getCalendarGrid(viewYear, viewMonth), [viewYear, viewMonth])
+
+  const sortedHistory = useMemo(
+    () => [...entries].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+    [entries]
+  )
+
+  const monthLabel = new Date(viewYear, viewMonth - 1, 1).toLocaleString('default', {
     month: 'long',
     year: 'numeric',
   })
 
-  const highlightedDateMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const reflection of calendarReflections) {
-      if (!map.has(reflection.dateKey)) map.set(reflection.dateKey, reflection.patternName)
+  const prevMonth = () => {
+    if (viewMonth === 1) {
+      setViewMonth(12)
+      setViewYear((y) => y - 1)
+    } else {
+      setViewMonth((m) => m - 1)
     }
-    return map
-  }, [calendarReflections])
+  }
 
-  const calendarCells = useMemo(() => buildCalendarCells(displayMonth), [displayMonth])
+  const nextMonth = () => {
+    if (viewMonth === 12) {
+      setViewMonth(1)
+      setViewYear((y) => y + 1)
+    } else {
+      setViewMonth((m) => m + 1)
+    }
+  }
 
-  const selectedPattern = selectedDateKey ? highlightedDateMap.get(selectedDateKey) ?? null : null
+  const handleDayClick = (year: number, month: number, day: number) => {
+    const key = dateKey(year, month, day)
+    const dayEntries = entries.filter((e) => localDateKeyFromIso(e.date) === key)
+    setSelectedDate(key)
+    setSelectedEntries(dayEntries)
+    setModalOpen(dayEntries.length > 0)
+  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-5 pb-[96px] text-white">
@@ -205,67 +178,65 @@ export default function JourneyPage() {
         <div className="mb-4 flex items-center justify-between">
           <button
             type="button"
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80"
-            onClick={() => setDisplayMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+            onClick={prevMonth}
+            className="rounded-lg border border-white/10 bg-white/5 p-2 text-white/70 transition-colors hover:text-white"
+            aria-label="Previous month"
           >
-            ←
+            <ChevronLeft className="h-5 w-5" />
           </button>
           <p className="text-sm font-semibold">{monthLabel}</p>
           <button
             type="button"
-            className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80"
-            onClick={() => setDisplayMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+            onClick={nextMonth}
+            className="rounded-lg border border-white/10 bg-white/5 p-2 text-white/70 transition-colors hover:text-white"
+            aria-label="Next month"
           >
-            →
+            <ChevronRight className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="mb-2 grid grid-cols-7">
-          {WEEKDAY_LABELS.map((label) => (
-            <p key={label} className="pb-2 text-center text-xs text-white/45">
-              {label}
-            </p>
+        <div className="grid grid-cols-7 gap-1 text-center">
+          {WEEKDAYS.map((d) => (
+            <div key={d} className="py-2 text-xs text-white/45">
+              {d}
+            </div>
           ))}
-        </div>
+          {calendarCells.map((day, i) => {
+            if (day === null) {
+              return <div key={`empty-${i}`} className="aspect-square" />
+            }
+            const key = dateKey(viewYear, viewMonth, day)
+            const dayEntries = entriesByDay[key] ?? []
+            const hasIndividual = dayEntries.some((e) => e.mode === 'individual')
+            const hasCouple = dayEntries.some((e) => e.mode === 'couple')
+            const hasAny = dayEntries.length > 0
+            const isSelected = selectedDate === key
 
-        <div className="grid grid-cols-7 gap-1">
-          {calendarCells.map((cell) => {
-            const dateKey = getDateKey(cell.date)
-            const isHighlighted = highlightedDateMap.has(dateKey)
-            const isSelected = selectedDateKey === dateKey
-            const canOpen = isHighlighted && cell.inCurrentMonth
             return (
               <button
-                key={`${dateKey}-${cell.inCurrentMonth ? 'in' : 'out'}`}
+                key={key}
                 type="button"
-                onClick={() => {
-                  if (!canOpen) return
-                  setSelectedDateKey((prev) => (prev === dateKey ? null : dateKey))
-                }}
-                className={`relative flex h-10 items-center justify-center rounded-lg text-sm transition-colors ${
-                  cell.inCurrentMonth ? 'text-white/90' : 'text-white/25'
-                } ${isSelected ? 'bg-white/15' : 'bg-white/5'} ${canOpen ? 'cursor-pointer' : 'cursor-default'}`}
+                onClick={() => handleDayClick(viewYear, viewMonth, day)}
+                className={`aspect-square rounded-xl transition-colors ${
+                  hasAny ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-white/[0.03] text-white/45 hover:bg-white/[0.06]'
+                } ${isSelected ? 'ring-2 ring-violet-400/40' : ''}`}
               >
-                {cell.date.getDate()}
-                {isHighlighted ? <span className="absolute bottom-1 h-1.5 w-1.5 rounded-full bg-violet-400" /> : null}
+                <span className="block text-sm font-medium">{day}</span>
+                <div className="mt-0.5 flex items-center justify-center gap-1 text-[10px]">
+                  {hasIndividual ? <span className="text-[#9db1c7]">○</span> : null}
+                  {hasCouple ? <span className="text-[#d8a9b1]">♥</span> : null}
+                </div>
               </button>
             )
           })}
         </div>
-
-        {selectedPattern ? (
-          <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
-            <p className="text-xs uppercase tracking-[0.12em] text-white/45">Selected reflection</p>
-            <p className="mt-1 text-sm text-white/85">{selectedPattern}</p>
-          </div>
-        ) : null}
       </section>
 
       <section className="mt-6">
         <h2 className="mb-3 text-lg font-semibold">Reflection History</h2>
-        {loading ? <p className="text-sm text-white/55">Loading your journey...</p> : null}
+        {!historyLoaded ? <p className="text-sm text-white/55">Loading your journey...</p> : null}
 
-        {!loading && historyItems.length === 0 ? (
+        {historyLoaded && sortedHistory.length === 0 ? (
           <div className="rounded-2xl border border-white/10 bg-white/5 p-5">
             <p className="text-sm leading-relaxed text-white/70">
               Your reflections will appear here.
@@ -275,15 +246,43 @@ export default function JourneyPage() {
           </div>
         ) : null}
 
-        {!loading &&
-          historyItems.map((item) => (
-            <div key={item.id} className="mb-3 rounded-xl border border-white/10 bg-white/5 p-4">
-              <p className="text-xs text-white/50">{formatMemberDateLabel(item.date, item.kind)}</p>
-              <p className="mt-1 font-semibold text-white">{item.patternName}</p>
-              <p className="mt-1 text-sm text-white/70">{item.description}</p>
+        {historyLoaded &&
+          sortedHistory.map((entry) => (
+            <div key={entry.id} className="mb-3 rounded-xl border border-white/10 bg-white/5 p-4">
+              <p className="text-xs text-white/50">{formatDateLabel(entry.date, entry.mode)}</p>
+              <p className="mt-1 font-semibold text-white">{reflectionTitle(entry)}</p>
+              <p className="mt-1 text-sm text-white/70">{excerpt(entry.content)}</p>
             </div>
           ))}
       </section>
+
+      {modalOpen && selectedDate && selectedEntries.length > 0 ? (
+        <div className="fixed inset-0 z-50 bg-black/60 p-4" onClick={() => setModalOpen(false)}>
+          <div
+            className="mx-auto max-h-[88vh] w-full max-w-[680px] overflow-y-auto rounded-2xl border border-white/10 bg-[#121212]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <h3 className="font-serif text-xl [font-family:var(--font-serif-display)]">{formatCalendarHeading(selectedDate)}</h3>
+                <button type="button" onClick={() => setModalOpen(false)} className="text-white/60 hover:text-white" aria-label="Close">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {selectedEntries.map((entry) => {
+                const typed = entry as IndividualReflectionEntry | CoupleReflectionEntry
+                return (
+                  <div key={entry.id} className="mb-6 last:mb-0">
+                    <p className="text-xs uppercase tracking-[0.12em] text-white/45">{typed.mode === 'couple' ? 'Relationship reflection' : 'Your reflection'}</p>
+                    <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-white/85">{typed.content}</p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

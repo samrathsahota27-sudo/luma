@@ -37,6 +37,7 @@ import { ReflectionRetentionPrompt } from "@/components/ReflectionRetentionPromp
 import { PrivacyTrustLine } from "@/components/PrivacyTrustLine";
 import { WhatToDoWithThis } from "@/components/WhatToDoWithThis";
 import { ShareLumaFab } from "@/components/ShareLumaFab";
+import AddToHomeScreenCta from "@/components/AddToHomeScreenCta";
 import { supabase } from "@/lib/supabase";
 
 const COUPLE_RESULT_STORAGE_KEY = "luma_couple_result";
@@ -1970,6 +1971,7 @@ export default function CoupleResultPage() {
           {sequencePhase === "complete" ? (
             <div className="mt-12 max-w-[720px] mx-auto px-4 md:px-0">
               <SaveReflectionCta />
+              <AddToHomeScreenCta />
             </div>
           ) : null}
         </div>

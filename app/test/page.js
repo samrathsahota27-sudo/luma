@@ -56,6 +56,7 @@ import { ProUpgradeSoftPrompt } from "@/components/ProUpgradeSoftPrompt";
 import { WhatToDoWithThis } from "@/components/WhatToDoWithThis";
 import { ShareLumaFab } from "@/components/ShareLumaFab";
 import { SmartOnboardingFlow } from "@/components/SmartOnboardingFlow";
+import AddToHomeScreenCta from "@/components/AddToHomeScreenCta";
 
 const ROUND_TRANSITION_MS = 500;
 const AI_STATUS_ROTATE_MS = 1800;
@@ -1390,6 +1391,7 @@ export default function TestPage() {
             </div>
 
             <SaveReflectionCta className="mt-16 md:mt-20" />
+            <AddToHomeScreenCta />
 
             <div className="mt-10 md:mt-12">
               <div className="luma-glass border border-white/10 p-6 md:p-8 text-center">
