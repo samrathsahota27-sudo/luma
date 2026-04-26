@@ -89,9 +89,6 @@ export default function PWALayout({ children }: { children: React.ReactNode }) {
     }
   }, [])
 
-  // Fallback to mobile shell when standalone detection is inconsistent on iOS/PWA.
-  if (!isPWA && !isMobileShell) return <>{children}</>
-
   const handleNavTap = (item: NavItem) => {
     router.push(item.path)
   }
@@ -105,6 +102,9 @@ export default function PWALayout({ children }: { children: React.ReactNode }) {
       }),
     [pathname]
   )
+
+  // Fallback to website shell when not in mobile/PWA mode.
+  if (!isPWA && !isMobileShell) return <>{children}</>
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[#0a0a0a]">
