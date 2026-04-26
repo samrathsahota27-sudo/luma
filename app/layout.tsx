@@ -90,10 +90,16 @@ export default async function RootLayout({
         <meta name="theme-color" content="#0a0a0a" />
       </head>
       <body className="font-sans min-w-0 overflow-x-hidden">
-        <PWAEnhancementBoundary fallback={children}>
+        <PWAEnhancementBoundary fallback={null}>
           <MemoryBootstrap />
+        </PWAEnhancementBoundary>
+        <PWAEnhancementBoundary fallback={null}>
           <InactivityReminderBanner />
+        </PWAEnhancementBoundary>
+        <PWAEnhancementBoundary fallback={children}>
           <PWALayout>{children}</PWALayout>
+        </PWAEnhancementBoundary>
+        <PWAEnhancementBoundary fallback={null}>
           <PWAInstallPrompt />
         </PWAEnhancementBoundary>
         <Analytics />
