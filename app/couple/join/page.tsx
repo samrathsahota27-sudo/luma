@@ -11,6 +11,7 @@ function CoupleJoinInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sessionId = searchParams.get("sessionId");
+  const code = searchParams.get("code");
   const mirrorCode = searchParams.get("mirrorCode");
   const partnerRole = searchParams.get("partnerRole");
   const [checking, setChecking] = useState(true);
@@ -29,6 +30,37 @@ function CoupleJoinInner() {
       // ignore
     }
   }, [sessionId, partnerRole]);
+
+  useEffect(() => {
+    if (!code?.trim()) return;
+    let cancelled = false;
+    setChecking(true);
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/couple-sessions/by-code?code=${encodeURIComponent(code.trim().toUpperCase())}`
+        );
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          setValid(false);
+          setChecking(false);
+          return;
+        }
+        router.replace(
+          `/couple/join?sessionId=${encodeURIComponent(data.sessionId)}&partnerRole=partnerB`
+        );
+      } catch {
+        if (!cancelled) {
+          setValid(false);
+          setChecking(false);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [code, router]);
 
   useEffect(() => {
     if (!mirrorCode?.trim()) return;
@@ -63,6 +95,7 @@ function CoupleJoinInner() {
   }, [mirrorCode]);
 
   useEffect(() => {
+    if (code?.trim()) return;
     if (mirrorCode?.trim()) {
       setChecking(false);
       return;
@@ -92,7 +125,7 @@ function CoupleJoinInner() {
     return () => {
       cancelled = true;
     };
-  }, [sessionId]);
+  }, [sessionId, mirrorCode, code]);
 
   if (mirrorCode?.trim()) {
     return (
@@ -134,6 +167,18 @@ function CoupleJoinInner() {
             </Link>
           </>
         ) : null}
+      </div>
+    );
+  }
+
+  if (code?.trim() && !checking && !valid) {
+    return (
+      <div className="max-w-[480px] mx-auto text-center px-4">
+        <h1 className="font-serif text-xl text-white [font-family:var(--font-serif-display)]">Invalid code</h1>
+        <p className="mt-3 text-sm text-white/55">Ask your partner for a fresh invite code.</p>
+        <Link href="/couple" className="mt-8 inline-block text-sm text-violet-300 hover:text-violet-200">
+          Go to Couple Mode
+        </Link>
       </div>
     );
   }

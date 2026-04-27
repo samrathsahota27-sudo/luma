@@ -8,6 +8,7 @@ import { coupleReflectionRounds, reflectionLines, questions, rounds, roundTags }
 import { getRoundTag } from "@/lib/reflection/roundTagging";
 import { getRound5SelectionMeta } from "@/lib/reflection/round5Images";
 import { CoupleFlowSteps } from "@/components/CoupleFlowSteps";
+import { Check, Copy, Share2 } from "lucide-react";
 
 const PARTNER_A_STORAGE_KEY = "luma_couple_partner_a";
 
@@ -41,6 +42,10 @@ export default function CoupleStartPage() {
   const [canProceed, setCanProceed] = useState(false);
   const [hasOpenedDisclaimer, setHasOpenedDisclaimer] = useState(false);
   const [disclaimerSecondsLeft, setDisclaimerSecondsLeft] = useState(5);
+  const [inviteCode, setInviteCode] = useState(null);
+  const [inviteCopied, setInviteCopied] = useState(false);
+  const [inviteStepDone, setInviteStepDone] = useState(false);
+  const [inviteLoading, setInviteLoading] = useState(false);
   const disclaimerBypassRef = useRef(false);
 
   useEffect(() => {
@@ -55,6 +60,74 @@ export default function CoupleStartPage() {
       setRemoteSessionId(null);
     }
   }, []);
+
+  useEffect(() => {
+    if (!remoteSessionId) return;
+    let cancelled = false;
+    setInviteLoading(true);
+    (async () => {
+      try {
+        const res = await fetch(`/api/couple-sessions/${encodeURIComponent(remoteSessionId)}`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (res.ok && typeof data?.inviteCode === "string" && data.inviteCode.trim()) {
+          const code = data.inviteCode.trim().toUpperCase();
+          setInviteCode(code);
+          try {
+            sessionStorage.setItem("coupleSessionId", remoteSessionId);
+            sessionStorage.setItem("coupleInviteCode", code);
+          } catch {
+            /* ignore */
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          try {
+            const cachedCode = sessionStorage.getItem("coupleInviteCode");
+            if (cachedCode) setInviteCode(cachedCode.trim().toUpperCase());
+          } catch {
+            /* ignore */
+          }
+        }
+      } finally {
+        if (!cancelled) setInviteLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [remoteSessionId]);
+
+  const handleCopyInviteCode = async () => {
+    if (!inviteCode) return;
+    try {
+      await navigator.clipboard.writeText(inviteCode);
+      setInviteCopied(true);
+      window.setTimeout(() => setInviteCopied(false), 2000);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleShareInviteLink = async () => {
+    if (!inviteCode || typeof window === "undefined") return;
+    const fullUrl = `${window.location.origin}/couple/join?code=${encodeURIComponent(inviteCode)}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Luma — Couple reflection",
+          text: "Join me to finish our couple reflection on Luma.",
+          url: fullUrl,
+        });
+      } else {
+        await navigator.clipboard.writeText(fullUrl);
+        setInviteCopied(true);
+        window.setTimeout(() => setInviteCopied(false), 2000);
+      }
+    } catch {
+      /* ignore */
+    }
+  };
 
   useEffect(() => {
     setIsTransitioning(true);
@@ -152,6 +225,7 @@ export default function CoupleStartPage() {
           (roundTagState?.q1?.length ?? 0) > 0 &&
           (roundTagState?.q2?.length ?? 0) > 0 &&
           (roundTagState?.q3?.length ?? 0) > 0;
+  const showInviteGate = Boolean(remoteSessionId) && !inviteStepDone;
 
   function toggleTagSelection(rk, qk, tag) {
     setTagAnswers((prev) => {
@@ -353,84 +427,122 @@ export default function CoupleStartPage() {
           </div>
         </div>
 
-        <div
-          key={currentRound}
-          className="transition-all duration-500 ease-out"
-          style={{
-            opacity: isTransitioning ? 0 : 1,
-            transform: isTransitioning ? "translateY(12px)" : "translateY(0)",
-          }}
-        >
-          <TestRound
-            round={currentRound}
-            question={questions[currentRound]}
-            reflectionLines={reflectionLines[currentRound]}
-            images={rounds[currentRound]}
-            selectedIndex={typeof selectedImage === "number" ? selectedImage : null}
-            onSelectImage={handleSelectImage}
-            tags={roundTags[currentRound] ?? []}
-            selectedTags={selectedTags[currentRound] ?? []}
-            onToggleTag={toggleTag}
-            progressiveAnswers={progressive}
-            onSetProgressiveAnswer={setProgressiveAnswer}
-            personalNote={personalNote}
-            onPersonalNoteChange={setPersonalNote}
-            tagAnswers={tagAnswers}
-            onToggleTagSelection={toggleTagSelection}
-            onTagTextChange={setRoundText}
-            selectedOption={selectedOption}
-            onSelectNone={handleNoneClick}
-            noneText={noneText}
-            onNoneTextChange={setNoneText}
-            textValue={textValue}
-            onTextChange={setTextValue}
-            relationshipTags={relationshipTags}
-            onToggleRelationshipTag={toggleRelationshipTag}
-            relationshipSummary={relationshipSummary}
-            onRelationshipSummaryChange={setRelationshipSummary}
-            lovePart={lovePart}
-            onLovePartChange={setLovePart}
-            missingPart={missingPart}
-            onMissingPartChange={setMissingPart}
-            changePart={changePart}
-            onChangePartChange={setChangePart}
-            canProceed={canProceedRound && !isSubmittingSession}
-            onNext={handleNext}
-            showNone={showNone}
-            totalRounds={5}
-            spaceBetweenRound={
-              !!coupleReflectionRounds.find((r) => r.roundNumber === currentRound)?.spaceBetweenRound
-            }
-          />
-          {showDisclaimer ? (
-            <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 bg-black/70 backdrop-blur-sm">
-              <div className="w-full max-w-[420px] luma-glass border border-white/10 p-6 animate-in fade-in zoom-in-95 duration-300">
-                <h2 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
-                  Before you continue
-                </h2>
-                <p className="mt-3 text-sm text-white/75 leading-relaxed">
-                  Answers in your own words help Luma understand you better — and create a sharper, more personal reflection.
-                </p>
-                <p className="mt-2 text-xs text-white/45">
-                  You can skip this, but your results may feel more generic.
-                </p>
+        {showInviteGate ? (
+          <div className="px-6">
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-6">
+              <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/45 text-center">INVITE YOUR PARTNER</p>
+              <p className="font-mono text-3xl font-bold text-white tracking-widest text-center my-4">
+                {inviteLoading ? "..." : inviteCode || "--- ---"}
+              </p>
+              <div className="mt-5 flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
-                  disabled={!canProceed}
-                  onClick={() => {
-                    if (!canProceed) return;
-                    setShowDisclaimer(false);
-                    disclaimerBypassRef.current = true;
-                    void handleNext();
-                  }}
-                  className="mt-6 w-full min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity disabled:opacity-60"
+                  onClick={handleCopyInviteCode}
+                  disabled={!inviteCode}
+                  className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl bg-white text-[#0b0a0d] text-base font-semibold shadow-[0_8px_28px_rgba(255,255,255,0.12)] transition hover:opacity-95 disabled:opacity-60"
                 >
-                  {canProceed ? "Continue" : `Continue (${disclaimerSecondsLeft}s)`}
+                  {inviteCopied ? <Check className="h-5 w-5" /> : <Copy className="h-5 w-5" />}
+                  {inviteCopied ? "Copied" : "Copy Code"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleShareInviteLink}
+                  disabled={!inviteCode}
+                  className="inline-flex min-h-[52px] flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.06] text-base font-semibold text-white transition hover:bg-white/[0.1] disabled:opacity-60"
+                >
+                  <Share2 className="h-5 w-5" />
+                  Share Link
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={() => setInviteStepDone(true)}
+                className="mt-5 w-full min-h-[52px] rounded-xl bg-primary text-primary-foreground text-base font-semibold shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.28)] transition hover:opacity-95"
+              >
+                Continue to your reflection →
+              </button>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <div
+            key={currentRound}
+            className="transition-all duration-500 ease-out"
+            style={{
+              opacity: isTransitioning ? 0 : 1,
+              transform: isTransitioning ? "translateY(12px)" : "translateY(0)",
+            }}
+          >
+            <TestRound
+              round={currentRound}
+              question={questions[currentRound]}
+              reflectionLines={reflectionLines[currentRound]}
+              images={rounds[currentRound]}
+              selectedIndex={typeof selectedImage === "number" ? selectedImage : null}
+              onSelectImage={handleSelectImage}
+              tags={roundTags[currentRound] ?? []}
+              selectedTags={selectedTags[currentRound] ?? []}
+              onToggleTag={toggleTag}
+              progressiveAnswers={progressive}
+              onSetProgressiveAnswer={setProgressiveAnswer}
+              personalNote={personalNote}
+              onPersonalNoteChange={setPersonalNote}
+              tagAnswers={tagAnswers}
+              onToggleTagSelection={toggleTagSelection}
+              onTagTextChange={setRoundText}
+              selectedOption={selectedOption}
+              onSelectNone={handleNoneClick}
+              noneText={noneText}
+              onNoneTextChange={setNoneText}
+              textValue={textValue}
+              onTextChange={setTextValue}
+              relationshipTags={relationshipTags}
+              onToggleRelationshipTag={toggleRelationshipTag}
+              relationshipSummary={relationshipSummary}
+              onRelationshipSummaryChange={setRelationshipSummary}
+              lovePart={lovePart}
+              onLovePartChange={setLovePart}
+              missingPart={missingPart}
+              onMissingPartChange={setMissingPart}
+              changePart={changePart}
+              onChangePartChange={setChangePart}
+              canProceed={canProceedRound && !isSubmittingSession}
+              onNext={handleNext}
+              showNone={showNone}
+              totalRounds={5}
+              spaceBetweenRound={
+                !!coupleReflectionRounds.find((r) => r.roundNumber === currentRound)?.spaceBetweenRound
+              }
+            />
+            {showDisclaimer ? (
+              <div className="fixed inset-0 z-[300] flex items-center justify-center px-6 bg-black/70 backdrop-blur-sm">
+                <div className="w-full max-w-[420px] luma-glass border border-white/10 p-6 animate-in fade-in zoom-in-95 duration-300">
+                  <h2 className="font-serif text-[22px] text-foreground [font-family:var(--font-serif-display)]">
+                    Before you continue
+                  </h2>
+                  <p className="mt-3 text-sm text-white/75 leading-relaxed">
+                    Answers in your own words help Luma understand you better — and create a sharper, more personal reflection.
+                  </p>
+                  <p className="mt-2 text-xs text-white/45">
+                    You can skip this, but your results may feel more generic.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={!canProceed}
+                    onClick={() => {
+                      if (!canProceed) return;
+                      setShowDisclaimer(false);
+                      disclaimerBypassRef.current = true;
+                      void handleNext();
+                    }}
+                    className="mt-6 w-full min-h-[44px] rounded-xl bg-primary px-5 py-3 text-sm font-medium text-primary-foreground shadow-[0_0_0_1px_rgba(255,255,255,0.08),0_12px_40px_rgba(120,90,180,0.2)] transition-opacity disabled:opacity-60"
+                  >
+                    {canProceed ? "Continue" : `Continue (${disclaimerSecondsLeft}s)`}
+                  </button>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        )}
       </main>
     </div>
   );

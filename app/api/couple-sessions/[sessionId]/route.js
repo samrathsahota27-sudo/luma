@@ -10,7 +10,7 @@ export async function GET(_req, { params }) {
 
     const { data, error } = await supabase
       .from("couple_sessions")
-      .select("id, partner_a, partner_b, status, result, result_generated")
+      .select("id, partner_a, partner_b, status, result, result_generated, invite_code")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -39,6 +39,7 @@ export async function GET(_req, { params }) {
       hasResult,
       resultGenerated: data.result_generated === true,
       readyForResult: hasResult,
+      inviteCode: data.invite_code ?? null,
     });
   } catch (e) {
     console.error("couple-sessions get crash:", e);

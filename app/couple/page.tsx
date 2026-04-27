@@ -15,6 +15,7 @@ export default function CouplePreStartPage() {
   const [creating, setCreating] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [joinUrl, setJoinUrl] = useState<string | null>(null);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
   const [copyDone, setCopyDone] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
@@ -26,12 +27,19 @@ export default function CouplePreStartPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Could not create link");
       setSessionId(data.sessionId);
-      const joinPath = typeof data.joinPath === "string" ? data.joinPath : "";
+      const joinPath =
+        (typeof data.codeJoinPath === "string" && data.codeJoinPath) ||
+        (typeof data.joinPath === "string" ? data.joinPath : "");
       const absoluteJoinUrl =
         joinPath && typeof window !== "undefined" ? `${window.location.origin}${joinPath}` : joinPath;
       setJoinUrl(absoluteJoinUrl || null);
+      setInviteCode(typeof data.inviteCode === "string" ? data.inviteCode : null);
       try {
         localStorage.setItem("luma_couple_remote_session_id", data.sessionId);
+        sessionStorage.setItem("coupleSessionId", data.sessionId);
+        if (typeof data.inviteCode === "string") {
+          sessionStorage.setItem("coupleInviteCode", data.inviteCode);
+        }
       } catch {
         /* ignore */
       }
@@ -162,6 +170,9 @@ export default function CouplePreStartPage() {
                     <p className="text-xs font-medium uppercase tracking-[0.16em] text-white/45">
                       Link for your partner
                     </p>
+                    {inviteCode ? (
+                      <p className="mt-3 font-mono text-2xl font-bold tracking-[0.2em] text-center text-white">{inviteCode}</p>
+                    ) : null}
                     <p className="mt-3 break-all text-sm text-white/85 leading-relaxed font-mono bg-black/30 rounded-xl px-3 py-3 border border-white/10">
                       {joinUrl}
                     </p>
@@ -207,6 +218,7 @@ export default function CouplePreStartPage() {
                       setMode(null);
                       setSessionId(null);
                       setJoinUrl(null);
+                      setInviteCode(null);
                     }}
                     className="w-full py-3 text-sm text-white/45 hover:text-white/70 transition-colors"
                   >

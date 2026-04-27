@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { ensureCoupleSessionResult } from "@/lib/coupleSessionResult";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 
 export async function POST(req, { params }) {
   try {
@@ -10,6 +11,16 @@ export async function POST(req, { params }) {
     }
 
     const body = await req.json().catch(() => ({}));
+    let user = null;
+    try {
+      const authSupabase = await createServerClient();
+      const {
+        data: { user: authUser },
+      } = await authSupabase.auth.getUser();
+      user = authUser ?? null;
+    } catch {
+      user = null;
+    }
 
     const answers = body.answers;
     if (!answers || typeof answers !== "object") {
@@ -21,7 +32,7 @@ export async function POST(req, { params }) {
     const name = typeof body.name === "string" ? body.name.trim() || null : null;
     const { data: session, error: getError } = await supabase
       .from("couple_sessions")
-      .select("id, partner_a, partner_b, status, result, result_generated")
+      .select("id, partner_a, partner_b, status, result, result_generated, user_a_id, user_b_id")
       .eq("id", sessionId)
       .maybeSingle();
 
@@ -63,12 +74,18 @@ export async function POST(req, { params }) {
             : "partnerA";
 
     const updates = normalizedRole === "partnerB" ? { partner_b: payload } : { partner_a: payload };
+    const updateData = {
+      ...updates,
+      ...(normalizedRole === "partnerB" ? { name_b: name } : { name_a: name }),
+      ...(user && normalizedRole === "partnerB" ? { user_b_id: user.id } : {}),
+      ...(user && normalizedRole === "partnerA" ? { user_a_id: user.id } : {}),
+    };
 
     const { data: updated, error: updateError } = await supabase
       .from("couple_sessions")
-      .update(updates)
+      .update(updateData)
       .eq("id", sessionId)
-      .select("id, partner_a, partner_b, status, result, result_generated")
+      .select("id, partner_a, partner_b, status, result, result_generated, user_a_id, user_b_id")
       .single();
 
     if (updateError) {
@@ -81,6 +98,30 @@ export async function POST(req, { params }) {
     const partnerAComplete = Boolean(partnerA);
     const partnerBComplete = Boolean(partnerB);
     const bothSubmitted = partnerAComplete && partnerBComplete;
+
+    if (user) {
+      try {
+        const authSupabase = await createServerClient();
+        const { data: existingProfile } = await authSupabase
+          .from("user_profiles")
+          .select("couple_sessions")
+          .eq("id", user.id)
+          .single();
+        const sessionRef = {
+          session_id: sessionId,
+          date: new Date().toISOString(),
+          role: normalizedRole,
+        };
+        await authSupabase.from("user_profiles").upsert({
+          id: user.id,
+          email: user.email,
+          couple_sessions: [...(existingProfile?.couple_sessions || []), sessionRef].slice(-20),
+          last_updated: new Date().toISOString(),
+        });
+      } catch (e) {
+        console.warn("Profile update failed:", e?.message || e);
+      }
+    }
 
     let resultStatus = "waiting";
     if (updated.result && typeof updated.result === "object") {

@@ -75,6 +75,12 @@ export default function ProfilePage() {
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [savingPassword, setSavingPassword] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [showInviteSheet, setShowInviteSheet] = useState(false)
+  const [profileInviteCode, setProfileInviteCode] = useState<string | null>(null)
+  const [inviteCopied, setInviteCopied] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [joiningByCode, setJoiningByCode] = useState(false)
+  const [joinCodeError, setJoinCodeError] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -279,6 +285,79 @@ export default function ProfilePage() {
     }
   }
 
+  const handleStartCoupleReflection = async () => {
+    setJoinCodeError(null)
+    try {
+      const res = await fetch('/api/couple-sessions', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        setJoinCodeError(data?.error || 'Could not create invite code')
+        return
+      }
+      const nextSessionId = typeof data?.sessionId === 'string' ? data.sessionId : null
+      const nextInviteCode = typeof data?.inviteCode === 'string' ? data.inviteCode : null
+      if (nextSessionId) sessionStorage.setItem('coupleSessionId', nextSessionId)
+      if (nextInviteCode) {
+        sessionStorage.setItem('coupleInviteCode', nextInviteCode)
+        setProfileInviteCode(nextInviteCode)
+        setShowInviteSheet(true)
+      }
+    } catch {
+      setJoinCodeError('Could not create invite code')
+    }
+  }
+
+  const handleCopyInviteCode = async () => {
+    if (!profileInviteCode) return
+    try {
+      await navigator.clipboard.writeText(profileInviteCode)
+      setInviteCopied(true)
+      setTimeout(() => setInviteCopied(false), 2000)
+    } catch {
+      // ignore clipboard errors
+    }
+  }
+
+  const handleShareInviteCode = async () => {
+    if (!profileInviteCode || typeof window === 'undefined') return
+    const url = `${window.location.origin}/couple/join?code=${encodeURIComponent(profileInviteCode)}`
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'Invite your partner',
+          text: `Join my Luma couple reflection with code ${profileInviteCode}`,
+          url,
+        })
+      } else {
+        await navigator.clipboard.writeText(url)
+        setInviteCopied(true)
+        setTimeout(() => setInviteCopied(false), 2000)
+      }
+    } catch {
+      // ignore share dismiss/copy errors
+    }
+  }
+
+  const handleJoinWithCode = async () => {
+    const normalized = joinCode.trim().toUpperCase()
+    if (!normalized) return
+    setJoiningByCode(true)
+    setJoinCodeError(null)
+    try {
+      const res = await fetch(`/api/couple-sessions/by-code?code=${encodeURIComponent(normalized)}`)
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.sessionId) {
+        setJoinCodeError(data?.error || 'Invalid code')
+        return
+      }
+      router.push(`/couple/join?sessionId=${encodeURIComponent(data.sessionId)}&partnerRole=partnerB`)
+    } catch {
+      setJoinCodeError('Invalid code')
+    } finally {
+      setJoiningByCode(false)
+    }
+  }
+
   const settingsItemClass =
     'flex w-full items-center gap-3 px-4 py-[17px] text-left transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]'
 
@@ -294,7 +373,7 @@ export default function ProfilePage() {
           <p className="mt-2 text-center text-sm text-white">{formatDisplayName()}</p>
         </div>
 
-        <button type="button" className="flex flex-col items-center" onClick={() => router.push('/couple/start')}>
+        <button type="button" className="flex flex-col items-center" onClick={() => router.push('/connect')}>
           <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-white/30 bg-white/5 text-white/40">
             {partnerDisplay ? (
               <span className="text-2xl font-bold text-white">{partnerDisplay.letter}</span>
@@ -307,6 +386,41 @@ export default function ProfilePage() {
           </p>
         </button>
       </div>
+
+      {!partnerDisplay ? (
+        <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-4">
+          <button
+            type="button"
+            onClick={() => {
+              void handleStartCoupleReflection()
+            }}
+            className="w-full rounded-xl border border-purple-500/30 bg-purple-600/20 px-4 py-3 text-sm font-medium text-purple-200"
+          >
+            Start a couple reflection
+          </button>
+          <p className="mt-4 text-xs uppercase tracking-[0.14em] text-white/40">Have a code? Enter it here</p>
+          <div className="mt-2 flex gap-2">
+            <input
+              type="text"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              placeholder="ABC-123"
+              className="w-full rounded-xl border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-white/35 focus:outline-none"
+            />
+            <button
+              type="button"
+              onClick={() => {
+                void handleJoinWithCode()
+              }}
+              disabled={joiningByCode}
+              className="rounded-xl border border-white/15 bg-white/10 px-4 py-2.5 text-sm font-medium text-white disabled:opacity-60"
+            >
+              Join
+            </button>
+          </div>
+          {joinCodeError ? <p className="mt-2 text-xs text-red-300">{joinCodeError}</p> : null}
+        </div>
+      ) : null}
 
       <div className="flex items-center justify-center gap-2 bg-white/5 rounded-2xl p-4 mb-6">
         <span className="text-3xl">🔥</span>
@@ -571,6 +685,12 @@ export default function ProfilePage() {
         </div>
       ) : null}
 
+      {inviteCopied ? (
+        <div className="fixed bottom-32 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-white/10 bg-black/80 px-3 py-2 text-xs text-white">
+          Copied!
+        </div>
+      ) : null}
+
       <button onClick={handleSignOut} className="mt-6 w-full rounded-2xl bg-red-500/10 py-4 text-center font-medium text-red-400">
         Sign Out
       </button>
@@ -624,6 +744,31 @@ export default function ProfilePage() {
               onClick={() => setShowPrivacySheet(false)}
             >
               Close
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showInviteSheet ? (
+        <div className="fixed inset-0 z-40 bg-black/60" onClick={() => setShowInviteSheet(false)}>
+          <div
+            className="absolute bottom-0 left-0 right-0 rounded-t-3xl border border-white/10 bg-[#121212] p-6"
+            style={{ paddingBottom: 'calc(24px + env(safe-area-inset-bottom))' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 className="text-lg font-semibold">Invite your partner</h2>
+            <p className="mt-2 text-sm leading-relaxed text-white/70">Share this code — they enter it when they open Luma</p>
+            <p className="mt-5 text-center font-mono text-3xl font-bold tracking-[0.22em] text-white">{profileInviteCode || '--- ---'}</p>
+            <div className="mt-5 grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => void handleCopyInviteCode()} className="rounded-xl bg-white/10 py-3 text-sm font-medium text-white">
+                Copy
+              </button>
+              <button type="button" onClick={() => void handleShareInviteCode()} className="rounded-xl border border-white/20 bg-white/5 py-3 text-sm font-medium text-white">
+                Share
+              </button>
+            </div>
+            <button type="button" onClick={() => setShowInviteSheet(false)} className="mt-4 w-full rounded-xl bg-white/5 py-3 text-sm font-medium text-white/80">
+              I&apos;ll do this later
             </button>
           </div>
         </div>

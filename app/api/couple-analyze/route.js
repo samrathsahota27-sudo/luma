@@ -21,7 +21,7 @@ import {
   extractTagSignalsFromSelections,
   scoreCouplePatternsTop3,
 } from "@/lib/patternScoring";
-import { createClient } from "@/lib/supabase/server";
+import { createClient as createServerClient } from "@/lib/supabase/server";
 import { buildCoupleWeeklyInsight } from "@/lib/weeklyInsight";
 import { buildUnifiedAccountContext, recordFeatureUsage } from "@/lib/accountContext";
 
@@ -216,7 +216,7 @@ function deriveCouplePersona({ tension, drift, alignment }) {
   };
 }
 
-function buildCouplePrompt(partnerA, partnerB, relationshipDescription) {
+function buildCouplePrompt(partnerA, partnerB, relationshipDescription, personalityContextA, personalityContextB) {
   const imageA =
     (typeof partnerA?.[5]?.imageId === "string" && partnerA[5].imageId.trim()) ||
     (typeof partnerA?.[5]?.selectedImageId === "number" ? `#${partnerA[5].selectedImageId + 1}` : "unknown");
@@ -279,6 +279,21 @@ Instruction:
 Use the user's own words wherever possible. Reference their tags and statements naturally.
 Avoid sounding generic. Make it feel like the insight is built from their exact input.
 If these fields are empty, do not mention them.
+
+HISTORICAL PERSONALITY CONTEXT:
+This is not their first interaction with Luma.
+Use this history to make the result feel personal and continuous — reference past patterns if relevant.
+
+${personalityContextA}
+
+${personalityContextB}
+
+Instructions for using history:
+- If Partner A has shown the same pattern multiple times, note it as "a recurring theme"
+- If drift has been rising across sessions, acknowledge the trend
+- If this is their first session together, treat it as a fresh baseline
+- Do NOT fabricate history that isn't there
+- Use history subtly — it should inform tone and depth, not dominate the output
 
 OUTPUT STRUCTURE (MANDATORY reasoning map):
 1. Contrast
@@ -422,7 +437,7 @@ export async function POST(req) {
     const request = req;
     console.log("=== API ROUTE HIT ===");
     console.log("Cookies:", request.headers.get("cookie")?.slice(0, 100));
-    const supabase = await createClient();
+    const supabase = await createServerClient();
     const {
       data: { user },
       error,
@@ -440,6 +455,74 @@ export async function POST(req) {
         { status: 400 }
       );
     }
+
+    let profileA = null;
+    let profileB = null;
+    let sessionData = null;
+
+    if (user) {
+      try {
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        profileA = data ?? null;
+      } catch (e) {
+        console.warn("Partner A profile fetch failed:", e?.message || e);
+      }
+    }
+
+    if (payload?.sessionId) {
+      try {
+        const { data } = await supabase
+          .from("couple_sessions")
+          .select("user_a_id, user_b_id, name_a, name_b")
+          .eq("id", payload.sessionId)
+          .single();
+        sessionData = data ?? null;
+      } catch (e) {
+        console.warn("Session profile lookup failed:", e?.message || e);
+      }
+    }
+
+    if (sessionData?.user_b_id) {
+      try {
+        const { data } = await supabase
+          .from("user_profiles")
+          .select("*")
+          .eq("id", sessionData.user_b_id)
+          .single();
+        profileB = data ?? null;
+      } catch (e) {
+        console.warn("Partner B profile fetch failed:", e?.message || e);
+      }
+    }
+
+    const buildPersonalityContext = (profile, label) => {
+      if (!profile) return `${label}: No previous history.`;
+
+      const patterns = (profile.pattern_history || [])
+        .slice(-5)
+        .map((p) => `${p.pattern} (${p.date?.slice?.(0, 10) || "unknown"})`)
+        .join(", ");
+
+      const coupleSessions = (profile.couple_sessions || [])
+        .slice(-3)
+        .map((s) => `${s.pattern || "session"} drift:${s?.drift?.value ?? "?"}% tension:${s?.tension?.value ?? "?"}%`)
+        .join(", ");
+
+      return `
+${label} History:
+- Recent individual patterns: ${patterns || "none"}
+- Recent couple patterns: ${coupleSessions || "none"}
+- Depth tone preference: ${profile.depth_tone_preference || "satin"}
+- Total reflections: ${(profile.pattern_history || []).length}
+`.trim();
+    };
+
+    const personalityContextA = buildPersonalityContext(profileA, "Partner A");
+    const personalityContextB = buildPersonalityContext(profileB, "Partner B");
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
@@ -484,7 +567,13 @@ export async function POST(req) {
     });
 
     const prompt =
-      buildCouplePrompt(partnerA, partnerB, relationshipDescription) +
+      buildCouplePrompt(
+        partnerA,
+        partnerB,
+        relationshipDescription,
+        personalityContextA,
+        personalityContextB
+      ) +
       (accountContext.contextJson
         ? `\n\nACCOUNT MEMORY CONTEXT (cross-feature, per account):\n${accountContext.contextJson}\nUse this as supporting context to personalize without inventing facts.\n`
         : "") +
