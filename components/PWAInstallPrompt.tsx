@@ -43,16 +43,8 @@ export default function PWAInstallPrompt() {
     if (isPWA || !hasScrolled) return
     if (typeof window === 'undefined') return
 
-    let wasDismissed = false
-    let wasAccepted = false
-    try {
-      wasDismissed = localStorage.getItem(PWA_INSTALL_DISMISSED_KEY) === 'true'
-      wasAccepted = localStorage.getItem(PWA_INSTALL_ACCEPTED_KEY) === 'true'
-    } catch {
-      // ignore storage read errors
-      wasDismissed = false
-      wasAccepted = false
-    }
+    const wasDismissed = localStorage.getItem(PWA_INSTALL_DISMISSED_KEY) === 'true'
+    const wasAccepted = localStorage.getItem(PWA_INSTALL_ACCEPTED_KEY) === 'true'
     if (wasDismissed || wasAccepted) return
 
     const timer = window.setTimeout(() => {

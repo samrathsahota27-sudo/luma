@@ -5,7 +5,6 @@ import { Check, Copy, Loader2, Share2, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { reflectionRounds } from "@/lib/reflection/reflectionRounds";
-import { createClient } from "@/lib/supabase/client";
 
 type MirrorSelection = {
   round: number;
@@ -77,9 +76,7 @@ export function SharedMirrorInviteCard({
   className?: string;
   autoCreate?: boolean;
 }) {
-  const supabase = createClient();
   const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,30 +127,6 @@ export function SharedMirrorInviteCard({
     let active = true;
     (async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!active) return;
-        setIsAuthenticated(Boolean(user));
-      } catch {
-        if (!active) return;
-        setIsAuthenticated(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [supabase.auth]);
-
-  useEffect(() => {
-    if (isAuthenticated !== true) {
-      setLoading(false);
-      clearPoll();
-      return;
-    }
-    let active = true;
-    (async () => {
-      try {
         const current = await fetchCurrent();
         if (!active) return;
         if ((!current?.hasSession || !current?.code) && autoCreate) {
@@ -169,7 +142,7 @@ export function SharedMirrorInviteCard({
       active = false;
       clearPoll();
     };
-  }, [autoCreate, clearPoll, createCode, fetchCurrent, isAuthenticated]);
+  }, [autoCreate, clearPoll, createCode, fetchCurrent]);
 
   useEffect(() => {
     clearPoll();
@@ -263,11 +236,7 @@ export function SharedMirrorInviteCard({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isAuthenticated === false ? (
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm text-white/80">Sign in to generate and share your mirror code.</p>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <div className="flex items-center gap-2 text-sm text-white/60">
             <Loader2 className="h-4 w-4 animate-spin" />
             Preparing your shared mirror...

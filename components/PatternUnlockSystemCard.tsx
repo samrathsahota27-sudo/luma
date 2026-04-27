@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Loader2, Lock, LockOpen, Sparkles } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { createClient } from "@/lib/supabase/client";
 
 type UnlockLayer = {
   key: string;
@@ -37,9 +36,7 @@ type UnlockResponse = {
 };
 
 export function PatternUnlockSystemCard() {
-  const supabase = createClient();
   const [loading, setLoading] = useState(true);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [busyLayer, setBusyLayer] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<UnlockResponse | null>(null);
@@ -70,31 +67,8 @@ export function PatternUnlockSystemCard() {
   }
 
   useEffect(() => {
-    let active = true;
-    (async () => {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!active) return;
-        setIsAuthenticated(Boolean(user));
-      } catch {
-        if (!active) return;
-        setIsAuthenticated(false);
-      }
-    })();
-    return () => {
-      active = false;
-    };
-  }, [supabase.auth]);
-
-  useEffect(() => {
-    if (isAuthenticated !== true) {
-      setLoading(false);
-      return;
-    }
     void loadData();
-  }, [isAuthenticated]);
+  }, []);
 
   const sortedLayers = useMemo(() => data?.layers || [], [data]);
 
@@ -149,11 +123,7 @@ export function PatternUnlockSystemCard() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {isAuthenticated === false ? (
-          <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm text-white/80">Sign in to unlock your deeper pattern layers.</p>
-          </div>
-        ) : loading ? (
+        {loading ? (
           <div className="flex items-center gap-2 text-sm text-white/60">
             <Loader2 className="h-4 w-4 animate-spin" />
             Loading unlock progression...
