@@ -57,12 +57,52 @@ function reflectionTitle(entry: ReflectionEntry) {
   return 'Your Reflection'
 }
 
+function toDateKey(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function calculateStreak(patternHistory: Array<Record<string, unknown>>) {
+  const uniqueDates = new Set<string>()
+  for (const entry of patternHistory) {
+    const rawDate = typeof entry?.date === 'string' ? entry.date : ''
+    if (!rawDate) continue
+    const key = toDateKey(rawDate)
+    if (key) uniqueDates.add(key)
+  }
+
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const todayKey = toDateKey(today.toISOString())
+  const yesterdayKey = toDateKey(yesterday.toISOString())
+  if (!todayKey || !yesterdayKey) return 0
+
+  if (!uniqueDates.has(todayKey) && !uniqueDates.has(yesterdayKey)) return 0
+
+  const cursor = uniqueDates.has(todayKey) ? new Date(today) : new Date(yesterday)
+  let streak = 0
+  while (true) {
+    const cursorKey = toDateKey(cursor.toISOString())
+    if (!cursorKey || !uniqueDates.has(cursorKey)) break
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
+}
+
 export default function JourneyPage() {
   const supabase = createClient()
   const [today] = useState(() => new Date())
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth() + 1)
   const [entries, setEntries] = useState<ReflectionEntry[]>([])
+  const [patternHistory, setPatternHistory] = useState<Array<Record<string, unknown>>>([])
+  const [coupleSessions, setCoupleSessions] = useState<Array<Record<string, unknown>>>([])
   const [historyLoaded, setHistoryLoaded] = useState(false)
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
   const [selectedEntries, setSelectedEntries] = useState<ReflectionEntry[]>([])
@@ -76,6 +116,8 @@ export default function JourneyPage() {
       } = await supabase.auth.getUser()
       if (!user) {
         setEntries(local)
+        setPatternHistory([])
+        setCoupleSessions([])
         setHistoryLoaded(true)
         return
       }
@@ -93,8 +135,12 @@ export default function JourneyPage() {
           coupleSessions: profile?.couple_sessions,
         })
       )
+      setPatternHistory(Array.isArray(profile?.pattern_history) ? profile.pattern_history : [])
+      setCoupleSessions(Array.isArray(profile?.couple_sessions) ? profile.couple_sessions : [])
     } catch {
       setEntries(local)
+      setPatternHistory([])
+      setCoupleSessions([])
     } finally {
       setHistoryLoaded(true)
     }
@@ -143,6 +189,8 @@ export default function JourneyPage() {
     month: 'long',
     year: 'numeric',
   })
+  const streak = calculateStreak(patternHistory)
+  const totalReflections = patternHistory.length + coupleSessions.length
 
   const prevMonth = () => {
     if (viewMonth === 1) {
@@ -173,6 +221,18 @@ export default function JourneyPage() {
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-5 pb-[96px] text-white">
       <h1 className="text-2xl font-bold">Journey</h1>
+
+      <div className="mt-6 flex items-center justify-center gap-2 bg-white/5 rounded-2xl p-4 mb-6">
+        <span className="text-3xl">🔥</span>
+        <div>
+          <p className="text-white text-2xl font-bold">{streak}</p>
+          <p className="text-white/40 text-xs">day streak</p>
+        </div>
+        <div className="ml-6 text-center">
+          <p className="text-white text-2xl font-bold">{totalReflections}</p>
+          <p className="text-white/40 text-xs">reflections</p>
+        </div>
+      </div>
 
       <section className="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4">
         <div className="mb-4 flex items-center justify-between">

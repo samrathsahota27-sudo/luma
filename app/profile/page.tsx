@@ -7,6 +7,8 @@ import { useEffect, useState } from 'react'
 
 type UserProfile = {
   created_at?: string | null
+  pattern_history?: Array<Record<string, unknown>>
+  couple_sessions?: Array<Record<string, unknown>>
 }
 
 type OpenSection = 'notifications' | 'password' | null
@@ -17,6 +19,44 @@ function SectionHeading({ label }: { label: string }) {
 
 function IconWrap({ children }: { children: React.ReactNode }) {
   return <span className="flex h-11 w-11 items-center justify-center rounded-[14px] border border-white/10 bg-white/[0.07] text-violet-200">{children}</span>
+}
+
+function toDateKey(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function calculateStreak(patternHistory: Array<Record<string, unknown>>) {
+  const uniqueDates = new Set<string>()
+  for (const entry of patternHistory) {
+    const rawDate = typeof entry?.date === 'string' ? entry.date : ''
+    if (!rawDate) continue
+    const key = toDateKey(rawDate)
+    if (key) uniqueDates.add(key)
+  }
+
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(today.getDate() - 1)
+  const todayKey = toDateKey(today.toISOString())
+  const yesterdayKey = toDateKey(yesterday.toISOString())
+  if (!todayKey || !yesterdayKey) return 0
+
+  if (!uniqueDates.has(todayKey) && !uniqueDates.has(yesterdayKey)) return 0
+
+  const cursor = uniqueDates.has(todayKey) ? new Date(today) : new Date(yesterday)
+  let streak = 0
+  while (true) {
+    const cursorKey = toDateKey(cursor.toISOString())
+    if (!cursorKey || !uniqueDates.has(cursorKey)) break
+    streak += 1
+    cursor.setDate(cursor.getDate() - 1)
+  }
+  return streak
 }
 
 export default function ProfilePage() {
@@ -34,6 +74,7 @@ export default function ProfilePage() {
   const [passwordMessage, setPasswordMessage] = useState<string | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
   const [savingPassword, setSavingPassword] = useState(false)
+  const [copied, setCopied] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -105,6 +146,65 @@ export default function ProfilePage() {
     return `Member since ${formatted}`
   }
 
+  const getPartnerDisplay = () => {
+    const sessions = Array.isArray(profile?.couple_sessions) ? profile.couple_sessions : []
+    if (sessions.length === 0) return null
+
+    const latest = sessions[sessions.length - 1] ?? {}
+    const candidates = [
+      latest.partner_email,
+      latest.partnerEmail,
+      latest.partner_email_b,
+      latest.email_b,
+      latest.emailB,
+      latest.partner_b_email,
+      latest.partnerAEmail,
+      latest.partnerBEmail,
+    ]
+
+    const partnerEmail = candidates.find((value) => typeof value === 'string' && value.includes('@')) as string | undefined
+    if (partnerEmail) {
+      const prefix = partnerEmail.split('@')[0] || 'Partner'
+      return {
+        letter: partnerEmail[0]?.toUpperCase() ?? 'P',
+        name: prefix ? prefix.charAt(0).toUpperCase() + prefix.slice(1) : 'Partner',
+      }
+    }
+
+    return { letter: 'P', name: 'Partner' }
+  }
+
+  const partnerDisplay = getPartnerDisplay()
+  const patternHistory = Array.isArray(profile?.pattern_history) ? profile.pattern_history : []
+  const coupleSessions = Array.isArray(profile?.couple_sessions) ? profile.couple_sessions : []
+  const streak = calculateStreak(patternHistory)
+  const totalReflections = patternHistory.length + coupleSessions.length
+  const completionItems = [
+    {
+      label: 'Take your first reflection',
+      complete: patternHistory.length > 0,
+      onClick: () => router.push('/test'),
+    },
+    {
+      label: 'Connect with your partner',
+      complete: coupleSessions.length > 0,
+      onClick: () => router.push('/couple/start'),
+    },
+    {
+      label: 'Complete a couple reflection',
+      complete: coupleSessions.length > 0,
+      onClick: () => router.push('/couple/start'),
+    },
+    {
+      label: '7-day streak',
+      complete: streak >= 7,
+      onClick: () => router.push('/journey'),
+    },
+  ]
+  const completedCount = completionItems.filter((item) => item.complete).length
+  const percentage = Math.round((completedCount / completionItems.length) * 100)
+  const incompleteItems = completionItems.filter((item) => !item.complete).slice(0, 3)
+
   const handleSubscription = () => {
     router.push('/pricing')
   }
@@ -160,12 +260,97 @@ export default function ProfilePage() {
     router.push('/')
   }
 
+  const handleShare = async () => {
+    const text = `I've been reflecting with Luma for ${streak} days straight. ${totalReflections} reflections deep. luma.app`
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: 'My Luma Journey',
+          text,
+          url: 'https://luma-i8rm.vercel.app',
+        })
+      } else {
+        await navigator.clipboard.writeText(text)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      }
+    } catch {
+      // ignore share/copy errors and cancelled share sheet
+    }
+  }
+
   const settingsItemClass =
     'flex w-full items-center gap-3 px-4 py-[17px] text-left transition-colors hover:bg-white/[0.04] active:bg-white/[0.06]'
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] px-5 pb-[96px] pt-4 text-white">
       <h1 className="mb-5 font-serif text-[38px] leading-tight [font-family:var(--font-serif-display)]">Settings</h1>
+
+      <div className="mt-6 mb-8 flex justify-center gap-10">
+        <div className="flex flex-col items-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-purple-600 text-2xl font-bold text-white">
+            {user?.email?.[0]?.toUpperCase() ?? '?'}
+          </div>
+          <p className="mt-2 text-center text-sm text-white">{formatDisplayName()}</p>
+        </div>
+
+        <button type="button" className="flex flex-col items-center" onClick={() => router.push('/couple/start')}>
+          <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-dashed border-white/30 bg-white/5 text-white/40">
+            {partnerDisplay ? (
+              <span className="text-2xl font-bold text-white">{partnerDisplay.letter}</span>
+            ) : (
+              <span className="text-3xl">+</span>
+            )}
+          </div>
+          <p className={`mt-2 text-center text-sm ${partnerDisplay ? 'text-white' : 'text-white/40'}`}>
+            {partnerDisplay ? partnerDisplay.name : 'Add Partner'}
+          </p>
+        </button>
+      </div>
+
+      <div className="flex items-center justify-center gap-2 bg-white/5 rounded-2xl p-4 mb-6">
+        <span className="text-3xl">🔥</span>
+        <div>
+          <p className="text-white text-2xl font-bold">{streak}</p>
+          <p className="text-white/40 text-xs">day streak</p>
+        </div>
+        <div className="ml-6 text-center">
+          <p className="text-white text-2xl font-bold">{totalReflections}</p>
+          <p className="text-white/40 text-xs">reflections</p>
+        </div>
+      </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6">
+        <div className="flex flex-col items-center">
+          <div
+            className="w-16 h-16 rounded-full flex items-center justify-center"
+            style={{
+              background: `conic-gradient(#a855f7 ${percentage * 3.6}deg, rgba(255,255,255,0.1) 0deg)`,
+            }}
+          >
+            <div className="h-11 w-11 rounded-full bg-white flex items-center justify-center text-xs font-semibold text-black">{percentage}%</div>
+          </div>
+          <h2 className="mt-3 text-base font-semibold text-white">Complete your profile</h2>
+        </div>
+
+        {percentage === 100 ? (
+          <p className="mt-4 text-center text-sm text-white/80">Profile complete 🎉</p>
+        ) : (
+          <div className="mt-4 space-y-3">
+            {incompleteItems.map((item) => (
+              <div key={item.label} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full border border-white/30 text-[11px] text-white/40">○</span>
+                  <p className="text-sm text-white/85">{item.label}</p>
+                </div>
+                <button type="button" onClick={item.onClick} className="text-xs font-medium text-violet-300 hover:text-violet-200">
+                  Do it →
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       <div className="mb-5 flex items-center justify-between gap-4 rounded-[26px] border border-white/10 bg-white/[0.06] p-4">
         <div className="flex min-w-0 items-center gap-3">
@@ -364,6 +549,27 @@ export default function ProfilePage() {
           <ChevronRight className="h-5 w-5 text-white/35" />
         </button>
       </div>
+
+      <div className="bg-white/5 border border-white/10 rounded-2xl p-5 mb-6">
+        <h3 className="text-white font-semibold mb-1">Your Luma Journey</h3>
+        <p className="text-white/40 text-sm mb-4">
+          {streak} day streak · {totalReflections} reflections
+        </p>
+        <button
+          onClick={() => {
+            void handleShare()
+          }}
+          className="w-full py-3 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-300 font-medium"
+        >
+          Share my journey →
+        </button>
+      </div>
+
+      {copied ? (
+        <div className="fixed bottom-20 left-1/2 z-50 -translate-x-1/2 rounded-lg border border-white/10 bg-black/80 px-3 py-2 text-xs text-white">
+          Copied!
+        </div>
+      ) : null}
 
       <button onClick={handleSignOut} className="mt-6 w-full rounded-2xl bg-red-500/10 py-4 text-center font-medium text-red-400">
         Sign Out
