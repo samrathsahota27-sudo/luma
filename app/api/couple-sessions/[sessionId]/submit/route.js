@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { ensureCoupleSessionResult } from "@/lib/coupleSessionResult";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdmin } from "@/lib/supabaseAdmin";
 
 export async function POST(req, { params }) {
   try {
@@ -102,6 +103,18 @@ export async function POST(req, { params }) {
     if (user) {
       try {
         const authSupabase = await createServerClient();
+        const adminSupabase = createSupabaseAdmin();
+        const partnerUserId =
+          normalizedRole === "partnerA" ? updated.user_b_id ?? null : updated.user_a_id ?? null;
+        let partnerEmail = null;
+        if (adminSupabase && partnerUserId) {
+          const { data: partnerProfile } = await adminSupabase
+            .from("user_profiles")
+            .select("id, email")
+            .eq("id", partnerUserId)
+            .single();
+          partnerEmail = partnerProfile?.email ?? null;
+        }
         const { data: existingProfile } = await authSupabase
           .from("user_profiles")
           .select("couple_sessions")
@@ -111,6 +124,8 @@ export async function POST(req, { params }) {
           session_id: sessionId,
           date: new Date().toISOString(),
           role: normalizedRole,
+          partner_user_id: partnerUserId,
+          partner_email: partnerEmail,
         };
         await authSupabase.from("user_profiles").upsert({
           id: user.id,
@@ -118,6 +133,44 @@ export async function POST(req, { params }) {
           couple_sessions: [...(existingProfile?.couple_sessions || []), sessionRef].slice(-20),
           last_updated: new Date().toISOString(),
         });
+
+        if (adminSupabase && updated.user_a_id && updated.user_b_id) {
+          const counterpartId = normalizedRole === "partnerA" ? updated.user_b_id : updated.user_a_id;
+          const { data: counterpartProfile } = await adminSupabase
+            .from("user_profiles")
+            .select("couple_sessions, email")
+            .eq("id", counterpartId)
+            .single();
+
+          const counterpartRole = normalizedRole === "partnerA" ? "partnerB" : "partnerA";
+          const counterpartRef = {
+            session_id: sessionId,
+            date: new Date().toISOString(),
+            role: counterpartRole,
+            partner_user_id: user.id,
+            partner_email: user.email ?? null,
+          };
+
+          const existingCounterpartSessions = Array.isArray(counterpartProfile?.couple_sessions)
+            ? counterpartProfile.couple_sessions
+            : [];
+          const dedupedSessions = existingCounterpartSessions.filter(
+            (entry) =>
+              !(
+                entry &&
+                typeof entry === "object" &&
+                entry.session_id === sessionId &&
+                entry.role === counterpartRole
+              )
+          );
+
+          await adminSupabase.from("user_profiles").upsert({
+            id: counterpartId,
+            email: counterpartProfile?.email ?? null,
+            couple_sessions: [...dedupedSessions, counterpartRef].slice(-20),
+            last_updated: new Date().toISOString(),
+          });
+        }
       } catch (e) {
         console.warn("Profile update failed:", e?.message || e);
       }

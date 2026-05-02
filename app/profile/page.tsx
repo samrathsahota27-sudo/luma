@@ -77,6 +77,7 @@ export default function ProfilePage() {
   const [copied, setCopied] = useState(false)
   const [showInviteSheet, setShowInviteSheet] = useState(false)
   const [profileInviteCode, setProfileInviteCode] = useState<string | null>(null)
+  const [profileSessionId, setProfileSessionId] = useState<string | null>(null)
   const [inviteCopied, setInviteCopied] = useState(false)
   const [joinCode, setJoinCode] = useState('')
   const [joiningByCode, setJoiningByCode] = useState(false)
@@ -106,6 +107,17 @@ export default function ProfilePage() {
     }
     void loadUserAndProfile()
   }, [supabase.auth])
+
+  useEffect(() => {
+    try {
+      const cachedInviteCode = sessionStorage.getItem('coupleInviteCode')
+      const cachedSessionId = sessionStorage.getItem('coupleSessionId')
+      if (cachedInviteCode?.trim()) setProfileInviteCode(cachedInviteCode.trim().toUpperCase())
+      if (cachedSessionId?.trim()) setProfileSessionId(cachedSessionId.trim())
+    } catch {
+      // ignore sessionStorage read errors
+    }
+  }, [])
 
   useEffect(() => {
     const checkPrivacyRoute = async () => {
@@ -296,7 +308,11 @@ export default function ProfilePage() {
       }
       const nextSessionId = typeof data?.sessionId === 'string' ? data.sessionId : null
       const nextInviteCode = typeof data?.inviteCode === 'string' ? data.inviteCode : null
-      if (nextSessionId) sessionStorage.setItem('coupleSessionId', nextSessionId)
+      if (nextSessionId) {
+        sessionStorage.setItem('coupleSessionId', nextSessionId)
+        sessionStorage.setItem('coupleRole', 'partnerA')
+        setProfileSessionId(nextSessionId)
+      }
       if (nextInviteCode) {
         sessionStorage.setItem('coupleInviteCode', nextInviteCode)
         setProfileInviteCode(nextInviteCode)
@@ -349,6 +365,13 @@ export default function ProfilePage() {
       if (!res.ok || !data?.sessionId) {
         setJoinCodeError(data?.error || 'Invalid code')
         return
+      }
+      try {
+        sessionStorage.setItem('coupleSessionId', data.sessionId)
+        sessionStorage.setItem('coupleRole', 'partnerB')
+        sessionStorage.setItem('coupleInviteCode', normalized)
+      } catch {
+        // ignore
       }
       router.push(`/couple/join?sessionId=${encodeURIComponent(data.sessionId)}&partnerRole=partnerB`)
     } catch {
@@ -419,6 +442,44 @@ export default function ProfilePage() {
             </button>
           </div>
           {joinCodeError ? <p className="mt-2 text-xs text-red-300">{joinCodeError}</p> : null}
+
+          {profileInviteCode ? (
+            <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-3">
+              <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">Your active invite code</p>
+              <p className="mt-1 font-mono text-lg font-semibold tracking-[0.14em] text-white">{profileInviteCode}</p>
+              <div className="mt-3 grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleCopyInviteCode()
+                  }}
+                  className="rounded-lg border border-white/15 bg-white/10 px-2 py-2 text-xs font-medium text-white"
+                >
+                  Copy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    void handleShareInviteCode()
+                  }}
+                  className="rounded-lg border border-white/15 bg-white/5 px-2 py-2 text-xs font-medium text-white"
+                >
+                  Share
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!profileSessionId) return
+                    router.push(`/couple/start?sessionId=${encodeURIComponent(profileSessionId)}`)
+                  }}
+                  disabled={!profileSessionId}
+                  className="rounded-lg border border-purple-500/30 bg-purple-600/20 px-2 py-2 text-xs font-medium text-purple-200 disabled:opacity-60"
+                >
+                  Continue
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -769,6 +830,18 @@ export default function ProfilePage() {
             </div>
             <button type="button" onClick={() => setShowInviteSheet(false)} className="mt-4 w-full rounded-xl bg-white/5 py-3 text-sm font-medium text-white/80">
               I&apos;ll do this later
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (!profileSessionId) return
+                setShowInviteSheet(false)
+                router.push(`/couple/start?sessionId=${encodeURIComponent(profileSessionId)}`)
+              }}
+              disabled={!profileSessionId}
+              className="mt-3 w-full rounded-xl border border-purple-500/40 bg-purple-600/20 py-3 text-sm font-medium text-purple-200 disabled:opacity-60"
+            >
+              Continue as Partner A
             </button>
           </div>
         </div>

@@ -60,15 +60,21 @@ export function CalendarOfUsTimeline({
   className = "",
   variant = "dark",
   fetchLimit = 90,
+  entriesOverride,
+  loadingOverride,
 }: {
   className?: string;
   variant?: "dark" | "light";
   fetchLimit?: number;
+  entriesOverride?: MergedEmotionEntry[] | null;
+  loadingOverride?: boolean;
 }) {
   const { entries, loading } = useEmotionTrackerMerged(fetchLimit);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
-  const buckets = useMemo(() => buildBuckets(entries), [entries]);
+  const effectiveEntries = entriesOverride ?? entries;
+  const effectiveLoading = loadingOverride ?? (entriesOverride ? false : loading);
+  const buckets = useMemo(() => buildBuckets(effectiveEntries), [effectiveEntries]);
   const selected = buckets.find((b) => b.dateKey === selectedKey) ?? null;
 
   const titleCls = variant === "dark" ? "text-[#f5f2ee]" : "text-foreground";
@@ -95,7 +101,7 @@ export function CalendarOfUsTimeline({
         </div>
       </div>
 
-      {loading ? (
+      {effectiveLoading ? (
         <p className={`mt-6 text-sm ${muted}`}>Loading…</p>
       ) : buckets.length === 0 ? (
         <p className={`mt-6 text-sm ${muted}`}>Complete a reflection to see your Calendar of Us.</p>
