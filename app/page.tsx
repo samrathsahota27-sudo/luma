@@ -5,6 +5,8 @@ import { Footer } from "@/components/footer"
 import { ArrowLeftRight, ArrowRight, Eye, Heart, Link2, Shield, Sparkles, Users } from "lucide-react"
 import { RelationshipMapHero } from "@/components/RelationshipMapHero"
 import { HomeHowItWorks } from "@/components/home-how-it-works"
+import { HomeDailyMirror } from "@/components/home-daily-mirror"
+import { Home28DayJourney } from "@/components/home-28-day-journey"
 import { HomeReturnToReflection } from "@/components/home-return-to-reflection"
 import { HomeBeginPopup } from "@/components/home-begin-popup"
 import { HomeInnerJourneyCalendar } from "@/components/home-inner-journey-calendar"
@@ -215,6 +217,8 @@ export default function HomePage() {
           </div>
         </section>
 
+        <HomeDailyMirror />
+
         {/* Demo teaser — above How it works (swipeable) */}
         <section className="border-t border-white/10 bg-[linear-gradient(180deg,rgba(55,42,88,0.16),rgba(6,5,10,0.97))] px-4 py-14 md:py-20">
           <div className="max-w-[640px] mx-auto text-center">
@@ -232,6 +236,13 @@ export default function HomePage() {
                 ✦
               </span>
               Try a sample reflection
+            </Link>
+            <Link
+              href="/demo?mode=couples"
+              className="mt-3 inline-flex items-center justify-center gap-2 min-h-[48px] px-7 py-3.5 rounded-full border border-violet-300/40 bg-violet-500/[0.14] text-violet-100 text-base font-medium transition-all duration-300 hover:bg-violet-500/[0.2] hover:border-violet-200/60 hover:scale-[1.02] shadow-[0_10px_36px_rgba(120,90,180,0.22)]"
+            >
+              <span aria-hidden>∞</span>
+              Try Couples Mode
             </Link>
           </div>
         </section>
@@ -282,13 +293,16 @@ export default function HomePage() {
         </section>
 
         {/* SECTION 5 — Your Inner Journey */}
+        <Home28DayJourney />
+
+        {/* SECTION 6 — Your Inner Journey */}
         <section className="border-t border-white/10 px-4 py-12">
           <div className="max-w-[720px] mx-auto">
             <HomeInnerJourneyCalendar />
           </div>
         </section>
 
-        {/* SECTION 6 — Previews (Example reflection cards) */}
+        {/* SECTION 7 — Previews (Example reflection cards) */}
         <section className="border-t border-white/10 px-4 py-10">
           <div className="max-w-[720px] mx-auto">
             <div className="flex flex-col gap-4 md:flex-row md:overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
